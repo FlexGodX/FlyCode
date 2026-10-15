@@ -1,9 +1,20 @@
 # FlyCode handoff brief
 
-Authoritative roadmap: `docs/Plan.md` (§1–99). Operating rules: `AGENTS.md`.
+Authoritative roadmap: `docs/Plan.md` (§1–100). Operating rules: `AGENTS.md`.
 The baseline MVP covers Phase 4 (§78). Phase 5 (§79) now runs the same tasks
 with a verified, sparse biological graph. Hermes in the roadmap means FlyCode
 itself: connected agents are hosted here and orchestrated by the controller.
+
+## Proposed next scope: multi-agent orchestration (2026-10-16)
+
+`docs/Plan.md` §100 incorporates `docs/specs/connectome-orchestration.md` v1.0.
+This is a specification-only delivery; no orchestration runtime or new API exists
+yet. Proposed Phases 15–20 cover profiles/DAG/scheduling, communication and shared
+budgets, isolated patch review/integration, neural shadow, scoped influence, and
+the team interface. ORC-01..13 requirements map to AC-01..14 acceptance scenarios.
+Existing Qwen/Jev model routing and single-agent admission must not be relabelled
+as multi-agent execution or used to authorize it. The previous implementation
+goal remains completed; implementing this new specification is separate work.
 
 ## Latest increment: guarded rollout and browser configuration (2026-10-16)
 
