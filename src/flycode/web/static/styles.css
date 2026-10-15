@@ -630,7 +630,13 @@ h1 {
   align-items: center;
   gap: 6px;
   color: #727f67;
+  min-height: 44px;
+  min-width: 44px;
+  max-width: 240px;
 }
+.engine-picker #engineLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.execution-controls { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.execution-settings { min-width: 44px; min-height: 44px; flex-shrink: 0; }
 .engine-picker svg {
   width: 11px;
   height: 11px;
@@ -1635,10 +1641,16 @@ dialog::backdrop {
   }
   .composer-toolbar {
     gap: 5px;
+    flex-wrap: wrap;
   }
   .project-picker {
-    max-width: 43%;
+    max-width: 100%;
+    flex-basis: 100%;
   }
+  .execution-controls { flex: 1; max-width: calc(100% - 53px); }
+  .engine-picker { min-width: 0; flex: 1; max-width: 230px; }
+  .composer-spacer { display: none; }
+  .composer-toolbar:has(.stop-button:not([hidden])) .execution-controls { max-width: calc(100% - 105px); }
   .project-picker select,
   .engine-picker {
     font-size: 9px;

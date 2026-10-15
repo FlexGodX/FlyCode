@@ -32,6 +32,16 @@ def test_default_cli_stays_offline():
     assert args.llm == "heuristic"
 
 
+def test_single_model_cli_is_explicit_and_cannot_conflict_with_scorer():
+    args = _build_parser().parse_args(['run', '--task', 'fix', '--llm', 'lmstudio', '--no-decision-model'])
+    assert args.decision_model is None
+    legacy = _build_parser().parse_args(['run', '--task', 'fix', '--llm', 'lmstudio'])
+    assert legacy.decision_model == 'jev-style-qwen3.5-2b-decision'
+    with pytest.raises(SystemExit) as error:
+        _build_parser().parse_args(['run', '--task', 'fix', '--no-decision-model', '--decision-model', 'other'])
+    assert error.value.code == 2
+
+
 def test_ui_accepts_workspace_and_port():
     args = _build_parser().parse_args(["ui", "--workspace", "/tmp/projects", "--port", "8787"])
     assert args.workspace == "/tmp/projects"

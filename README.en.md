@@ -61,7 +61,10 @@ no Node.js, frontend build or separate server is needed. The interface is in Rus
 - The inspector highlights the active stage and displays the controller mode,
   confidence, risk, steps and actual model requests. On narrow screens, open it
   using the top-right button.
-- Model settings and the step budget are beside the task input. Stop waits for
+- The model button selects the primary model and an optional scorer. Disable
+  «Дополнительная оценка вариантов» to use Qwen without Jev. The adjacent settings
+  button on its right opens controller, memory, seed, step/call budgets and timeout.
+  Stop waits for
   the current call; it prevents new actions and preserves edits already applied.
 
 `--workspace` scopes project selection to that directory. To work across several
@@ -424,6 +427,20 @@ from LM Studio's API; a mismatch produces an error listing available IDs.
 The names above are the defaults for `--llm lmstudio`. `LMSTUDIO_BASE_URL`
 sets the endpoint and `LMSTUDIO_API_KEY` supplies authentication if enabled
 in LM Studio. There is no automatic cloud fallback.
+
+For a single primary model, use `--no-decision-model` instead of
+`--decision-model ...`. No Jev client is created and no scorer request is made.
+In the JSON API, explicit `"decision_model": null` disables scoring; an omitted
+field preserves the legacy dual-model default.
+
+Other compatible models on the same LM Studio endpoint use the same selector.
+Refreshing discovery never performs inference. An explicit role probe makes one
+request with a 30-second timeout and displays its outcome and call count.
+Primary models must return structured actions; scorers must return option token
+probabilities. Protocol compatibility does not establish model quality or a known
+weights revision. The initial pair has a bundled compatibility profile; other
+models require an explicit probe before applying the selection. Personal model
+defaults persist independently from the actual models shown in run history.
 
 The controller skips inference on verified completion, a controller block,
 or simple local test verification in VERIFY mode. Confidence of at least 0.8

@@ -58,7 +58,10 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument("--control", type=str, choices=["bias", "hard"], default="bias")
     run.add_argument("--llm", type=str, choices=["heuristic", "openai", "lmstudio"], default="heuristic")
     run.add_argument("--model", type=str, default=None, help="Reasoner: gpt-4o-mini (openai), qwen/qwen3.5-9b (lmstudio)")
-    run.add_argument("--decision-model", default="jev-style-qwen3.5-2b-decision", help="LM Studio decision model ID")
+    decision = run.add_mutually_exclusive_group()
+    decision.add_argument("--decision-model", default="jev-style-qwen3.5-2b-decision", help="LM Studio decision model ID")
+    decision.add_argument("--no-decision-model", dest="decision_model", action="store_const", const=None,
+                          help="Use only the primary model, without an additional scorer")
     run.add_argument("--base-url", default=None, help="API base URL; local default http://127.0.0.1:1234/v1")
     run.add_argument("--request-timeout", type=_positive_float, default=120.0)
     run.add_argument("--max-model-calls", type=_positive_int, default=60, help="Total local inference request budget")

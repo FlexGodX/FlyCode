@@ -1,27 +1,38 @@
 """Loopback-only HTTP API and packaged browser interface."""
 
 import asyncio
-import os
 import secrets
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
+from threading import Lock
+from typing import Literal
 from urllib.parse import urlparse
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, ConfigDict, Field
 
+from ..llm.catalogue import ModelCatalogue
 from .runs import ACTIVE, RunManager, RunRequest
 
 STATIC = Path(__file__).with_name("static")
+
+
+class ModelProbeRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    model_ref: str = Field(min_length=1, max_length=100)
+    role: Literal['primary', 'scorer']
 
 
 def create_app(workspace: Path | None = None, data_dir: Path | None = None,
                artifact_root: Path | None = None) -> FastAPI:
     manager = RunManager(workspace or Path.cwd(), data_dir or Path.home() / ".local/share/flycode/ui", artifact_root)
     token = secrets.token_urlsafe(32)
+    model_catalogue = ModelCatalogue()
+    model_gate = Lock()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -69,16 +80,28 @@ def create_app(workspace: Path | None = None, data_dir: Path | None = None,
 
     @app.get("/api/models")
     def models() -> dict:
-        base = os.environ.get("LMSTUDIO_BASE_URL", "http://127.0.0.1:1234/v1").rstrip("/")
         try:
-            headers = {"Authorization": f"Bearer {os.environ.get('LMSTUDIO_API_KEY', 'lm-studio')}"}
-            with httpx.Client(timeout=3, trust_env=False) as client:
-                response = client.get(base + "/models", headers=headers)
-                response.raise_for_status()
-                ids = [item["id"] for item in response.json()["data"]]
-            return {"connected": True, "models": ids, "error": ""}
-        except (httpx.HTTPError, ValueError, KeyError, TypeError):
-            return {"connected": False, "models": [], "error": "Не удалось подключиться к LM Studio. Запустите локальный сервер."}
+            entries = model_catalogue.discover()
+            return {"connected": True, "models": [entry.model_id for entry in entries if entry.status != 'unavailable'],
+                    "catalogue": [entry.model_dump() for entry in entries], "error": ""}
+        except (httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError):
+            return {"connected": False, "models": [], "catalogue": [],
+                    "error": "Не удалось подключиться к LM Studio. Запустите локальный сервер."}
+
+    @app.post("/api/models/probe")
+    def probe_model(body: ModelProbeRequest) -> dict:
+        if not model_gate.acquire(blocking=False):
+            raise HTTPException(409, "Другая проверка модели ещё выполняется")
+        try:
+            with manager.lock:
+                if any(record.status in ACTIVE for record in manager.records.values()):
+                    raise HTTPException(409, "Дождитесь завершения текущей задачи")
+            try:
+                return model_catalogue.probe(body.model_ref, body.role).model_dump()
+            except ValueError as exc:
+                raise HTTPException(400, str(exc)) from exc
+        finally:
+            model_gate.release()
 
     @app.get("/api/runs")
     def history() -> list[dict]:
@@ -90,12 +113,16 @@ def create_app(workspace: Path | None = None, data_dir: Path | None = None,
 
     @app.post("/api/runs", status_code=201)
     def start_run(body: RunRequest) -> dict:
+        if not model_gate.acquire(blocking=False):
+            raise HTTPException(409, "Дождитесь проверки модели")
         try:
             return manager.start(body)
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
         except RuntimeError as exc:
             raise HTTPException(409, str(exc)) from exc
+        finally:
+            model_gate.release()
 
     @app.get("/api/runs/{run_id}")
     def get_run(run_id: str) -> dict:

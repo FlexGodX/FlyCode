@@ -15,6 +15,7 @@ from ..brain.shadow import ShadowBackend
 from ..domain import TaskSpec
 from ..environment import SoftwareEnvironment
 from ..llm import HeuristicCandidateGenerator, make_lmstudio_cortex
+from ..llm.lmstudio import validate_model_id
 from ..policy import ControlMode
 from ..policy.rollout import RolloutConfig
 from ..research.benchmark import ControllerSpec
@@ -43,8 +44,11 @@ class RunRequest(BaseModel):
     max_steps: int = Field(default=25, ge=1, le=100)
     max_tool_calls: int | None = Field(default=None, ge=1, le=1000)
     max_model_calls: int | None = Field(default=None, ge=1, le=1000)
+    request_timeout: float = Field(default=120., gt=0, le=600, allow_inf_nan=False)
     model: str = Field(default="qwen/qwen3.5-9b", min_length=1, max_length=200)
-    decision_model: str = Field(default="jev-style-qwen3.5-2b-decision", min_length=1, max_length=200)
+    decision_model: str | None = Field(default="jev-style-qwen3.5-2b-decision", min_length=1, max_length=200)
+
+    _model_ids = field_validator('model', 'decision_model')(validate_model_id)
 
     @model_validator(mode="after")
     def compatible_modes(self):
@@ -176,6 +180,7 @@ class RunManager:
         if request.learning and active.brain != "functional":
             raise ValueError("Онлайн-память доступна для Functional Fly")
         config = CortexConfig(cortex=request.llm, model=request.model, decision_model=request.decision_model,
+                              request_timeout=request.request_timeout,
                               max_model_calls=request.max_model_calls or request.max_steps * 2)
         spec = ControllerSpec(id="browser", **active.model_dump(), observer=observer,
                               influence=request.influence, autonomous=request.execution_mode == "autonomous")

@@ -1,6 +1,30 @@
 # FlyCode handoff brief
 
-Authoritative roadmap: `docs/Plan.md` (§1–103). Operating rules: `AGENTS.md`.
+Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
+
+## Specification delivery — 2026-10-16
+
+Active goal: implement §§100–103 using
+`docs/superpowers/plans/2026-10-16-specification-delivery.md` and §104.
+The goal contains the same eight delivery stages. Scientific claims remain gated.
+
+First increment: optional scorer (`decision_model=null`, CLI `--no-decision-model`),
+server catalogue and explicit one-request role probes, model dialog plus execution
+settings button immediately to its right. Missing scorer field preserves dual default.
+History inspection no longer overwrites next-run controls; personal model choice persists.
+Runtime model timeout is now configurable from execution settings.
+
+Verification before this increment's commit: 371 passed, 8 skipped (151.89s).
+Changed-file Ruff and mypy passed. Visual checks at desktop, 390px and 320px:
+model/settings targets44px, correct order, no horizontal overflow. Actual Qwen
+compatibility probe timed out at30s; no live single-Qwen repair acceptance claimed.
+Deterministic HTTP tests cover both model protocols and absence of scorer requests.
+Existing scoped rollout evidence is stale after core source changes; regenerate after
+implementation freeze rather than relabelling old evidence.
+
+Next: verification foundation (phase21), then canonical SQLite contracts/queue.
+`tests/integration/test_verification.py` has new RED acceptance tests; the verification
+package is not implemented yet. Do not include those tests in a model-only commit.
 The baseline MVP covers Phase 4 (§78). Phase 5 (§79) now runs the same tasks
 with a verified, sparse biological graph. Hermes in the roadmap means FlyCode
 itself: connected agents are hosted here and orchestrated by the controller.

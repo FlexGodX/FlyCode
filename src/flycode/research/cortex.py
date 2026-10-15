@@ -3,9 +3,10 @@
 import os
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from ..llm import HeuristicCandidateGenerator, make_lmstudio_cortex
+from ..llm.lmstudio import validate_model_id
 from .tournament import TournamentCortex
 
 FixtureName = Literal['toy_arithmetic_bug', 'toy_import_bug', 'search_helper_bug', 'boundary_regression_bug']
@@ -20,10 +21,12 @@ class CortexConfig(BaseModel):
 
     cortex: Literal['heuristic', 'tournament', 'lmstudio'] = 'heuristic'
     model: str = Field(default='qwen/qwen3.5-9b', min_length=1)
-    decision_model: str = Field(default='jev-style-qwen3.5-2b-decision', min_length=1)
+    decision_model: str | None = Field(default='jev-style-qwen3.5-2b-decision', min_length=1)
     base_url: str | None = None
     request_timeout: float = Field(default=120., gt=0, le=600)
     max_model_calls: int = Field(default=60, ge=1, le=1000)
+
+    _model_ids = field_validator('model', 'decision_model')(validate_model_id)
 
     @model_validator(mode='after')
     def distinct_local_models(self):

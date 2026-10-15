@@ -124,6 +124,52 @@ def test_missing_model_is_reported_before_inference(model_server):
     assert not model_server.requests
 
 
+def test_single_model_needs_no_decider_and_preserves_routing_and_budget(model_server):
+    from flycode.llm import make_lmstudio_cortex
+
+    model_server.models = ["reasoner"]
+    respond_with_candidates(model_server, ACTIONS)
+    events = []
+    cortex = make_lmstudio_cortex(base_url=model_server.url, model="reasoner", decision_model=None,
+                                 max_model_calls=1, on_event=lambda kind, data: events.append((kind, data)))
+    assert len(cortex.generate_candidates(context())) == 2
+    assert cortex.model_calls == {"reasoner": 1}
+    assert cortex.last_routing.route == "reasoner"
+    assert all(data["role"] == "reasoner" for _, data in events)
+    assert cortex.generate_candidates(context()) == []
+    assert len(model_server.requests) == 1
+    cortex.reset()
+    assert cortex.model_calls == {"reasoner": 0}
+    assert cortex.generate_candidates(context(is_blocked=True)) == []
+    healthy = context().model_copy(update={"observation": Observation(
+        task="fix", tests={"status": "passed", "passed": 1})})
+    assert cortex.generate_candidates(healthy)[0].tool == "stop"
+    assert len(model_server.requests) == 1
+
+
+@pytest.mark.parametrize("bad", ["", " ", "none", "null"])
+def test_model_selection_rejects_string_sentinels(bad):
+    from flycode.research.cortex import CortexConfig
+    from flycode.web.runs import RunRequest
+
+    for contract in (CortexConfig, RunRequest):
+        with pytest.raises(ValueError):
+            contract(**({"task": "fix"} if contract is RunRequest else {}), decision_model=bad)
+
+
+def test_null_selection_survives_serialization_without_changing_legacy_default():
+    from flycode.research.cortex import CortexConfig
+    from flycode.research.validation import cortex_identity
+    from flycode.web.runs import RunRequest
+
+    request = RunRequest(task="fix", decision_model=None)
+    assert RunRequest.model_validate_json(request.model_dump_json()).decision_model is None
+    assert RunRequest(task="fix").decision_model == "jev-style-qwen3.5-2b-decision"
+    single = CortexConfig(cortex="lmstudio", decision_model=None)
+    assert cortex_identity(single)["decision_model"] is None
+    assert cortex_identity(single) != cortex_identity(CortexConfig(cortex="lmstudio"))
+
+
 async def test_local_cortex_repairs_toy_repo_and_records_actual_calls(tmp_path, model_server):
     reasoner_turn = 0
 

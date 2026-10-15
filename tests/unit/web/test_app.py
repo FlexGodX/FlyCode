@@ -83,6 +83,39 @@ def test_mutations_require_token_and_reject_foreign_origin(client):
     assert client.get("/api/bootstrap", headers={"Host": "evil.example"}).status_code == 400
 
 
+def test_model_probe_is_explicit_protected_and_returns_role_evidence(tmp_path, model_server, monkeypatch):
+    monkeypatch.setenv("LMSTUDIO_BASE_URL", model_server.url)
+    model_server.respond = lambda request: model_server.completion(json.dumps({"candidates": [
+        {"tool": "read_file", "arguments": {"path": "sample.py"}}]}))
+    with TestClient(create_app(tmp_path, tmp_path / "history"), base_url="http://localhost") as session:
+        discovery = session.get("/api/models").json()
+        assert not model_server.requests
+        entry = discovery["catalogue"][0]
+        body = {"model_ref": entry["model_ref"], "role": "primary"}
+        assert session.post("/api/models/probe", json=body).status_code == 403
+        session.headers["X-FlyCode-Token"] = session.get("/api/bootstrap").json()["token"]
+        probed = session.post("/api/models/probe", json=body)
+        assert probed.status_code == 200, probed.text
+        assert probed.json()["roles"] == ["primary"]
+        assert probed.json()["probe_calls"] == 1
+        assert len(model_server.requests) == 1
+        assert session.post("/api/models/probe", json={**body, "model_ref": "foreign"}).status_code == 400
+
+
+def test_single_model_preflight_freezes_timeout_and_preserves_null(tmp_path):
+    from flycode.web.runs import RunManager, RunRequest
+
+    manager = RunManager(tmp_path, tmp_path / 'data')
+    request = RunRequest(task='fix', decision_model=None, request_timeout=37)
+    brain, config, _, _ = manager._prepare(request, None)
+    try:
+        assert config.decision_model is None
+        assert config.request_timeout == 37
+    finally:
+        brain.close()
+        manager.close()
+
+
 def test_stop_stays_responsive_during_inference_and_prevents_edit(client, monkeypatch):
     from flycode.domain import CandidateAction
     from flycode.llm import HeuristicCandidateGenerator
@@ -141,10 +174,14 @@ def test_unfinished_history_is_labeled_interrupted(tmp_path):
         assert second.get(f"/api/runs/{run_id}").json()["status"] == "interrupted"
 
 
-def test_model_connection_reports_available_ids(client, model_server, monkeypatch):
+def test_model_connection_reports_available_ids(tmp_path, model_server, monkeypatch):
     monkeypatch.setenv("LMSTUDIO_BASE_URL", model_server.url)
-    response = client.get("/api/models")
-    assert response.json() == {"connected": True, "models": ["reasoner", "decider"], "error": ""}
+    with TestClient(create_app(tmp_path, tmp_path / 'history'), base_url='http://localhost') as session:
+        body = session.get("/api/models").json()
+        assert body['connected'] and body['error'] == ''
+        assert set(body['models']) == {'reasoner', 'decider'}
+        assert all(entry['status'] == 'discovered' for entry in body['catalogue'])
+        assert not model_server.requests
 
 
 def test_selected_project_is_never_recreated_as_a_fixture(client, tmp_path, model_server, monkeypatch):

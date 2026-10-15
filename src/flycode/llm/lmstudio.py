@@ -19,6 +19,12 @@ DEFAULT_REASONER = "qwen/qwen3.5-9b"
 DEFAULT_DECIDER = "jev-style-qwen3.5-2b-decision"
 
 
+def validate_model_id(value: str | None) -> str | None:
+    if value is not None and (not value.strip() or value.lower() in {"none", "null"} or value != value.strip()):
+        raise ValueError("Use a model ID or explicit null to disable the decision model")
+    return value
+
+
 class ModelRoutingTrace(BaseModel):
     route: str = "none"
     reason: str = ""
@@ -30,7 +36,7 @@ class ModelRoutingTrace(BaseModel):
 class LMStudioCortex:
     """Qwen proposes, Jev evaluates choices, and the brain retains final control."""
 
-    def __init__(self, reasoner: OpenAICompatibleLLM, decider: JevStyleDecisionClient,
+    def __init__(self, reasoner: OpenAICompatibleLLM, decider: JevStyleDecisionClient | None,
                  max_model_calls: int = 60, on_event: EventSink | None = None,
                  should_stop: Callable[[], bool] | None = None) -> None:
         if max_model_calls < 1:
@@ -44,11 +50,15 @@ class LMStudioCortex:
 
     @property
     def model_calls(self) -> dict[str, int]:
-        return {self.reasoner.model: self.reasoner.request_count, self.decider.model: self.decider.request_count}
+        calls = {self.reasoner.model: self.reasoner.request_count}
+        if self.decider is not None:
+            calls[self.decider.model] = self.decider.request_count
+        return calls
 
     def reset(self) -> None:
         self.reasoner.request_count = 0
-        self.decider.request_count = 0
+        if self.decider is not None:
+            self.decider.request_count = 0
         self.last_routing = ModelRoutingTrace()
 
     def _has_budget(self) -> bool:
@@ -85,7 +95,7 @@ class LMStudioCortex:
         if not candidates:
             trace.error = "reasoner returned no valid candidates"
         safe = filter_safe(candidates)
-        if plan.call_decider and len(safe) > 1 and not (self.should_stop and self.should_stop()):
+        if self.decider is not None and plan.call_decider and len(safe) > 1 and not (self.should_stop and self.should_stop()):
             if self._has_budget():
                 trace.route = "reasoner+decider"
                 emit(self.on_event, "model_start", role="decider", model=self.decider.model,
@@ -111,11 +121,13 @@ class LMStudioCortex:
 
 
 def make_lmstudio_cortex(base_url: str | None = None, model: str = DEFAULT_REASONER,
-                         decision_model: str = DEFAULT_DECIDER, timeout: float = 120.0,
+                         decision_model: str | None = DEFAULT_DECIDER, timeout: float = 120.0,
                          max_model_calls: int = 60, on_event: EventSink | None = None,
                          should_stop: Callable[[], bool] | None = None) -> LMStudioCortex:
     if timeout <= 0:
         raise ValueError("request timeout must be positive")
+    validate_model_id(model)
+    validate_model_id(decision_model)
     if model == decision_model:
         raise ValueError("reasoner and decider require distinct model IDs")
     base_url = base_url or os.environ.get("LMSTUDIO_BASE_URL") or DEFAULT_BASE_URL
@@ -123,9 +135,10 @@ def make_lmstudio_cortex(base_url: str | None = None, model: str = DEFAULT_REASO
     reasoner = OpenAICompatibleLLM(model=model, base_url=base_url, api_key=key, temperature=0,
                                    structured_output=True, max_tokens=1536, timeout=timeout)
     available = {item.id for item in reasoner._client.models.list()}
-    missing = {model, decision_model} - available
+    missing = ({model, decision_model} if decision_model is not None else {model}) - available
     if missing:
         raise ValueError(f"Models not available in LM Studio: {sorted(missing)}. Available IDs: {sorted(available)}")
-    decider = JevStyleDecisionClient(model=decision_model, base_url=base_url, api_key=key, timeout=timeout)
+    decider = (JevStyleDecisionClient(model=decision_model, base_url=base_url, api_key=key, timeout=timeout)
+               if decision_model is not None else None)
     return LMStudioCortex(reasoner, decider, max_model_calls=max_model_calls,
                           on_event=on_event, should_stop=should_stop)

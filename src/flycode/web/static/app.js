@@ -66,6 +66,13 @@ let latestObservation = null,
 let modelHealth = { connected: false, models: [] },
   currentTab = "conversation",
   toastTimer;
+const defaultModels = {llm: "lmstudio", model: "qwen/qwen3.5-9b", decision_model: "jev-style-qwen3.5-2b-decision"};
+let nextModels = {...defaultModels}, probing = false;
+try {
+  const stored = JSON.parse(localStorage.getItem("flycode.models") || "null");
+  if (stored && ["lmstudio", "heuristic"].includes(stored.llm) && typeof stored.model === "string" &&
+      (stored.decision_model === null || typeof stored.decision_model === "string")) nextModels = stored;
+} catch { /* A damaged preference must not prevent startup. */ }
 let scrollPositions = { conversation: 0, changes: 0, logs: 0 };
 
 function el(tag, className, text) {
@@ -134,6 +141,7 @@ function projectName(id) {
   return bootstrap?.projects.find((project) => project.id === id)?.name || id;
 }
 function modelName(id) {
+  if (!id) return "Отключён";
   if (id === "qwen/qwen3.5-9b") return "Qwen 3.5 9B";
   if (id === "jev-style-qwen3.5-2b-decision") return "Jev 2B";
   return id.split("/").pop();
@@ -165,11 +173,14 @@ function setNode(role, working, caption) {
     caption || (working ? "Работает" : "Готов");
 }
 function clearNodes() {
+  const models = selected?.request || nextModels;
   for (const role of ["controller", "reasoner", "decider", "tools"])
     setNode(
       role,
       false,
-      role === "controller" || role === "tools" ? "Готов" : "Ожидание",
+      role === "controller" || role === "tools" ? "Готов"
+        : models.llm === "heuristic" ? "Без вызова"
+          : role === "decider" && !models.decision_model ? "Отключён" : "Ожидание",
     );
 }
 function resetInspector() {
@@ -267,6 +278,8 @@ function controls() {
   $("#taskInput").disabled = !!running;
   $("#projectSelect").disabled = !!running;
   $("#settingsButton").disabled = !!running;
+  $("#modelsButton").disabled = !!running || probing;
+  $("#connectionButton").disabled = !!running || probing;
   $("#liveStatus").hidden = !running;
   if (running?.status === "stopping")
     $("#liveText").textContent =
@@ -285,21 +298,17 @@ function controls() {
       status ? statusNames[status] || status : "Готов к работе",
     ),
   );
-  $("#engineLabel").textContent =
-    $("#llmSelect").value === "heuristic" ? "Без моделей" : "Qwen + Jev";
-  const models = selected?.request || {
-    model: $("#reasonerModel").value,
-    decision_model: $("#deciderModel").value,
-  };
-  for (const [role, id] of [
-    ["reasoner", models.model],
-    ["decider", models.decision_model],
-  ]) {
+  $("#engineLabel").textContent = nextModels.llm === "heuristic" ? "Без моделей"
+    : modelName(nextModels.model) + (nextModels.decision_model ? " + " + modelName(nextModels.decision_model) : "");
+  $("#modelsButton").title = $("#engineLabel").textContent;
+  const models = selected?.request || nextModels;
+  for (const [role, id] of [["reasoner", models.model], ["decider", models.decision_model]]) {
     const label = $(`[data-node="${role}"] strong`);
     label.textContent = modelName(id);
-    label.title = id;
+    label.title = id || "Оценщик отключён";
+    $(`[data-node="${role}"] .node-letter`).textContent = id ? modelName(id)[0].toUpperCase() : "—";
+    if (!id) setNode(role, false, "Отключён");
   }
-  $("#modelSettings").hidden = $("#llmSelect").value === "heuristic";
   $("#composerHint").replaceChildren(
     document.createTextNode(
       $("#projectSelect").value === "demo"
@@ -421,7 +430,7 @@ function addSelection(data) {
         el(
           "p",
           "",
-          `Jev: ${(data.routing.decision_scores[candidate.id] * 100).toFixed(1)}% среди вариантов`,
+          `Оценщик: ${(data.routing.decision_scores[candidate.id] * 100).toFixed(1)}% среди вариантов`,
         ),
       );
     candidates.append(row);
@@ -612,7 +621,7 @@ function handleEvent(event) {
             ? "Контроллер выбрал действие без вызова моделей: " +
               data.chosen_action.rationale
             : data.routing.route === "reasoner+decider"
-              ? "Qwen предложил действия, Jev оценил варианты. Контроллер и проверка безопасности выбрали итог."
+              ? `${modelName(selected.request.model)} предложила действия, ${modelName(selected.request.decision_model)} оценила варианты. Контроллер выбрал итог после проверки безопасности.`
               : "Контроллер выбрал действие из доступных вариантов.";
       break;
     case "tool_start": {
@@ -761,22 +770,6 @@ function openRun(run) {
   $("#timeline").append(intro);
   $("#projectTitle").textContent = projectName(run.request.project);
   $("#taskTitle").textContent = run.request.task;
-  $("#projectSelect").value = run.request.project;
-  $("#llmSelect").value = run.request.llm;
-  restoreChoice("#brainSelect", run.request.controller_id || run.request.brain || "functional");
-  restoreChoice("#observerSelect", run.request.observer_id || "");
-  restoreChoice("#admissionSelect", run.request.admission_id || "");
-  $("#influenceSelect").value = run.request.influence || 0;
-  $("#executionMode").value = run.request.execution_mode || "standard";
-  $("#learningEnabled").checked = run.request.learning || false;
-  $("#memoryProfile").value = run.request.memory_profile || "default";
-  $("#seedValue").value = run.request.seed || 0;
-  $("#maxToolCalls").value = run.request.max_tool_calls || run.request.max_steps;
-  $("#maxModelCalls").value = run.request.max_model_calls || run.request.max_steps * 2;
-  $("#maxSteps").value = run.request.max_steps;
-  $("#reasonerModel").value = run.request.model;
-  $("#deciderModel").value = run.request.decision_model;
-  rolloutSettings();
   $("#taskInput").value = "";
   startedAt = activeStatuses.has(run.status)
     ? new Date(run.created_at).getTime()
@@ -877,14 +870,86 @@ async function refreshModels() {
   $("#modelHealth").textContent = modelHealth.connected
     ? `LM Studio доступен · ${modelHealth.models.length} моделей. Выберите модели в полях выше.`
     : modelHealth.error;
-  $("#availableModels").replaceChildren(
-    ...modelHealth.models.map((model) => {
-      const option = el("option");
-      option.value = model;
-      return option;
-    }),
-  );
+  fillModelOptions("#reasonerModel", $("#reasonerModel").value || nextModels.model);
+  fillModelOptions("#deciderModel", $("#deciderModel").value || nextModels.decision_model || defaultModels.decision_model);
+  modelDraftControls();
 }
+function fillModelOptions(selector, value) {
+  const ids = [...new Set([value, ...modelHealth.models].filter(Boolean))];
+  $(selector).replaceChildren(...ids.map((id) => {
+    const available = modelHealth.models.includes(id);
+    const option = el("option", "", modelName(id) + (available ? "" : " · недоступна"));
+    option.value = id;
+    option.title = id;
+    option.disabled = !available;
+    return option;
+  }));
+  $(selector).value = value;
+}
+function modelDraftControls() {
+  const demo = $("#llmSelect").value === "heuristic";
+  $("#modelSettings").hidden = demo;
+  $("#scorerSettings").hidden = !$("#scorerEnabled").checked;
+  const descriptions = [["primary", $("#reasonerModel").value],
+    ...($("#scorerEnabled").checked ? [["scorer", $("#deciderModel").value]] : [])].map(([role, id]) => {
+      const entry = modelHealth.catalogue?.find((item) => item.model_id === id);
+      const state = entry?.roles.includes(role) ? "протокол проверен"
+        : entry?.status === "unsupported" || entry?.status === "unavailable" ? entry.reason : "совместимость не проверена";
+      return `${modelName(id)}: ${state}`;
+    });
+  $("#capabilityStatus").textContent = descriptions.join(". ") + ". Версия весов неизвестна; наличие в списке не означает загрузку в память.";
+  for (const id of ["applyModels", "probePrimary", "probeScorer", "refreshModels", "llmSelect", "reasonerModel", "deciderModel", "scorerEnabled"])
+    $("#" + id).disabled = probing;
+}
+function openModels() {
+  if (activeRun() || probing) return;
+  $("#llmSelect").value = nextModels.llm;
+  $("#scorerEnabled").checked = nextModels.decision_model !== null;
+  fillModelOptions("#reasonerModel", nextModels.model);
+  fillModelOptions("#deciderModel", nextModels.decision_model || defaultModels.decision_model);
+  $("#modelError").hidden = true;
+  modelDraftControls();
+  $("#modelsDialog").showModal();
+}
+async function probeModel(role) {
+  const id = $(role === "primary" ? "#reasonerModel" : "#deciderModel").value;
+  const entry = modelHealth.catalogue?.find((item) => item.model_id === id && item.status !== "unavailable");
+  if (!entry) return modelError("Обновите список и выберите доступную модель.");
+  probing = true;
+  modelDraftControls();
+  controls();
+  $("#modelHealth").textContent = `Проверяем ${modelName(id)} · один запрос, до 30 секунд…`;
+  try {
+    const result = await api("/api/models/probe", {method: "POST", body: JSON.stringify({model_ref: entry.model_ref, role})});
+    modelHealth.catalogue = modelHealth.catalogue.map((item) => item.model_ref === result.model_ref ? result : item);
+    $("#modelHealth").textContent = `${modelName(id)}: ${result.reason} Всего проверочных запросов: ${result.probe_calls}.`;
+  } catch (error) { modelError(error.message); }
+  finally { probing = false; modelDraftControls(); controls(); }
+}
+function modelError(message) {
+  $("#modelError").textContent = message;
+  $("#modelError").hidden = false;
+}
+function applyModels() {
+  const draft = {llm: $("#llmSelect").value, model: $("#reasonerModel").value,
+    decision_model: $("#scorerEnabled").checked ? $("#deciderModel").value : null};
+  if (draft.llm === "heuristic" && $("#projectSelect").value !== "demo")
+    return modelError("Демо без моделей доступно только для учебного проекта.");
+  if (draft.llm === "lmstudio") {
+    if (draft.model === draft.decision_model) return modelError("Выберите разные модели для основной роли и оценщика.");
+    for (const [role, id] of [["primary", draft.model], ...(draft.decision_model ? [["scorer", draft.decision_model]] : [])]) {
+      if (!modelHealth.models.includes(id)) return modelError(`Модель ${modelName(id)} недоступна. Обновите список.`);
+      const known = role === "primary" ? id === defaultModels.model : id === defaultModels.decision_model;
+      if (!known && !modelHealth.catalogue?.find((entry) => entry.model_id === id)?.roles.includes(role))
+        return modelError(`Сначала явно проверьте ${modelName(id)} для выбранной роли.`);
+    }
+  }
+  nextModels = draft;
+  localStorage.setItem("flycode.models", JSON.stringify(nextModels));
+  $("#modelsDialog").close();
+  controls();
+}
+
 function openSettings() {
   rolloutSettings();
   $("#settingsDialog").showModal();
@@ -928,7 +993,7 @@ async function submitTask(event) {
   const body = {
     task,
     project: $("#projectSelect").value,
-    llm: $("#llmSelect").value,
+    llm: nextModels.llm,
     controller_id: $("#brainSelect").value,
     observer_id: $("#observerSelect").value || null,
     influence: Number($("#influenceSelect").value),
@@ -939,9 +1004,10 @@ async function submitTask(event) {
     seed: Number($("#seedValue").value),
     max_tool_calls: Number($("#maxToolCalls").value),
     max_model_calls: Number($("#maxModelCalls").value),
+    request_timeout: Number($("#requestTimeout").value),
     max_steps: Number($("#maxSteps").value),
-    model: $("#reasonerModel").value.trim(),
-    decision_model: $("#deciderModel").value.trim(),
+    model: nextModels.model,
+    decision_model: nextModels.decision_model,
   };
   if (
     !Number.isInteger(body.max_steps) ||
@@ -969,29 +1035,35 @@ $("#taskForm").addEventListener("submit", submitTask);
 $("#newTask").addEventListener("click", newTask);
 $("#search").addEventListener("input", renderHistory);
 $("#settingsButton").addEventListener("click", openSettings);
-$("#connectionButton").addEventListener("click", openSettings);
+$("#modelsButton").addEventListener("click", openModels);
+$("#connectionButton").addEventListener("click", openModels);
+$("#applyModels").addEventListener("click", applyModels);
+$("#probePrimary").addEventListener("click", () => probeModel("primary"));
+$("#probeScorer").addEventListener("click", () => probeModel("scorer"));
+for (const id of ["llmSelect", "reasonerModel", "deciderModel", "scorerEnabled"])
+  $("#" + id).addEventListener("change", modelDraftControls);
 $("#refreshModels").addEventListener("click", refreshModels);
 $("#saveSettings").addEventListener("click", () => {
   controls();
   $("#settingsDialog").close();
 });
-$("#llmSelect").addEventListener("change", controls);
+
 $("#brainSelect").addEventListener("change", controls);
 $("#projectSelect").addEventListener("change", () => {
-  if ($("#projectSelect").value !== "demo") $("#llmSelect").value = "lmstudio";
+  if ($("#projectSelect").value !== "demo" && nextModels.llm === "heuristic") nextModels = {...nextModels, llm: "lmstudio"};
   controls();
 });
 $("#demoSuggestion").addEventListener("click", () => {
   $("#taskInput").value =
     "Исправь ошибку в арифметике и убедись, что тесты проходят.";
   $("#projectSelect").value = "demo";
-  $("#llmSelect").value = "heuristic";
+  nextModels = {...nextModels, llm: "heuristic"};
   controls();
   $("#taskInput").focus();
 });
 $("#projectSuggestion").addEventListener("click", () => {
   $("#projectSelect").value = ".";
-  $("#llmSelect").value = "lmstudio";
+  nextModels = {...nextModels, llm: "lmstudio"};
   controls();
   $("#projectSelect").focus();
   toast(
@@ -1060,7 +1132,7 @@ document.addEventListener("keydown", (event) => {
   if (
     (event.metaKey || event.ctrlKey) &&
     event.key === "Enter" &&
-    !$("#settingsDialog").open
+    !$("#settingsDialog").open && !$("#modelsDialog").open
   ) {
     event.preventDefault();
     $("#taskForm").requestSubmit();
