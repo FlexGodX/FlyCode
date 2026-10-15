@@ -60,9 +60,28 @@ Deterministic HTTP tests cover both model protocols and absence of scorer reques
 Existing scoped rollout evidence is stale after core source changes; regenerate after
 implementation freeze rather than relabelling old evidence.
 
-Next: verification foundation (phase21), then canonical SQLite contracts/queue.
-`tests/integration/test_verification.py` has new RED acceptance tests; the verification
-package is not implemented yet. Do not include those tests in a model-only commit.
+Second increment: `verification/` implements trusted-local snapshots (bytes/modes,
+base/inventory, installed environment and runtime hash), a registered pytest runner,
+independent collection/case observation + JUnit reconciliation, deterministic verdicts,
+bounded redacted artifacts/checksums and `flycode verify --repo PATH`. All rerun outcomes
+are retained; failure/skips/xfail/xpass/flaky, timeout/cancel and empty/incomplete reports
+cannot become a false pass. Process-group cleanup includes children after pytest exits.
+Untrusted execution is blocked. Git metadata files/directories are excluded, Git discovery
+is confined and source index/status preservation is tested on a real worktree.
+
+Verification: 423 passed, 8 skipped (171.43s); targeted verification/identity33 passed;
+Ruff/mypy passed. A read-only audit found four defects; regression tests reproduced them
+before correction, and the auditor independently reran the fixes (4+6 passed).
+The live UI single-Qwen smoke made one primary request, no scorer request and ended
+incomplete on its5s timeout. Stop prevented further work in a separate run; both model
+and settings controls were disabled while active. History with a legacy pair left the
+personal single-model choice intact. These are smoke outcomes, not successful live repair.
+
+Next: finish phase21 Task3a (trusted criteria→checks→case IDs, baseline/target/regression/
+integration plans, subject refs/lifecycle/error classes), then canonical SQLite contracts/
+queue Task4. Phase21 is explicitly partial; the standalone pytest verdict is not yet a
+task/workflow completion gate. No ORC/TRK implementation or new scientific admission exists.
+
 The baseline MVP covers Phase 4 (§78). Phase 5 (§79) now runs the same tasks
 with a verified, sparse biological graph. Hermes in the roadmap means FlyCode
 itself: connected agents are hosted here and orchestrated by the controller.

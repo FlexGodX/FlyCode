@@ -35,6 +35,13 @@
 Ранние экраны и события добавляются вместе с соответствующим backend.
 Каждый пункт считается завершённым только после перечисленных проверок.
 
+Поставка `9eb6422`: nullable scorer, catalogue/probe и две панели опубликованы;
+371 passed/8 skipped, visual QA desktop/390/320. Живой single-Qwen repair остаётся
+непринятым (probe timeout), поэтому §102 не закрыт целиком.
+
+Следующая поставка: начальный trusted-local pytest engine и CLI. Она не закрывает
+всю фазу 21: перед ORC completion нужен дополнительный пункт 3a ниже.
+
 ### Task 1: Необязательный оценщик и раздельные панели (§102)
 
 **Files:** modify `src/flycode/llm/lmstudio.py`, `src/flycode/research/cortex.py`, `src/flycode/cli.py`, `src/flycode/web/runs.py`, `src/flycode/web/static/{index.html,app.js,styles.css}`; tests `tests/integration/test_local_cortex.py`, `tests/unit/web/test_app.py`.
@@ -66,11 +73,37 @@
 
 **Interfaces:** `SubjectSnapshot`, `VerificationPlan`, `CaseResult`, `VerificationVerdict`; `VerificationEngine.verify(repo: Path, ..., should_stop) -> VerificationVerdict`; evidence ID and hash, no caller-supplied output path.
 
-- [ ] RED: dirty/untracked bytes change hash; symlink escape and secrets rejected/excluded with explicit inventory; tests run in owned copy; source never modified by runner.
-- [ ] RED: actual pytest pass/fail/error/skip/empty/timeout cases; exit 0 without complete cases is inconclusive; changed subject invalidates verdict.
-- [ ] GREEN: bounded copies and JUnit parser with DTD/entity rejection; registered argv only, process group cancellation, actual dependency fingerprint, atomic evidence manifest outside subject.
-- [ ] Verify subprocess tests using `sys.executable`, inspect raw evidence/hash; add verification package to policy identity.
-- [ ] Commit verified foundation; unsupported runners/isolation remain blocked, not simulated.
+- [x] RED: dirty/untracked bytes change hash; symlink escape and secrets rejected/excluded with explicit inventory; tests run in owned copy; source never modified by runner.
+- [x] RED: actual pytest pass/fail/error/skip/empty/timeout cases; exit 0 without complete cases is inconclusive; changed subject invalidates verdict.
+- [x] GREEN: bounded copies and JUnit parser with DTD/entity rejection; registered argv only, process group cancellation, actual dependency fingerprint, atomic evidence manifest outside subject.
+- [x] Verify subprocess tests using `sys.executable`, inspect raw evidence/hash; add verification package to policy identity.
+- [x] Commit verified foundation; unsupported runners/isolation remain blocked, not simulated.
+
+### Task 3a: Доверенный контракт приёмки и составной план (оставшаяся фаза 21)
+
+**Files:** create `src/flycode/verification/plan.py`, `src/flycode/verification/oracle.py`, `tests/unit/verification/test_plan.py`; modify `domain/verification.py`, `verification/engine.py`, `verification/verdict.py`, `tests/integration/test_verification.py`.
+
+**Interfaces:** `AcceptanceCriterion(id, check_ids, expected_case_ids)` и `AcceptanceContract(id, version, criteria)` принадлежат доверенному владельцу. `PlanBuilder.build(snapshot, contract, checks)` возвращает `VerificationPlan` с requirement→check→case mapping; `evaluate(attempts, invalidated, contract=None)` сохраняет старый suite-вызов и проверяет contract при его наличии. `CheckSpec` получает stage/targets/dependencies; `SubjectSnapshot` — server-owned project/workflow/task/attempt refs. `VerificationVerdict` явно различает registered-suite и acceptance-contract scope; ORC завершает задачу только вторым scope.
+
+- [ ] RED: критерий `R1` требует `test_api.py::test_regression`; suite с одним другим passed-тестом не закрывает `R1`.
+
+```python
+criterion = AcceptanceCriterion(id='R1', check_ids=['regression'],
+                                expected_case_ids=['test_api.py::test_regression'])
+contract = AcceptanceContract(id='api-contract', version=1, criteria=[criterion])
+attempt = CheckAttempt(number=1, argv=['pytest'], exit_code=0, duration=1,
+    cases=[CaseResult(id='test_api.py::test_other', outcome='passed')],
+    collected=['test_api.py::test_other'], complete=True)
+status, reasons, _ = evaluate([attempt], invalidated=False, contract=contract)
+assert status == 'inconclusive'
+assert any('R1' in reason for reason in reasons)
+```
+
+- [ ] RED: попытка удалить required check, цикл dependencies, foreign snapshot ref и изменение утверждённого contract hash отклоняются до запуска процесса.
+- [ ] GREEN: хранить утверждённый контракт вне изменяемой копии, связывать checks с точными snapshots и версиями oracle/profile. Предложение агента добавляет optional checks и не редактирует required.
+- [ ] RED→GREEN: дефект воспроизводится baseline negative control, patch закрывает target, полный regression и integrated snapshot проверяются отдельно; удачный target на сломанной базе не даёт общего pass.
+- [ ] Проверить actual case identities, неполный required coverage, semantic revision и новую базу; косметическое изменение заголовка не меняет контракт. Добавить lifecycle/error class попытки без выдуманных lease для одиночного процесса.
+- [ ] Запустить `.venv/bin/pytest tests/unit/verification/test_plan.py tests/integration/test_verification.py -q`, затем полный pytest; обновить TST/TV coverage и только после этого закрывать фазу 21.
 
 ### Task 4: Единые контракты и атомарная очередь (15/16/26/27)
 

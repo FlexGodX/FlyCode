@@ -126,6 +126,13 @@ def _build_parser() -> argparse.ArgumentParser:
     ui.add_argument("--port", type=_positive_int, default=8790)
     ui.add_argument("--data-dir", default=None, help="Directory for local run history")
 
+    verify = sub.add_parser('verify', help='Verify captured project bytes using the registered local pytest profile')
+    verify.add_argument('--repo', required=True)
+    verify.add_argument('--output', default=str(Path.home() / '.cache/flycode/verification'))
+    verify.add_argument('--timeout', type=_positive_float, default=120.)
+    verify.add_argument('--reruns', type=int, choices=[0, 1, 2], default=0)
+    verify.add_argument('--trust', choices=['trusted-local-process', 'untrusted'], default='trusted-local-process')
+
     connectome = sub.add_parser("connectome", help="Prepare or inspect a verified FlyWire graph")
     commands = connectome.add_subparsers(dest="connectome_command", required=True)
     download = commands.add_parser("download")
@@ -295,6 +302,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "run":
         return asyncio.run(_run(args))
+
+    if args.command == 'verify':
+        from .verification.cli import verify_command
+
+        return verify_command(args)
 
     if args.command == "benchmark":
         from .research.benchmark import BenchmarkConfig, run_benchmark

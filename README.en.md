@@ -521,6 +521,26 @@ selection. Tests, services and migrations provide verifiable feedback.
 
 ## Verification
 
+Verify a trusted local Python project independently:
+
+```bash
+flycode verify --repo /path/to/project --output /tmp/flycode-verification
+```
+
+This captures allowed inputs, runs the registered pytest profile in a separate
+copy and returns a JSON verdict. Only `passed` exits with code0. Empty suites,
+skipped/xfail, flaky results, timeout and incomplete evidence cannot pass.
+`--reruns 1` retains both attempts; a passing retry never erases a failure.
+Evidence includes snapshot/plan, checksum manifest, verdict, JUnit and observed
+cases. Changed bytes, executable modes, environment or runtime invalidate approval.
+
+This is the initial phase21 pytest foundation, covering the registered suite
+rather than automatically proving every user acceptance criterion. Process copies
+are for trusted code and do not restrict host/network access. `--trust untrusted`
+blocks execution until a supported sandbox exists. Docker/HTTP/browser profiles,
+independent oracles, verification UI and the team completion gate remain in the
+[delivery plan](docs/superpowers/plans/2026-10-16-specification-delivery.md).
+
 ```bash
 python -m pytest -q
 python -m pytest tests/e2e/test_environment_autonomy.py -q

@@ -523,6 +523,27 @@ flycode run \
 
 ## Проверки
 
+Для отдельной проверки доверенного локального Python-проекта:
+
+```bash
+flycode verify --repo /path/to/project --output /tmp/flycode-verification
+```
+
+Команда копирует разрешённые входы, запускает зарегистрированный pytest-профиль
+и возвращает JSON-вердикт. `passed` даёт код выхода 0; failure, пустой набор,
+skipped/xfail, flaky, timeout и неполное evidence не дают успешного выхода.
+`--reruns 1` сохраняет обе попытки; удачный повтор не стирает первое падение.
+В папке evidence находятся snapshot/plan, manifest с хешами, вердикт, JUnit и
+наблюдённые cases. Изменение входных байтов, executable modes, среды или runtime
+инвалидирует прежнюю проверку. Тесты исполняются в отдельной копии.
+
+Это начальный pytest-модуль фазы 21: он проверяет зарегистрированный набор,
+а не автоматически все критерии пользовательской задачи. Процессная копия
+предназначена для доверенного кода и не ограничивает доступ к сети/хосту.
+`--trust untrusted` блокирует запуск до появления поддерживаемой песочницы.
+Профили Docker/HTTP/browser, независимые oracle, UI проверок и командный
+completion gate остаются в [плане поставки](docs/superpowers/plans/2026-10-16-specification-delivery.md).
+
 ```bash
 python -m pytest -q
 python -m pytest tests/e2e/test_environment_autonomy.py -q
