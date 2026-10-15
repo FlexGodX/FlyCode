@@ -96,6 +96,62 @@ curl --fail http://localhost:8000/users
 docker compose --project-directory /tmp/flycode-environment down
 ```
 
+## Локальные Qwen + Jev в LM Studio
+
+FlyCode поддерживает две локальные модели с разными ролями:
+
+- `qwen/qwen3.5-9b` формирует конкретные варианты действий.
+- `jev-style-qwen3.5-2b-decision` оценивает безопасные варианты по вероятностям
+  следующего токена в своём родном формате выбора.
+- Fly-контроллер управляет вызовами моделей и сохраняет итоговый выбор действия.
+  Это текущий Functional Fly; реальный биологический коннектом пока не подключён.
+
+Если модели уже скачаны, загрузите их в LM Studio и включите локальный сервер:
+
+```bash
+lms load qwen/qwen3.5-9b --context-length 8192 -y
+lms load jev-style-qwen3.5-2b-decision --context-length 4096 -y
+lms server start --port 1234
+
+flycode run \
+  --repo /tmp/flycode-local \
+  --fixture toy_arithmetic_bug \
+  --task "Fix the off-by-one bug in add and verify the tests" \
+  --brain functional \
+  --llm lmstudio \
+  --base-url http://127.0.0.1:1234/v1 \
+  --model qwen/qwen3.5-9b \
+  --decision-model jev-style-qwen3.5-2b-decision \
+  --request-timeout 120 \
+  --max-model-calls 30 \
+  --telemetry-dir /tmp/flycode-local-telemetry
+```
+
+Если сервер уже работает, повторно запускать его не нужно. Идентификаторы
+моделей берутся из API LM Studio; при несовпадении программа покажет доступные
+ID. Имена выше являются значениями по умолчанию для `--llm lmstudio`.
+`LMSTUDIO_BASE_URL` задаёт адрес сервера, а `LMSTUDIO_API_KEY` — ключ, если
+в LM Studio включена аутентификация. Облачный API автоматически не используется.
+
+Контроллер пропускает модели при подтверждённом завершении, своей блокировке
+или простой проверке тестов в режиме VERIFY. При уверенности не ниже 0.8 Jev
+не вызывается. В `hard` итоговое ранжирование принадлежит контроллеру, поэтому
+запрос Jev также пропускается. Safety mask проверяет действия независимо от
+оценок моделей. При отказе Jev сохраняются предложения Qwen с диагностикой;
+при отказе Qwen агент останавливается без выдуманного исправления. Запросы
+ограничены тайм-аутом, числом токенов и общим бюджетом; автоматических повторов нет.
+
+В выводе есть строки `[models]` и счётчики `model_calls`. В телеметрии
+сохраняются маршрут вызовов, оценки Jev и ошибки. Сводка задачи не вызывает
+дополнительный LLM-запрос. Приёмка с установленными моделями включается явно:
+
+```bash
+FLYCODE_TEST_LMSTUDIO=1 python -m pytest tests/e2e/test_lmstudio.py -q
+```
+
+[План интеграции](docs/superpowers/plans/2026-10-15-lmstudio-dual-model.md) ·
+[Формат Jev v1](https://huggingface.co/chaoliangUNSW/Jev-Style-Qwen3.5-2B-Decision-GGUF)
+
 ## Работа с существующим проектом и LLM
 
 Задайте `OPENAI_API_KEY` в окружении и запустите:
@@ -150,8 +206,8 @@ python -m pytest -q
 python -m pytest tests/e2e/test_environment_autonomy.py -q
 ```
 
-Проверенный результат MVP: **166 тестов прошли, без пропусков**. Приёмочные
-тесты действительно запускают агента с Docker/Postgres в режимах `bias` и
+Основной набор: **206 тестов прошли**; приёмка LM Studio включается отдельно.
+Приёмочные Docker-тесты действительно запускают агента с Docker/Postgres в режимах `bias` и
 `hard`, проверяют HTTP и ревизию Alembic в базе. Они выбирают свободный
 HTTP-порт и удаляют свои контейнеры после завершения. Без Docker/Compose
 эти два теста явно пропускаются.

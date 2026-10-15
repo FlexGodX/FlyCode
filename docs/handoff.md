@@ -1,7 +1,52 @@
 # FlyCode handoff brief
 
 Authoritative roadmap: `docs/Plan.md` (§1–99). Operating rules: `AGENTS.md`.
-The requested delivery scope is the working version through Phase 4 (§78).
+The baseline MVP covers Phase 4 (§78). The latest extension connects two local LM Studio models under controller scheduling.
+
+## Current extension: local Qwen + Jev
+
+Implementation plan: `docs/superpowers/plans/2026-10-15-lmstudio-dual-model.md`.
+
+- `--llm lmstudio` selects `qwen/qwen3.5-9b` for candidate generation and
+  `jev-style-qwen3.5-2b-decision` for native single-token option scoring.
+- Both exact IDs were verified through the local LM Studio API and both models
+  were loaded. No weights were downloaded, changed or trained.
+- Routing consumes CortexContext.neural_state. Blocked states skip inference;
+  verified completion and simple non-Compose VERIFY steps are local; confidence
+  >= 0.8 and hard control skip Jev. Safe candidate scoring is advisory, and the
+  existing safety mask and brain tournament retain final control.
+- Qwen uses structured JSON, a 1536-token response cap and disabled reasoning
+  output. Jev uses the installed v1 protocol with one token and top-20 logprobs.
+  Missing/nonfinite decision distributions produce an explicit diagnostic and
+  preserve Qwen proposals. Qwen errors stop without an invented repair.
+- Requests have no automatic retries and a per-run shared call budget. Failed
+  requests count. The local default timeout is 120 seconds: on this host a
+  366-token edit proposal took about 58 seconds at roughly 7 tokens/second.
+- Configure `--base-url`, `--model`, `--decision-model`, `--request-timeout`,
+  `--max-model-calls`. Optional authentication is `LMSTUDIO_API_KEY`; the endpoint
+  can be set with `LMSTUDIO_BASE_URL`. There is no cloud fallback or inherited
+  proxy routing for local inference.
+- Per-model counts/errors are recorded in RunMetrics, and each executed step
+  includes a model_routing trace. Consolidation makes no additional request.
+- The SDK floor is now `openai>=1.61` for the transport and request interfaces.
+
+Verified on 2026-10-15:
+
+```text
+python -m pytest -q -> 206 passed, 1 skipped in 89.52s
+  (the single skip is the explicit opt-in local-model acceptance)
+FLYCODE_TEST_LMSTUDIO=1 python -m pytest tests/e2e/test_lmstudio.py -q
+  -> 1 passed in 148.09s
+Real CLI toy repair -> success=True, 6 steps; Qwen=3 calls, Jev=3 calls;
+  no model errors; post-edit tests and STOP required no inference
+Targeted Ruff on new routing/clients/CLI/telemetry/tests -> all checks passed
+Repository-wide Ruff -> 57 existing findings
+mypy src/flycode --ignore-missing-imports -> 20 errors in the same 8 files
+```
+
+Local inference and the wiring are verified. No improvement over the baseline
+has been established, and this extension does not implement a real biological
+connectome or satisfy Phase 5 acceptance.
 
 ## Phase status
 
@@ -72,7 +117,7 @@ executes the migration, passes both application tests, checks `/health` and
 `/users`, and reaches STOP. A separate SQL query verifies Alembic revision `001`.
 The toy CLI smoke test also passes (`success=True`, 9 steps).
 
-Final verification (2026-10-15):
+Phase 4 baseline verification (2026-10-15):
 
 ```text
 python -m pytest -q -> 166 passed in 55.01s; no skips

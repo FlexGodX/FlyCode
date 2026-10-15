@@ -14,6 +14,7 @@ class TrainingStep(BaseModel):
     outcome: dict
     reward_prediction_error: float = 0.0
     future_return: float = 0.0
+    model_routing: dict | None = None
 
 
 class RunMetrics(BaseModel):
@@ -27,6 +28,8 @@ class RunMetrics(BaseModel):
     steps: int = 0
     tool_calls: int = 0
     llm_calls: int = 0
+    model_calls: dict[str, int] = Field(default_factory=dict)
+    model_errors: list[str] = Field(default_factory=list)
     wall_time_s: float = 0.0
     changed_lines: int = 0
     regressions: int = 0

@@ -6,6 +6,9 @@ without any other code change.
 """
 
 import json
+from typing import Any
+
+from pydantic import ValidationError
 
 from ..domain import DEFAULT_CANDIDATE_COUNT, VALID_TOOLS, CandidateAction
 from .prompts import CONSOLIDATION_PROMPT, SYSTEM_PROMPT, render_user_prompt
@@ -21,12 +24,19 @@ class OpenAICompatibleLLM:
         base_url: str | None = None,
         api_key: str | None = None,
         temperature: float = 0.2,
+        timeout: float = 60.0,
+        max_tokens: int | None = None,
+        structured_output: bool = False,
     ) -> None:
-        from openai import OpenAI  # imported lazily so the heuristic path needs no network deps
+        from openai import DefaultHttpxClient, OpenAI
 
-        self._client = OpenAI(base_url=base_url, api_key=api_key)
+        self._client = OpenAI(base_url=base_url, api_key=api_key, timeout=timeout, max_retries=0,
+                              http_client=DefaultHttpxClient(trust_env=False) if structured_output else None)
         self.model = model
         self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.structured_output = structured_output
+        self.request_count = 0
 
     def generate_candidates(self, context: CortexContext) -> list[CandidateAction]:
         n = context.n_candidates or DEFAULT_CANDIDATE_COUNT
@@ -41,16 +51,29 @@ class OpenAICompatibleLLM:
             observation_summary=context.observation.model_dump_json(),
         )
 
+        options: dict[str, Any] = {}
+        if self.max_tokens is not None:
+            options["max_tokens"] = self.max_tokens
+        if self.structured_output:
+            options["response_format"] = _candidate_format(tools, n)
+            options["reasoning_effort"] = "none"
+            system += '\nReturn an object with a "candidates" array instead of a bare array.'
+            system += ("\nPropose independent alternatives for ONE immediate tool call, not a sequential plan."
+                       " Keep each rationale under 15 words. Reuse known file contents from working memory."
+                       " Do not repeat a successful read or failed tests unless relevant files changed.")
+        self.request_count += 1
         response = self._client.chat.completions.create(
             model=self.model,
             temperature=self.temperature,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+            **options,
         )
         raw = response.choices[0].message.content or "[]"
-        return _parse_candidates(raw, tools)
+        return _parse_candidates(raw, tools)[:n]
 
     def consolidate(self, context: CortexContext, transcript: list[str]) -> str:
         prompt = CONSOLIDATION_PROMPT.format(task=context.task, transcript="\n".join(transcript))
+        self.request_count += 1
         response = self._client.chat.completions.create(
             model=self.model,
             temperature=self.temperature,
@@ -67,23 +90,48 @@ def _parse_candidates(raw: str, valid_tools: list[str]) -> list[CandidateAction]
         items = json.loads(raw)
     except json.JSONDecodeError:
         return []
+    if isinstance(items, dict):
+        items = items.get("candidates")
+    if not isinstance(items, list):
+        return []
 
     candidates: list[CandidateAction] = []
     for i, item in enumerate(items):
+        if not isinstance(item, dict):
+            continue
         tool = item.get("tool")
         if tool not in valid_tools:
             continue
-        candidates.append(
-            CandidateAction(
+        try:
+            candidate = CandidateAction(
                 id=f"llm-{i}",
                 tool=tool,
                 arguments=item.get("arguments", {}) or {},
                 rationale=item.get("rationale", ""),
-                expected_progress=float(item.get("expected_progress", 0.5)),
-                expected_information_gain=float(item.get("expected_information_gain", 0.3)),
-                expected_risk=float(item.get("expected_risk", 0.1)),
-                confidence=float(item.get("confidence", 0.6)),
+                expected_progress=item.get("expected_progress", 0.5),
+                expected_information_gain=item.get("expected_information_gain", 0.3),
+                expected_risk=item.get("expected_risk", 0.1),
+                confidence=item.get("confidence", 0.6),
                 source="llm",
             )
-        )
+        except ValidationError:
+            continue
+        candidates.append(candidate)
     return candidates
+
+
+def _candidate_format(tools: list[str], n: int) -> dict:
+    properties = {
+        "tool": {"type": "string", "enum": tools},
+        "arguments": {"type": "object"},
+        "rationale": {"type": "string"},
+        **{key: {"type": "number", "minimum": 0, "maximum": 1} for key in
+           ("expected_progress", "expected_information_gain", "expected_risk", "confidence")},
+    }
+    return {"type": "json_schema", "json_schema": {"name": "candidate_actions", "strict": True, "schema": {
+        "type": "object", "additionalProperties": False,
+        "properties": {"candidates": {"type": "array", "minItems": 1, "maxItems": n,
+                                      "items": {"type": "object", "properties": properties,
+                                                "required": list(properties), "additionalProperties": False}}},
+        "required": ["candidates"],
+    }}}

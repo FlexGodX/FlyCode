@@ -27,6 +27,8 @@ class BiasControlResult(BaseModel):
 
 def _llm_score(candidate: CandidateAction) -> float:
     """Base score the LLM implicitly assigns via its own predictions."""
+    if candidate.rank_score is not None:
+        return candidate.rank_score - 0.3 * candidate.expected_risk
     return (
         0.5 * candidate.expected_progress
         + 0.3 * candidate.expected_information_gain

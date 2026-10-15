@@ -117,3 +117,47 @@ Compose service. Read the repository's configuration to choose that service.
 
 See `docs/Plan.md` for the authoritative roadmap and `docs/handoff.md` for the
 verified project state.
+
+## Two local models in LM Studio
+
+The `lmstudio` cortex uses the installed `qwen/qwen3.5-9b` reasoner and the
+`jev-style-qwen3.5-2b-decision` v1 decision scorer. The scorer requires its
+single-token options/logprobs protocol; it is not interchangeable with a chat
+planner or the Jev v3 runtime. The existing brain schedules inference and
+retains final action arbitration.
+
+```bash
+lms load qwen/qwen3.5-9b --context-length 8192 -y
+lms load jev-style-qwen3.5-2b-decision --context-length 4096 -y
+# Start the server if it is not already running:
+lms server start --port 1234
+flycode run --repo /tmp/flycode-local --fixture toy_arithmetic_bug \
+  --task "Fix the off-by-one bug in add and verify the tests" \
+  --brain functional --llm lmstudio --max-model-calls 30 \
+  --request-timeout 120 --telemetry-dir /tmp/flycode-local-telemetry
+```
+
+Optional flags: `--base-url`, `--model`, `--decision-model`. The local endpoint
+is `http://127.0.0.1:1234/v1` by default. `LMSTUDIO_BASE_URL` overrides the
+default endpoint; `LMSTUDIO_API_KEY` supplies authentication when enabled.
+`OPENAI_API_KEY` and cloud endpoint settings are not used for this mode.
+
+Routing is explicit: verified STOP and simple non-Compose VERIFY checks skip
+both models; a blocked controller requests neither; confidence >= 0.8 skips
+Jev; hard control skips its unused scoring request. Qwen proposes up to four
+alternatives, Jev scores only safe candidates, and final safety masking still
+applies. Jev errors retain Qwen proposals and are reported; Qwen errors stop
+without substituting an invented fix. Budgets count failed requests too;
+consolidation makes no inference request. Counts reset for each `run_agent` run.
+
+Inspect `model_calls` / `model_errors` in `runs.jsonl` and `model_routing` in
+`run.steps.jsonl`. Qwen's local request uses JSON-schema output, a 1536-token
+response cap and disabled reasoning output; Jev requests exactly one token.
+No automatic retries or cloud fallback are performed. Model probabilities are
+advisory scores, not a safety guarantee or measured code-repair calibration.
+
+The live acceptance is opt-in so ordinary tests need no loaded models:
+
+```bash
+FLYCODE_TEST_LMSTUDIO=1 python -m pytest tests/e2e/test_lmstudio.py -q
+```

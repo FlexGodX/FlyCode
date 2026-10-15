@@ -96,6 +96,62 @@ The application remains running after the agent exits. Stop it with:
 docker compose --project-directory /tmp/flycode-environment down
 ```
 
+## Local Qwen + Jev through LM Studio
+
+FlyCode supports two local models with distinct roles:
+
+- `qwen/qwen3.5-9b` proposes concrete actions.
+- `jev-style-qwen3.5-2b-decision` scores safe options using next-token
+  probabilities in its native decision format.
+- The fly controller schedules inference and retains final action selection.
+  This is the current Functional Fly; a real biological connectome is not connected yet.
+
+If the models are already downloaded, load them and enable the local server:
+
+```bash
+lms load qwen/qwen3.5-9b --context-length 8192 -y
+lms load jev-style-qwen3.5-2b-decision --context-length 4096 -y
+lms server start --port 1234
+
+flycode run \
+  --repo /tmp/flycode-local \
+  --fixture toy_arithmetic_bug \
+  --task "Fix the off-by-one bug in add and verify the tests" \
+  --brain functional \
+  --llm lmstudio \
+  --base-url http://127.0.0.1:1234/v1 \
+  --model qwen/qwen3.5-9b \
+  --decision-model jev-style-qwen3.5-2b-decision \
+  --request-timeout 120 \
+  --max-model-calls 30 \
+  --telemetry-dir /tmp/flycode-local-telemetry
+```
+
+Do not restart the server if it is already running. Model identifiers come
+from LM Studio's API; a mismatch produces an error listing available IDs.
+The names above are the defaults for `--llm lmstudio`. `LMSTUDIO_BASE_URL`
+sets the endpoint and `LMSTUDIO_API_KEY` supplies authentication if enabled
+in LM Studio. There is no automatic cloud fallback.
+
+The controller skips inference on verified completion, a controller block,
+or simple local test verification in VERIFY mode. Confidence of at least 0.8
+skips Jev. In `hard` mode the controller owns the ranking, so Jev is also
+skipped. The safety mask applies independently of model scores. A Jev failure
+retains Qwen proposals with a diagnostic; a Qwen failure stops the agent without
+inventing a repair. Requests have timeouts, token caps and a shared call budget;
+there are no automatic retries.
+
+Output includes `[models]` routes and `model_calls` counters. Telemetry stores
+routing, Jev scores and errors. Consolidation does not make an extra model
+request. Explicitly enable acceptance against installed models with:
+
+```bash
+FLYCODE_TEST_LMSTUDIO=1 python -m pytest tests/e2e/test_lmstudio.py -q
+```
+
+[Integration plan](docs/superpowers/plans/2026-10-15-lmstudio-dual-model.md) ·
+[Jev v1 protocol](https://huggingface.co/chaoliangUNSW/Jev-Style-Qwen3.5-2B-Decision-GGUF)
+
 ## Existing projects and an LLM
 
 Set `OPENAI_API_KEY` in your environment, then run:
@@ -150,8 +206,8 @@ python -m pytest -q
 python -m pytest tests/e2e/test_environment_autonomy.py -q
 ```
 
-Verified MVP result: **166 tests passed, with no skips**. The acceptance tests
-run the real agent with Docker/Postgres in both `bias` and `hard` modes and
+Main suite: **206 tests passed**; LM Studio acceptance is enabled separately.
+The Docker acceptance tests run the real agent with Docker/Postgres in both `bias` and `hard` modes and
 check HTTP responses and the Alembic revision stored in the database. They
 choose an available HTTP port and clean up their containers afterward. Without
 Docker/Compose, those two cases are explicitly skipped.

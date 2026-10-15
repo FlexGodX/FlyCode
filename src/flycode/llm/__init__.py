@@ -11,3 +11,10 @@ def make_openai_llm(*args, **kwargs):
     from .openai_compatible import OpenAICompatibleLLM
 
     return OpenAICompatibleLLM(*args, **kwargs)
+
+
+def make_lmstudio_cortex(*args, **kwargs):
+    """Keep local inference dependencies lazy on the default heuristic path."""
+    from .lmstudio import make_lmstudio_cortex as factory
+
+    return factory(*args, **kwargs)

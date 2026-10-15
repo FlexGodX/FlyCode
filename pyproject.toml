@@ -11,7 +11,7 @@ requires-python = ">=3.10"
 dependencies = [
     "pydantic>=2.0",
     "pydantic-settings>=2.0",
-    "openai>=1.0",
+    "openai>=1.61",
     "numpy>=1.24",
     "PyYAML>=6.0",
     "torch>=2.0",

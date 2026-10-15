@@ -49,6 +49,8 @@ async def run_agent(
     """Drive one task to completion (or until the step/tool-call budget runs out)."""
     obs = await env.reset(task)
     brain.reset()
+    if hasattr(cortex, "reset"):
+        cortex.reset()
     arbiter = BehaviorArbiter()
     recovery_state = RecoveryState() if recovery else None
     working_memory = WorkingMemory()
@@ -60,6 +62,7 @@ async def run_agent(
     lessons = episodic_memory.recall_lessons(task.task)
 
     llm_calls = 0
+    model_errors: list[str] = []
     regressions = 0
     recovery_events = 0
     unsafe_proposals = 0
@@ -107,9 +110,16 @@ async def run_agent(
             fly_policy_bias=neural_state.action_bias,
             candidate_tools=list(VALID_TOOLS),
             n_candidates=DEFAULT_CANDIDATE_COUNT,
+            neural_state=neural_state,
+            control_mode=control_mode.value,
         )
         candidates = cortex.generate_candidates(context)
         llm_calls += 1
+        routing = cortex.last_routing.model_dump() if hasattr(cortex, "last_routing") else None
+        if routing is not None:
+            transcript.append(f"[models] route={routing['route']} reason={routing['reason']} error={routing['error']}")
+            if routing["error"]:
+                model_errors.append(routing["error"])
 
         if mode in (BehaviorMode.CONSOLIDATE, BehaviorMode.STOP) and not candidates:
             candidates = [CandidateAction(id="auto-stop", tool="stop", rationale="controller reached STOP")]
@@ -174,6 +184,7 @@ async def run_agent(
                     outcome=transition.model_dump(exclude={"previous", "current"}),
                     reward_prediction_error=neural_state.update_weight,
                     future_return=transition.reward,
+                    model_routing=routing,
                 ),
             )
 
@@ -191,6 +202,7 @@ async def run_agent(
     )
     episodic_memory.add(episode)
 
+    model_calls = dict(getattr(cortex, "model_calls", {}))
     metrics = RunMetrics(
         task_id=task.id,
         brain=brain.name,
@@ -199,7 +211,9 @@ async def run_agent(
         verified_completion=obs.is_healthy,
         steps=obs.step_number,
         tool_calls=obs.tool_calls_used,
-        llm_calls=llm_calls,
+        llm_calls=sum(model_calls.values()) if model_calls else llm_calls,
+        model_calls=model_calls,
+        model_errors=model_errors,
         wall_time_s=time.monotonic() - start,
         changed_lines=changed_lines,
         regressions=regressions,
