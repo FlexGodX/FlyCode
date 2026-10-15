@@ -2,6 +2,23 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Searchable session journal — 2026-10-16
+
+The existing Journal tab now projects canonical run events with text search,
+source/error filters, lazy JSON details, bounded rows, event/step IDs and live
+follow. Both classic and desktop shells use the same implementation. A new local
+`GET /api/runs/{id}/journal` streams a fixed recorded prefix as JSONL outside the
+writer lock; filters never change the exported history. Event schemas and training
+telemetry remain unchanged. Upstream source analysis and scope are recorded in
+`docs/specs/session-journal.md`; execution plan is `2026-10-16-session-journal.md`.
+
+Verification: all 44 interface API tests passed. Both browser surfaces cover
+export/restart, real repair, SSE replay, filtering, mobile, pagination, duplicate
+events, keyboard focus and HTML text safety. The staged journal-only snapshot
+passed 21 API tests and browser acceptance. Classic and desktop regressions also
+passed. Ruff/mypy and JavaScript syntax passed; unrelated suites were skipped.
+This UI addition does not close verification/orchestration roadmap phases.
+
 ## Optional desktop workspace — 2026-10-16
 
 `/desktop` adds a separate presentation based on measured layout/tokens from

@@ -1919,3 +1919,29 @@ dialog::backdrop {
 .controller-activity { overflow-wrap: anywhere; }
 .controller-activity p { margin: 12px 0; font-size: 12px; line-height: 1.8; }
 .dialog-footer { position: sticky; bottom: -28px; background: var(--paper); padding-bottom: 14px; }
+
+/* Session journal, shared by classic and desktop presentations. */
+.journal-header { position: sticky; top: 0; z-index: 1; background: var(--paper); padding: 0 0 16px; }
+.journal-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.journal-heading h2 { font-size: 17px; font-weight: 500; margin: 0; }
+.journal-download, .journal-more { color: var(--ink); background: var(--white); border: 1px solid var(--line); border-radius: 7px; padding: 10px 12px; font: inherit; font-size: 12px; text-decoration: none; cursor: pointer; }
+.journal-count, .journal-empty { font-size: 12px; color: var(--muted); margin: 12px 0; }
+#journalSearch, #journalSource { color: var(--ink); background: var(--white); border: 1px solid var(--line); border-radius: 7px; padding: 10px; font: inherit; font-size: 12px; min-width: 0; }
+#journalSearch { width: 100%; box-sizing: border-box; }
+.journal-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; margin-top: 8px; }
+.journal-filters label { display: flex; align-items: center; gap: 7px; min-height: 44px; font-size: 12px; cursor: pointer; color: var(--ink); }
+.journal-filters input { accent-color: var(--ink); }
+.journal-more { margin-bottom: 12px; }
+#journalEntries summary { color: var(--ink); align-items: baseline; gap: 10px; }
+#journalEntries time { flex-shrink: 0; color: var(--muted); }
+.journal-event-title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.journal-event-id { color: var(--muted); font-size: 10px; white-space: nowrap; }
+#journalEntries .journal-error { border-left: 3px solid var(--orange); }
+#journalEntries pre { overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .journal-heading h2 { font-size: 15px; }
+  .journal-download, .journal-more, #journalSearch, #journalSource { min-height: 44px; }
+  #journalEntries summary { flex-wrap: wrap; }
+  #journalEntries .journal-event-title { flex-basis: calc(100% - 70px); }
+  #journalEntries .journal-event-id { margin-left: auto; }
+}

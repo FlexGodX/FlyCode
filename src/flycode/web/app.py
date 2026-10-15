@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from threading import Lock
 from typing import Literal
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
@@ -193,6 +193,17 @@ def create_app(workspace: Path | None = None, data_dir: Path | None = None,
                 await asyncio.sleep(0.1)
 
         return StreamingResponse(journal(), media_type="text/event-stream", headers={"X-Accel-Buffering": "no"})
+
+    @app.get("/api/runs/{run_id}/journal")
+    def export_journal(run_id: str) -> StreamingResponse:
+        require_run(run_id)
+        with manager.lock:
+            prefix = tuple(manager.events[run_id])
+        return StreamingResponse(
+            (event.model_dump_json() + "\n" for event in prefix),
+            media_type="application/x-ndjson",
+            headers={"Content-Disposition": f'attachment; filename="flycode-{quote(run_id, safe="")}.jsonl"'},
+        )
 
     @app.get("/")
     def index() -> FileResponse:

@@ -64,6 +64,9 @@ through a native system dialog. Chats without a project keep their files separat
 - The conversation shows action rationales, model calls, tools and verification
   results. Expand «Почему это действие» to compare candidates and Jev scores.
   The Changes tab shows successfully applied edits from this run.
+- The Journal tab adds text search, source/error filters, event/step IDs and
+  expandable JSON details. «Следить» controls live scrolling; «Скачать JSONL»
+  downloads the selected chat’s complete recorded journal, independent of filters.
 - The inspector highlights the active stage and displays the controller mode,
   confidence, risk, steps and actual model requests. On narrow screens, open it
   using the top-right button.

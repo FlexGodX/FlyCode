@@ -1,6 +1,7 @@
 "use strict";
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
+const journal = new FlyCodeJournal($("#logs"), $("#content"));
 const activeStatuses = new Set(["queued", "running", "stopping"]);
 const statusNames = {
   queued: "В очереди",
@@ -557,11 +558,7 @@ function handleEvent(event) {
       $("#content").clientHeight <
     180;
   const data = event.data;
-  const log = el("details", "log-event");
-  const logTitle = el("summary");
-  logTitle.append(el("time", "", eventTime(event)), el("span", "", event.kind));
-  log.append(logTitle, el("pre", "", JSON.stringify(data, null, 2)));
-  $("#logs").append(log);
+  journal.add(event);
   switch (event.kind) {
     case "status":
       if (data.phase === "stopping") {
@@ -797,7 +794,7 @@ function openRun(run) {
   changes = [];
   modelRows = {};
   $("#timeline").replaceChildren();
-  $("#logs").replaceChildren();
+  journal.reset(run.id);
   $("#changes").replaceChildren();
   scrollPositions = { conversation: 0, changes: 0, logs: 0 };
   $("#content").scrollTop = 0;
@@ -886,7 +883,7 @@ function newTask() {
   selected = null;
   localStorage.removeItem("flycode.selected");
   $("#timeline").replaceChildren();
-  $("#logs").replaceChildren();
+  journal.reset(null);
   changes = [];
   seen.clear();
   $("#welcome").hidden = false;
