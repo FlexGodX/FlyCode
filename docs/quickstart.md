@@ -11,6 +11,23 @@ python -m pip install -e '.[dev]'
 flycode brains
 ```
 
+## Local browser workspace
+
+```bash
+flycode ui --workspace . --port 8790
+```
+
+Open `http://127.0.0.1:8790`. Choose the offline demo or select a project and
+use the local Qwen + Jev models. The Russian interface shows live model/tool
+activity, action rationales, candidate scores, test output and applied patches.
+History survives reloads and server restarts. Stop is cooperative: the current
+call finishes, then no new action starts. Existing files are edited directly;
+demo repositories are isolated under the run history directory.
+
+The workspace root scopes selectable projects; use their parent directory to
+work across projects. History defaults to `~/.local/share/flycode/ui`; change
+it with `--data-dir`. Only loopback is exposed. No frontend build is required.
+
 ## Run an offline repair
 
 ```bash

@@ -30,3 +30,9 @@ def test_model_request_limits_reject_invalid_values(flag, value):
 def test_default_cli_stays_offline():
     args = _build_parser().parse_args(["run", "--task", "fix"])
     assert args.llm == "heuristic"
+
+
+def test_ui_accepts_workspace_and_port():
+    args = _build_parser().parse_args(["ui", "--workspace", "/tmp/projects", "--port", "8787"])
+    assert args.workspace == "/tmp/projects"
+    assert args.port == 8787

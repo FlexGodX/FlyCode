@@ -42,6 +42,41 @@ flycode brains
 
 In PowerShell, activate the environment with `.venv\Scripts\Activate.ps1`.
 
+## Agent interface
+
+```bash
+flycode ui --workspace . --port 8790
+```
+
+Open **http://127.0.0.1:8790**. The installed Python package is sufficient:
+no Node.js, frontend build or separate server is needed. The interface is in Russian.
+
+- **«Попробовать на демо» (Try a demo)** repairs a real toy bug without models.
+- For your own task, select a project, describe the outcome and press the arrow
+  or `⌘ Enter` / `Ctrl Enter`. Local Qwen + Jev are selected by default.
+- The conversation shows action rationales, model calls, tools and verification
+  results. Expand «Почему это действие» to compare candidates and Jev scores.
+  The Changes tab shows successfully applied edits from this run.
+- The inspector highlights the active stage and displays the controller mode,
+  confidence, risk, steps and actual model requests. On narrow screens, open it
+  using the top-right button.
+- Model settings and the step budget are beside the task input. Stop waits for
+  the current call; it prevents new actions and preserves edits already applied.
+
+`--workspace` scopes project selection to that directory. To work across several
+projects, pass their parent directory. **The agent edits the selected project's
+files directly.** Demos always get separate directories and never recreate a
+selected project. One task runs at a time. The server binds to loopback and is
+not published to the internet.
+
+History and events live in `~/.local/share/flycode/ui`; override this with
+`--data-dir PATH`. Demo files are under `<data-dir>/<run-id>/repository`.
+Reloading restores the event journal; unfinished tasks are marked interrupted
+on server restart. Rationales are concise action explanations, not hidden model
+chain of thought. The diagram represents Functional Fly and component calls,
+not a biological connectome. Large tool outputs are clipped to 16,000 characters
+in the browser journal.
+
 ## First run without an API key
 
 ```bash

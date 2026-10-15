@@ -1,7 +1,60 @@
 # FlyCode handoff brief
 
 Authoritative roadmap: `docs/Plan.md` (§1–99). Operating rules: `AGENTS.md`.
-The baseline MVP covers Phase 4 (§78). The latest extension connects two local LM Studio models under controller scheduling.
+The baseline MVP covers Phase 4 (§78). Local LM Studio model routing and the
+browser workspace extend that MVP without implementing Phase 5.
+
+## Current extension: local browser workspace
+
+Implementation plan: `docs/superpowers/plans/2026-10-15-agent-interface.md`.
+
+- Start `flycode ui --workspace . --port 8790`, then open the loopback URL.
+  FastAPI serves packaged HTML/CSS/JavaScript; no Node runtime/build is needed.
+- Russian task workspace: history/search, task composer, model settings,
+  live activity timeline, candidate rationale/scores, expandable tool results,
+  applied patch view, raw event journal and responsive inspector.
+- Controller/model/tool events are emitted before and after actual work.
+  Diagram highlights represent real component calls; confidence/risk come from
+  NeuralState. Action rationales are not hidden model chain of thought.
+- One background worker executes the existing agent. The web event loop stays
+  responsive during blocking model/tool requests. Stop prevents new actions;
+  an in-flight call is allowed to finish, including skipping Jev after a stop
+  during Qwen inference. Already applied edits are preserved.
+- Project paths are scoped to `--workspace`; fixtures always use fresh per-run
+  directories. Foreign origins/hosts and mutations without a session token
+  are rejected. Dynamic output uses text nodes and a strict local CSP.
+- Persistent records/events default to `~/.local/share/flycode/ui`; override
+  with `--data-dir`. SSE supports cursor replay and reconnect. On restart,
+  unfinished records become interrupted. The 50 most recently saved records
+  are loaded; on-disk history is retained. Browser output strings are clipped
+  at 16,000 characters; regular execution telemetry is retained separately.
+- `src/flycode/web/{app,runs}.py` owns the web service; `static/` owns the UI.
+  Optional callbacks in `agent.py` and `llm/lmstudio.py` preserve CLI callers.
+
+Verified on 2026-10-15:
+
+```text
+Browser acceptance: demo repair, patch view, replay on reload, history,
+  literal untrusted task text, no page errors, 390px layout and inspector.
+Actual browser task with local Qwen/Jev: verified success, 9 steps, 113.00s;
+  Qwen=6 and Jev=6 requests, no model errors.
+Full pytest: 226 passed, 1 skipped in 66.58s.
+  (The opt-in LM Studio test is skipped; the actual browser model run above passed.)
+Targeted Ruff and web module mypy: passed.
+Built wheel includes the server and all four static assets.
+```
+
+Browser acceptance is development-only: install Playwright outside the project
+(or in your development environment) and ensure Google Chrome is available.
+Start an isolated UI with `--data-dir /tmp/flycode-ui-test`, then run:
+
+```bash
+FLYCODE_PLAYWRIGHT=/path/to/node_modules/playwright \
+  node tests/browser/agent-ui.cjs
+```
+
+It defaults to `http://127.0.0.1:8790`; override with `FLYCODE_UI_URL`.
+Screenshots default to `/tmp/flycode-ui-screenshots`.
 
 ## Current extension: local Qwen + Jev
 

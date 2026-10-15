@@ -10,18 +10,26 @@ together, so any registered backend/cortex combination can be dropped in.
 
 import math
 import time
-from pathlib import Path
+from collections.abc import Callable
 
 from pydantic import BaseModel, Field
 
 from .brain.protocol import BrainBackend, make_stimulus
-from .domain import DEFAULT_CANDIDATE_COUNT, VALID_TOOLS, BehaviorMode, CandidateAction, TaskSpec, ToolAction
+from .cognition.recovery import RecoveryState
+from .domain import (
+    DEFAULT_CANDIDATE_COUNT,
+    VALID_TOOLS,
+    BehaviorMode,
+    CandidateAction,
+    TaskSpec,
+    ToolAction,
+)
 from .environment import SoftwareEnvironment
 from .llm.protocol import CortexContext, LLMCortex
 from .memory import Episode, EpisodicMemory, WorkingMemory, consolidate
 from .policy import BehaviorArbiter, ControlMode, run_tournament
 from .telemetry import RunMetrics, TelemetryLogger, TrainingStep
-from .cognition.recovery import RecoveryState
+from .telemetry.events import EventSink, emit
 
 MAX_WORKING_MEMORY_CHARS = 4000
 
@@ -45,9 +53,13 @@ async def run_agent(
     telemetry: TelemetryLogger | None = None,
     run_id: str = "run",
     recovery: bool = True,  # Enable recovery reflex
+    on_event: EventSink | None = None,
+    should_stop: Callable[[], bool] | None = None,
 ) -> RunResult:
     """Drive one task to completion (or until the step/tool-call budget runs out)."""
+    emit(on_event, "status", phase="preparing")
     obs = await env.reset(task)
+    emit(on_event, "observation", observation=obs.model_dump())
     brain.reset()
     if hasattr(cortex, "reset"):
         cortex.reset()
@@ -78,6 +90,8 @@ async def run_agent(
     latency_steps = 0
 
     for _ in range(task.max_steps):
+        if should_stop is not None and should_stop():
+            break
         if obs.tool_calls_used >= task.max_tool_calls:
             break
 
@@ -101,6 +115,9 @@ async def run_agent(
         if mode is BehaviorMode.RECOVER:
             recovery_events += 1
 
+        emit(on_event, "controller", step=obs.step_number + 1, mode=mode.value,
+             state=neural_state.model_dump())
+
         context = CortexContext(
             task=task.task,
             behavior_mode=mode.value,
@@ -113,8 +130,11 @@ async def run_agent(
             neural_state=neural_state,
             control_mode=control_mode.value,
         )
+        emit(on_event, "planning", mode=mode.value)
         candidates = cortex.generate_candidates(context)
         llm_calls += 1
+        if should_stop is not None and should_stop():
+            break
         routing = cortex.last_routing.model_dump() if hasattr(cortex, "last_routing") else None
         if routing is not None:
             transcript.append(f"[models] route={routing['route']} reason={routing['reason']} error={routing['error']}")
@@ -125,6 +145,7 @@ async def run_agent(
             candidates = [CandidateAction(id="auto-stop", tool="stop", rationale="controller reached STOP")]
         if not candidates:
             transcript.append(f"[{mode.value}] no candidates proposed; stopping")
+            emit(on_event, "diagnostic", message="No valid actions proposed", routing=routing)
             break
 
         fly_bias = _fly_bias_for(brain, candidates, mode.value, neural_state.action_bias)
@@ -134,11 +155,13 @@ async def run_agent(
 
         if result.winner is None:
             transcript.append(f"[{mode.value}] all candidates blocked by safety; stopping")
+            emit(on_event, "diagnostic", message="All actions blocked by safety")
             break
 
         winner = result.winner
         if winner.tool == "stop" and not obs.is_healthy:
             transcript.append(f"[{mode.value}] stop rejected: completion requires verification")
+            emit(on_event, "diagnostic", message="Completion rejected: checks have not passed")
             break
         action = ToolAction(
             id=winner.id,
@@ -149,14 +172,22 @@ async def run_agent(
             expected_cost=winner.expected_cost,
             source=winner.source,
         )
+        emit(on_event, "selection", chosen_action=action.model_dump(),
+             candidates=[c.model_dump() for c in candidates], scores=result.scores,
+             blocked=result.blocked, routing=routing)
 
         if hasattr(brain, "habituation"):
             streak_before = brain.habituation.repetition_streak(action, mode.value)
             if streak_before > 0:
                 repeated_actions += 1
 
+        if should_stop is not None and should_stop():
+            break
+        emit(on_event, "tool_start", action=action.model_dump(), step=obs.step_number + 1)
         transition = await env.step(action)
         obs = transition.current
+        emit(on_event, "tool_end", action=action.model_dump(), observation=obs.model_dump(),
+             outcome=transition.model_dump(exclude={"previous", "current"}))
         seen_signatures.add(obs.token_signature())
         changed_lines += _changed_lines(action, transition)
 

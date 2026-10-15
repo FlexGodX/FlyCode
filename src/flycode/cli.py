@@ -70,6 +70,11 @@ def _build_parser() -> argparse.ArgumentParser:
     brains = sub.add_parser("brains", help="List available brain backends")
     brains.set_defaults(_list_brains=True)
 
+    ui = sub.add_parser("ui", help="Open the local browser workspace")
+    ui.add_argument("--workspace", default=str(Path.cwd()), help="Directory containing allowed projects")
+    ui.add_argument("--port", type=_positive_int, default=8790)
+    ui.add_argument("--data-dir", default=None, help="Directory for local run history")
+
     return parser
 
 
@@ -141,6 +146,18 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "run":
         return asyncio.run(_run(args))
+
+    if args.command == "ui":
+        import uvicorn
+
+        from .web.app import create_app
+
+        if args.port > 65535:
+            parser.error("port must be between 1 and 65535")
+        print(f"FlyCode: http://127.0.0.1:{args.port}")
+        uvicorn.run(create_app(Path(args.workspace), Path(args.data_dir) if args.data_dir else None),
+                    host="127.0.0.1", port=args.port)
+        return 0
 
     parser.print_help()
     return 1

@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>FlyCode — рабочее пространство агента</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="/static/app.js" defer></script>
+  </head>
+  <body>
+    <svg
+      class="icon-library"
+      aria-hidden="true"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <symbol id="i-fly" viewBox="0 0 24 24">
+        <path
+          d="M12 6v12m-3-9L4 5C1 3 1 10 5 12l4 1m6-4 5-4c3-2 3 5-1 7l-4 1M9 16l-3 4m9-4 3 4M9 3l3 3 3-3"
+        />
+        <ellipse cx="12" cy="12" rx="3" ry="6" />
+      </symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14" />
+      </symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24">
+        <path d="M12 19V5m-6 6 6-6 6 6" />
+      </symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24">
+        <path d="M3 6a1 1 0 0 1 1-1h6l2 3h8a1 1 0 0 1 1 1v10H3Z" />
+      </symbol>
+      <symbol id="i-chat" viewBox="0 0 24 24">
+        <path
+          d="M20 15a3 3 0 0 1-3 3H8l-5 3V6a3 3 0 0 1 3-3h11a3 3 0 0 1 3 3Z"
+        />
+      </symbol>
+      <symbol id="i-code" viewBox="0 0 24 24">
+        <path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24">
+        <path d="m5 12 4 4L19 6" />
+      </symbol>
+      <symbol id="i-pulse" viewBox="0 0 24 24">
+        <path d="M2 12h5l3-8 4 16 3-8h5" />
+      </symbol>
+      <symbol id="i-terminal" viewBox="0 0 24 24">
+        <path d="m4 6 6 6-6 6m9 0h7" />
+      </symbol>
+      <symbol id="i-file" viewBox="0 0 24 24">
+        <path d="M14 3H5v18h14V8Zm0 0v5h5M8 12h8m-8 4h6" />
+      </symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24">
+        <path d="M4 7h16M4 17h16" />
+        <circle cx="8" cy="7" r="3" />
+        <circle cx="16" cy="17" r="3" />
+      </symbol>
+      <symbol id="i-search" viewBox="0 0 24 24">
+        <circle cx="10" cy="10" r="6" />
+        <path d="m15 15 6 6" />
+      </symbol>
+      <symbol id="i-panel" viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="16" rx="3" />
+        <path d="M15 4v16" />
+      </symbol>
+      <symbol id="i-menu" viewBox="0 0 24 24">
+        <path d="M4 6h16M4 12h16M4 18h16" />
+      </symbol>
+      <symbol id="i-close" viewBox="0 0 24 24">
+        <path d="m6 6 12 12M6 18 18 6" />
+      </symbol>
+      <symbol id="i-branch" viewBox="0 0 24 24">
+        <circle cx="6" cy="5" r="2" />
+        <circle cx="6" cy="19" r="2" />
+        <circle cx="18" cy="6" r="2" />
+        <path d="M6 7v10m0-4h4a8 8 0 0 0 8-5" />
+      </symbol>
+      <symbol id="i-bolt" viewBox="0 0 24 24">
+        <path d="m14 2-10 12h7l-1 8 10-12h-7Z" />
+      </symbol>
+    </svg>
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar" aria-label="Задачи">
+        <a class="brand" href="/" aria-label="FlyCode — главная"
+          ><span class="brand-mark"
+            ><svg><use href="#i-fly" /></svg></span
+          >FlyCode<span class="version">LOCAL</span></a
+        >
+        <button
+          class="new-task"
+          id="newTask"
+          aria-label="Новая задача"
+          aria-keyshortcuts="Meta+K Control+K"
+        >
+          <svg><use href="#i-plus" /></svg>Новая задача<kbd>⌘ K</kbd>
+        </button>
+        <label class="search"
+          ><svg><use href="#i-search" /></svg
+          ><input
+            id="search"
+            placeholder="Найти задачу"
+            aria-label="Найти задачу"
+        /></label>
+        <div class="sidebar-heading">
+          НЕДАВНИЕ ЗАДАЧИ<span id="historyCount">0</span>
+        </div>
+        <nav class="history" id="history" aria-label="История задач"></nav>
+        <div class="sidebar-bottom">
+          <div class="local-note">
+            <span class="local-dot"></span>Всё на вашем компьютере
+          </div>
+          <button class="connection" id="connectionButton">
+            <span class="model-icon"
+              ><svg><use href="#i-pulse" /></svg></span
+            ><span
+              ><strong>LM Studio</strong
+              ><small id="connectionLabel">Проверяем подключение…</small></span
+            ><svg class="settings-icon"><use href="#i-settings" /></svg>
+          </button>
+        </div>
+      </aside>
+      <main class="workspace">
+        <header class="topbar">
+          <button
+            class="icon-button mobile-menu"
+            id="menuToggle"
+            aria-label="История задач"
+            aria-expanded="false"
+          >
+            <svg><use href="#i-menu" /></svg>
+          </button>
+          <div class="breadcrumb">
+            <svg><use href="#i-folder" /></svg
+            ><span id="projectTitle">Рабочее пространство</span
+            ><span class="slash">/</span
+            ><strong id="taskTitle">Новая задача</strong>
+          </div>
+          <span class="status-pill" id="runStatus"
+            ><span class="status-dot"></span>Готов к работе</span
+          >
+          <button
+            class="icon-button"
+            id="inspectorToggle"
+            aria-label="Состояние агента"
+            aria-expanded="true"
+            title="Показать состояние агента"
+          >
+            <svg><use href="#i-panel" /></svg>
+          </button>
+        </header>
+        <div class="tabbar" role="tablist" aria-label="Просмотр задачи">
+          <button
+            class="tab active"
+            role="tab"
+            aria-selected="true"
+            aria-controls="conversation"
+            id="tab-conversation"
+            data-tab="conversation"
+          >
+            <svg><use href="#i-chat" /></svg>Диалог
+          </button>
+          <button
+            class="tab"
+            role="tab"
+            aria-selected="false"
+            aria-controls="changes"
+            id="tab-changes"
+            data-tab="changes"
+          >
+            <svg><use href="#i-code" /></svg>Изменения
+            <span id="changeCount">0</span>
+          </button>
+          <button
+            class="tab"
+            role="tab"
+            aria-selected="false"
+            aria-controls="logs"
+            id="tab-logs"
+            data-tab="logs"
+          >
+            <svg><use href="#i-terminal" /></svg>Журнал
+          </button>
+          <span class="tabbar-note" id="eventConnection">Локальная сессия</span>
+        </div>
+        <div class="content" id="content">
+          <section
+            id="conversation"
+            role="tabpanel"
+            aria-labelledby="tab-conversation"
+          >
+            <div class="empty-state" id="welcome">
+              <div class="hero-symbol">
+                <svg><use href="#i-fly" /></svg
+                ><span class="orbit orbit-one"></span
+                ><span class="orbit orbit-two"></span>
+              </div>
+              <div class="eyebrow">ВАШ АВТОНОМНЫЙ АГЕНТ</div>
+              <h1>Что будем создавать?</h1>
+              <p class="hero-description">
+                От первой идеи до проверенного кода.<br />Вы ставите задачу —
+                FlyCode исследует, решает и проверяет.
+              </p>
+              <div class="suggestions">
+                <button id="demoSuggestion" class="suggestion">
+                  <span class="suggestion-icon"
+                    ><svg><use href="#i-bolt" /></svg></span
+                  ><strong>Попробовать на демо</strong
+                  ><span>Исправить ошибку и увидеть весь процесс</span
+                  ><span class="suggestion-arrow">↗</span>
+                </button>
+                <button id="projectSuggestion" class="suggestion">
+                  <span class="suggestion-icon"
+                    ><svg><use href="#i-folder" /></svg></span
+                  ><strong>Задача в моём проекте</strong
+                  ><span>Выбрать репозиторий и начать работу</span
+                  ><span class="suggestion-arrow">↗</span>
+                </button>
+              </div>
+              <div class="welcome-note">
+                <span></span>Локальные модели. Прозрачные действия. Ваш
+                контроль.
+              </div>
+            </div>
+            <div class="timeline" id="timeline"></div>
+          </section>
+          <section
+            id="changes"
+            role="tabpanel"
+            aria-labelledby="tab-changes"
+            hidden
+          ></section>
+          <section
+            id="logs"
+            role="tabpanel"
+            aria-labelledby="tab-logs"
+            hidden
+          ></section>
+        </div>
+        <div class="composer-wrap">
+          <div class="live-status" id="liveStatus" hidden>
+            <span class="working-dot"></span
+            ><span id="liveText">Агент работает</span
+            ><span id="elapsed">0:00</span>
+          </div>
+          <form id="taskForm" class="composer">
+            <textarea
+              id="taskInput"
+              aria-label="Опишите задачу"
+              placeholder="Опишите задачу — остальное возьмёт на себя агент…"
+              rows="2"
+              maxlength="10000"
+              required
+            ></textarea>
+            <div class="composer-toolbar">
+              <label class="project-picker"
+                ><svg><use href="#i-folder" /></svg
+                ><select id="projectSelect" aria-label="Проект"></select
+              ></label>
+              <button type="button" class="engine-picker" id="settingsButton">
+                <span class="local-dot"></span
+                ><span id="engineLabel">Qwen + Jev</span
+                ><svg><use href="#i-settings" /></svg>
+              </button>
+              <span class="composer-spacer"></span>
+              <button type="button" class="stop-button" id="stopButton" hidden>
+                <span></span>Остановить
+              </button>
+              <button
+                type="submit"
+                class="send-button"
+                id="sendButton"
+                aria-label="Запустить задачу"
+                title="Запустить · ⌘ Enter"
+              >
+                <svg><use href="#i-arrow" /></svg>
+              </button>
+            </div>
+          </form>
+          <div class="composer-hint" id="composerHint">
+            Демо запускается в отдельной папке. <span>⌘ Enter — отправить</span>
+          </div>
+          <p class="inline-error" id="formError" role="alert" hidden></p>
+        </div>
+      </main>
+      <aside class="inspector" id="inspector" aria-label="Панель состояния">
+        <header class="inspector-header">
+          <strong>Состояние агента</strong
+          ><span class="inspector-caption">LIVE</span
+          ><button
+            class="icon-button inspector-close"
+            id="inspectorClose"
+            aria-label="Закрыть панель"
+          >
+            <svg><use href="#i-close" /></svg>
+          </button>
+        </header>
+        <div class="inspector-content">
+          <section class="inspector-section">
+            <div class="section-title">
+              КАК ПРИНИМАЕТСЯ РЕШЕНИЕ<span class="tiny-dot"></span>
+            </div>
+            <div class="circuit" id="circuit">
+              <div class="circuit-node controller-node" data-node="controller">
+                <span class="node-icon"
+                  ><svg><use href="#i-fly" /></svg
+                ></span>
+                <div>
+                  <strong>Functional Fly</strong
+                  ><small>Направляет работу</small>
+                </div>
+                <span class="node-state">Готов</span>
+              </div>
+              <div class="circuit-fork"><span></span><span></span></div>
+              <div class="model-nodes">
+                <div class="circuit-node" data-node="reasoner">
+                  <span class="node-letter">Q</span
+                  ><strong>Qwen 3.5 <em>9B</em></strong
+                  ><small>Предлагает действия</small
+                  ><span class="node-state">Ожидание</span>
+                </div>
+                <div class="circuit-node" data-node="decider">
+                  <span class="node-letter">J</span
+                  ><strong>Jev <em>2B</em></strong
+                  ><small>Оценивает варианты</small
+                  ><span class="node-state">Ожидание</span>
+                </div>
+              </div>
+              <div class="circuit-fork reverse"><span></span><span></span></div>
+              <div class="safety-gate">
+                <svg><use href="#i-check" /></svg>Проверка безопасности и выбор
+              </div>
+              <div class="circuit-line"></div>
+              <div class="circuit-node tools-node" data-node="tools">
+                <span class="node-icon"
+                  ><svg><use href="#i-terminal" /></svg
+                ></span>
+                <div>
+                  <strong>Инструменты</strong
+                  ><small>Файлы · тесты · окружение</small>
+                </div>
+                <span class="node-state">Готов</span>
+              </div>
+            </div>
+            <p class="circuit-note" id="circuitNote">
+              Контроллер решает, когда нужны модели. Активный этап будет
+              подсвечен.
+            </p>
+          </section>
+          <section class="inspector-section">
+            <div class="section-title">ТЕКУЩИЙ РЕЖИМ</div>
+            <div class="mode-value">
+              <span id="modeName">Ожидание задачи</span
+              ><svg><use href="#i-pulse" /></svg>
+            </div>
+            <p class="mode-description" id="modeDescription">
+              Агент начнёт с исследования проекта.
+            </p>
+            <div class="signal-row">
+              <span>Уверенность контроллера</span
+              ><strong id="confidenceValue">—</strong>
+            </div>
+            <progress
+              id="confidence"
+              max="1"
+              value="0"
+              aria-label="Уверенность контроллера"
+            ></progress>
+            <div class="signal-row">
+              <span>Оценка риска</span><strong id="riskValue">—</strong>
+            </div>
+            <progress
+              id="risk"
+              class="risk"
+              max="1"
+              value="0"
+              aria-label="Оценка риска"
+            ></progress>
+            <div
+              id="signalChart"
+              class="signal-chart"
+              aria-label="История уверенности контроллера"
+            ></div>
+          </section>
+          <section class="inspector-section">
+            <div class="section-title">ЭТОТ ЗАПУСК</div>
+            <div class="run-stats">
+              <div>
+                <strong id="stepsValue">0 <small>/ 25</small></strong
+                ><span>Шаги</span>
+              </div>
+              <div>
+                <strong id="callsValue">0</strong><span>Вызовы моделей</span>
+              </div>
+              <div>
+                <strong id="filesValue">0</strong><span>Изменено файлов</span>
+              </div>
+              <div>
+                <strong id="testsValue">—</strong><span>Тесты пройдены</span>
+              </div>
+            </div>
+          </section>
+          <div class="inspector-footnote">
+            <svg><use href="#i-fly" /></svg>
+            <p>
+              Functional Fly — функциональная модель контроллера. Схема
+              показывает реальный ход вызовов, а не биологический коннектом.
+            </p>
+          </div>
+        </div>
+      </aside>
+    </div>
+    <dialog id="settingsDialog" aria-labelledby="settingsTitle">
+      <form method="dialog" class="dialog-heading">
+        <div>
+          <div class="eyebrow">ЛОКАЛЬНОЕ ОКРУЖЕНИЕ</div>
+          <h2 id="settingsTitle">Модели и выполнение</h2>
+        </div>
+        <button class="icon-button" aria-label="Закрыть настройки">
+          <svg><use href="#i-close" /></svg>
+        </button>
+      </form>
+      <label class="field-label"
+        >Режим выполнения<select id="llmSelect">
+          <option value="lmstudio">Локальные модели · LM Studio</option>
+          <option value="heuristic">Демонстрация · без моделей</option>
+        </select></label
+      >
+      <p class="field-help">
+        Демонстрация исправляет учебную ошибку в отдельной папке. Для своего
+        проекта выберите LM Studio.
+      </p>
+      <div id="modelSettings">
+        <label class="field-label"
+          >Модель для решений и кода<input
+            id="reasonerModel"
+            list="availableModels"
+            value="qwen/qwen3.5-9b" /></label
+        ><label class="field-label"
+          >Модель оценки вариантов<input
+            id="deciderModel"
+            list="availableModels"
+            value="jev-style-qwen3.5-2b-decision" /></label
+        ><datalist id="availableModels"></datalist>
+        <p class="model-health" id="modelHealth">Проверяем модели…</p>
+        <button class="text-button" id="refreshModels">
+          Проверить подключение
+        </button>
+      </div>
+      <label class="field-label"
+        >Максимум шагов<input
+          id="maxSteps"
+          type="number"
+          min="1"
+          max="100"
+          value="25"
+      /></label>
+      <p class="field-help">
+        Остановка дождётся текущего вызова модели или инструмента. Новые
+        действия после неё не запускаются.
+      </p>
+      <div class="dialog-footer">
+        <span>Настройки применяются к следующей задаче</span
+        ><button id="saveSettings" class="primary-button">Готово</button>
+      </div>
+    </dialog>
+    <div class="toast" id="toast" role="status" hidden></div>
+  </body>
+</html>

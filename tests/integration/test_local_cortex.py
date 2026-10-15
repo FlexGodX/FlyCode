@@ -174,3 +174,29 @@ def test_candidate_count_is_bounded_before_decision_scoring(model_server):
     assert len(candidates) == 4
     request = next(request for request in model_server.requests if request["model"] == "decider")
     assert "E. " not in request["messages"][0]["content"]
+
+
+def test_model_events_bracket_actual_requests(model_server):
+    respond_with_candidates(model_server, ACTIONS)
+    events = []
+    cortex = local_cortex(model_server, on_event=lambda kind, data: events.append(
+        (kind, data, len(model_server.requests))))
+    cortex.generate_candidates(context())
+    assert [(kind, data["role"], count) for kind, data, count in events] == [
+        ("model_start", "reasoner", 0), ("model_end", "reasoner", 1),
+        ("model_start", "decider", 1), ("model_end", "decider", 2),
+    ]
+
+
+def test_stop_after_reasoner_prevents_decider_request(model_server):
+    respond_with_candidates(model_server, ACTIONS)
+    stopped = False
+
+    def receive(kind, data):
+        nonlocal stopped
+        if kind == "model_end" and data["role"] == "reasoner":
+            stopped = True
+
+    cortex = local_cortex(model_server, on_event=receive, should_stop=lambda: stopped)
+    assert len(cortex.generate_candidates(context())) == 2
+    assert cortex.model_calls == {"reasoner": 1, "decider": 0}
