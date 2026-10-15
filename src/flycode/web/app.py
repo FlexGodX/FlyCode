@@ -18,8 +18,9 @@ from .runs import ACTIVE, RunManager, RunRequest
 STATIC = Path(__file__).with_name("static")
 
 
-def create_app(workspace: Path | None = None, data_dir: Path | None = None) -> FastAPI:
-    manager = RunManager(workspace or Path.cwd(), data_dir or Path.home() / ".local/share/flycode/ui")
+def create_app(workspace: Path | None = None, data_dir: Path | None = None,
+               artifact_root: Path | None = None) -> FastAPI:
+    manager = RunManager(workspace or Path.cwd(), data_dir or Path.home() / ".local/share/flycode/ui", artifact_root)
     token = secrets.token_urlsafe(32)
 
     @asynccontextmanager
@@ -62,7 +63,9 @@ def create_app(workspace: Path | None = None, data_dir: Path | None = None) -> F
                 continue
             if (path / ".git").exists() or (path / "pyproject.toml").exists() or (path / "package.json").exists():
                 projects.append({"id": f"./{path.name}", "name": path.name, "description": str(path)})
-        return {"token": token, "workspace": str(manager.workspace), "projects": projects}
+        with manager.lock:
+            catalogue = manager.catalogue.refresh()
+        return {"token": token, "workspace": str(manager.workspace), "projects": projects, **catalogue}
 
     @app.get("/api/models")
     def models() -> dict:

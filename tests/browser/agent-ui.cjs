@@ -63,6 +63,13 @@ const fs = require("node:fs");
     ),
     false,
   );
+  await page.locator('#settingsButton').click();
+  await page.getByText('Наблюдение, память и допуск', {exact: true}).click();
+  assert.ok(await page.locator('#observerSelect').isVisible());
+  await page.locator('#learningEnabled').check();
+  await page.locator('#memoryProfile').fill('browser-check');
+  await page.screenshot({path: path.join(out, 'mobile-controller-settings.png'), fullPage: true});
+  await page.locator('#saveSettings').click();
   await page
     .getByRole("button", { name: "Состояние агента", exact: true })
     .click();

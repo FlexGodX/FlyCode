@@ -5,10 +5,70 @@ The baseline MVP covers Phase 4 (§78). Phase 5 (§79) now runs the same tasks
 with a verified, sparse biological graph. Hermes in the roadmap means FlyCode
 itself: connected agents are hosted here and orchestrated by the controller.
 
-## Latest increment: broader evaluation and scoped admission (2026-10-15)
+## Latest increment: guarded rollout and browser configuration (2026-10-16)
+
+Plan: `docs/superpowers/plans/2026-10-15-validated-rollout.md`.
+Software Tasks 1–6 are implemented and verified. Publication is tracked in the
+implementation plan; research acceptance gaps remain open.
+
+- Phase 13: candidate-level corrections at 0/.1/.25/.5/1, bounded by
+  `.2 * influence`, only inside an allowlist of safe diagnostics. Never promote
+  edits, SQL, tests or STOP. Invalid scores, duplicate IDs and observer errors
+  preserve the active choice. Failed actual interventions/regressions latch
+  influence off for the rest of the episode. Tool effects are not undone.
+- Phase 14: `--autonomous` requires matching evidence and uses guarded hard
+  ranking; regression or failure of a hard choice different from bias switches
+  subsequent cortex contexts and selection to bias. Legacy research hard mode
+  remains available separately. Safety/budgets/verified completion remain.
+- Admission is recomputed from complete paired raw trajectories. Guard telemetry
+  must exist on every autonomous step; relabeling raw hard runs is insufficient.
+  Nonzero-level promotion requires actual interventions. Local-model admission
+  binds exact instruction text as well as controller/graph/checkpoint/model/
+  seed/fixture/budgets. No arbitrary-repository admission is currently available.
+- Browser: local prepared full/reduced, trained and distilled controllers;
+  observer, discrete influence, admission, seed/budgets and Functional learning
+  profiles. Artifact IDs resolve on the server under `FLYCODE_ARTIFACT_ROOT`
+  (default `~/.cache/flycode`); escaping symlinks and memory traversal reject
+  before workers start. Load active memory before wrapping, save atomically,
+  freeze observers and close owned controllers. Old history uses safe defaults.
+- Activity explains active/proposed/executed choices, influence, learning and
+  fallbacks; raw details are collapsed. Connection status no longer dumps every
+  installed model ID into the mobile dialog. Verified at 1280px and 390px with
+  no page/dialog horizontal overflow. Real browser demos completed: zero-
+  influence full observer + learning in 9 steps, guarded full autonomy in 5.
+
+Measured results: `docs/research-results/2026-10-16-rollout.json`.
+36/36 influence-level toy runs completed; zero interventions, so promotion above
+.1 rejected. Final separate comparison: baseline 12/12 and observed 12/12 at
+9 steps; guarded full 6/6 at 5 steps, no regressions/rollbacks. This is two
+teacher toys × three seeds with heuristic candidates, not a general advantage.
+Current evidence/admissions: `~/.cache/flycode/experiments/2026-10-16-final-rollout/`.
+Admission becomes stale whenever fingerprinted runtime code changes.
+
+The stronger helper revision-2 model study is finished: Functional 0/2, full
+1/2 (boundary fix, 8 steps); neither solved observable helper delegation within
+24 model calls. Source changed during that exploratory run, so preserve its
+outcomes but never use it for admission or a stable-source causal comparison.
+The original numeric-only helper study remains labelled separately.
+
+Final verification of this increment: 359 passed, 8 skipped (161.92s); separate
+real-connectome suite 5 passed (7.38s); current browser API suite 23 passed
+(38.69s). Focused Ruff passed and mypy passed on 19 changed/runtime modules.
+The wheel was built in an isolated build environment, its new modules/static
+assets inspected and its extracted CLI executed. UI restarted idle on 8790;
+existing history remained readable and a new guarded demo completed in 5 steps
+with an explicit admission event. CLI telemetry also saves `run.admission.json`.
+Browser acceptance was performed through the app browser; the development
+Playwright script was updated but not executed in this session.
+
+Still open empirically: independent connectomes; matched compute/state/training
+budgets; faster adaptation; broad unseen repositories; paired Qwen/Jev rollout
+admission; useful actual diagnostic interventions and evidence for later levels.
+
+## Earlier increment: broader evaluation and scoped admission (2026-10-15)
 
 Active goal: implement `docs/superpowers/plans/2026-10-15-validated-rollout.md`.
-Tasks 1–3 have software implementations; Tasks 4–7 still require execution.
+At that earlier revision Tasks 1–3 had software implementations; later delivery is documented above.
 The overall goal remains active. No general research advantage is claimed.
 
 - Two additional synthetic fixtures: `search_helper_bug` and
@@ -57,7 +117,7 @@ Repeated-family runner: 36/36 repairs, both conditions 9 steps; learning
 Initial local-model pilot: Functional search passed numeric tests in 8 steps
   but did not reuse the helper; boundary failed at 24 model requests. Full
   search failed at 24 requests; boundary passed in 11 steps. Seed 0 only.
-  Stronger helper contract revision 2 is being measured separately.
+  Stronger helper contract revision 2 was measured separately; see latest limitations above.
 Actual full-graph observer pilot: 36 paired/mode runs, 108 recommendations,
   100% coverage, 0 observer errors, agreement 70.37%, mean observer 10.21 ms.
   Narrow bounded and hard-mode admission checks passed on the two teacher toys;

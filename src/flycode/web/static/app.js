@@ -55,7 +55,8 @@ let bootstrap,
   selected = null,
   source = null,
   seen = new Set(),
-  stepCards = new Map();
+  stepCards = new Map(),
+  candidateLabels = new Map();
 let latestObservation = null,
   currentMode = "",
   modelRows = {},
@@ -250,8 +251,10 @@ function renderHistory() {
 }
 function controls() {
   const running = activeRun();
-  const full = (selected?.request.brain || $("#brainSelect").value) === "full";
-  $("#controllerName").textContent = full ? "FlyWire 783" : "Functional Fly";
+  const choice = bootstrap?.controllers?.find((item) => item.id ===
+    (selected?.request.controller_id || selected?.request.brain || $("#brainSelect").value));
+  const full = ["full", "reduced"].includes(choice?.brain || selected?.request.brain);
+  $("#controllerName").textContent = choice?.label.split(" · ")[0] || (full ? "FlyWire" : "Functional Fly");
   $("#controllerNote").textContent = full
     ? "Реальный граф FlyWire с приближённой динамикой. Входы и выходы заданы программно; это исследовательский режим."
     : "Functional Fly — функциональная модель контроллера. Схема показывает ход вызовов, а не биологический коннектом.";
@@ -355,6 +358,9 @@ function renderChanges() {
   }
 }
 function addSelection(data) {
+  for (const candidate of data.candidates || [])
+    candidateLabels.set(candidate.id, (toolNames[candidate.tool] || candidate.tool)
+      + (candidate.arguments?.path ? " · " + candidate.arguments.path : ""));
   for (const previous of $$(".auto-open")) {
     previous.open = false;
     previous.classList.remove("auto-open");
@@ -673,6 +679,47 @@ function handleEvent(event) {
         el("div", "diagnostic", data.routing?.error || data.message),
       );
       break;
+    case "shadow":
+    case "rollout":
+    case "rollout_rollback":
+    case "autonomy":
+    case "autonomy_rollback":
+    case "learning":
+    case "memory_saved": {
+      const titles = {
+        shadow: "Наблюдатель сравнил решения",
+        rollout: data.intervened ? "Наблюдатель изменил диагностическое действие" : "Выбор управляющего контроллера сохранён",
+        rollout_rollback: "Влияние отключено до конца задачи",
+        autonomy: "Автономный выбор с проверкой безопасности",
+        autonomy_rollback: "Возврат к оценке вариантов до конца задачи",
+        learning: "Обновление памяти по результату действия",
+        memory_saved: "Профиль памяти сохранён: " + data.profile,
+      };
+      const body = el("div", "controller-activity");
+      if (event.kind === "shadow") {
+        body.append(el("p", "", data.error
+          ? "Наблюдатель недоступен. Агент продолжает работу."
+          : `Управляющий: ${candidateLabels.get(data.active_choice) || "—"}. Наблюдатель: ${candidateLabels.get(data.shadow_choice) || "—"}. Выполнено: ${candidateLabels.get(data.executed_choice || data.active_choice) || "—"}.`));
+        body.append(el("p", "", `Влияние: ${Math.round(data.influence * 100)}%. ${data.agreement ? "Рекомендации совпали." : "Рекомендации различаются."}`));
+      } else if (event.kind === "learning") {
+        body.append(el("p", "", "Контроллер учитывает результат действия. Изменения памяти ограничены и проверяются перед сохранением."));
+      } else if (event.kind.includes("rollback")) {
+        body.append(el("p", "", "Обнаружена ошибка или регрессия. Агент продолжит с резервным выбором. Уже выполненные действия не отменяются автоматически."));
+      } else if (event.kind === "autonomy") {
+        body.append(el("p", "", data.applied_control === "hard_control"
+          ? "Действие выбрано контроллером внутри подтверждённой области задач. Проверка безопасности действует."
+          : "После сбоя используется резервная оценка вариантов."));
+      } else if (event.kind === "rollout") {
+        body.append(el("p", "", `Запрошено влияние ${Math.round(data.requested_influence * 100)}%; применено ${Math.round(data.applied_influence * 100)}%. ${data.intervened ? "Изменено только разрешённое диагностическое действие." : "Вмешательства в выбор нет."}`));
+      }
+      body.append(details("Технические данные", el("pre", "", JSON.stringify(data, null, 2))));
+      $("#timeline").append(details(titles[event.kind], body));
+      break;
+    }
+    case "admission":
+      $("#timeline").append(details("Допуск проверен перед запуском",
+        el("p", "controller-activity", "Контроллер, задача, модели и бюджеты соответствуют измеренной области допуска.")));
+      break;
     case "finished":
       finishRun(data);
       source?.close();
@@ -686,6 +733,7 @@ function openRun(run) {
   selected = run;
   seen = new Set();
   stepCards = new Map();
+  candidateLabels = new Map();
   changes = [];
   modelRows = {};
   $("#timeline").replaceChildren();
@@ -715,10 +763,20 @@ function openRun(run) {
   $("#taskTitle").textContent = run.request.task;
   $("#projectSelect").value = run.request.project;
   $("#llmSelect").value = run.request.llm;
-  $("#brainSelect").value = run.request.brain || "functional";
+  restoreChoice("#brainSelect", run.request.controller_id || run.request.brain || "functional");
+  restoreChoice("#observerSelect", run.request.observer_id || "");
+  restoreChoice("#admissionSelect", run.request.admission_id || "");
+  $("#influenceSelect").value = run.request.influence || 0;
+  $("#executionMode").value = run.request.execution_mode || "standard";
+  $("#learningEnabled").checked = run.request.learning || false;
+  $("#memoryProfile").value = run.request.memory_profile || "default";
+  $("#seedValue").value = run.request.seed || 0;
+  $("#maxToolCalls").value = run.request.max_tool_calls || run.request.max_steps;
+  $("#maxModelCalls").value = run.request.max_model_calls || run.request.max_steps * 2;
   $("#maxSteps").value = run.request.max_steps;
   $("#reasonerModel").value = run.request.model;
   $("#deciderModel").value = run.request.decision_model;
+  rolloutSettings();
   $("#taskInput").value = "";
   startedAt = activeStatuses.has(run.status)
     ? new Date(run.created_at).getTime()
@@ -817,7 +875,7 @@ async function refreshModels() {
     ? `${modelHealth.models.length} моделей доступны`
     : "Нет подключения";
   $("#modelHealth").textContent = modelHealth.connected
-    ? "Сервер доступен. Модели: " + modelHealth.models.join(", ")
+    ? `LM Studio доступен · ${modelHealth.models.length} моделей. Выберите модели в полях выше.`
     : modelHealth.error;
   $("#availableModels").replaceChildren(
     ...modelHealth.models.map((model) => {
@@ -828,8 +886,36 @@ async function refreshModels() {
   );
 }
 function openSettings() {
+  rolloutSettings();
   $("#settingsDialog").showModal();
 }
+function restoreChoice(selector, value) {
+  const select = $(selector);
+  if (value && ![...select.options].some((option) => option.value === value)) {
+    const option = el("option", "", "Недоступный артефакт · обновите выбор");
+    option.value = value;
+    select.append(option);
+  }
+  select.value = value;
+}
+function rolloutSettings() {
+  const autonomous = $("#executionMode").value === "autonomous";
+  const influence = Number($("#influenceSelect").value);
+  const choice = bootstrap?.controllers?.find((item) => item.id === $("#brainSelect").value);
+  $("#learningEnabled").disabled = !choice?.learning || autonomous || !!influence;
+  if ($("#learningEnabled").disabled) $("#learningEnabled").checked = false;
+  $("#memoryProfile").disabled = !$("#learningEnabled").checked;
+  $("#influenceSelect").disabled = autonomous || !$("#observerSelect").value;
+  if ($("#influenceSelect").disabled) $("#influenceSelect").value = "0";
+  const admission = bootstrap?.admissions?.find((item) => item.id === $("#admissionSelect").value);
+  const fixtureNames = {toy_arithmetic_bug: "арифметика", toy_import_bug: "импорт модуля",
+    search_helper_bug: "общая функция", boundary_regression_bug: "граничные условия"};
+  $("#admissionHelp").textContent = admission
+    ? `${admission.label}. Задачи: ${admission.scope.fixtures?.map((name) => fixtureNames[name] || name).join(", ") || "—"}. ${admission.scope.cortex?.cortex === "lmstudio" ? "Локальные модели; инструкция должна совпадать с измеренной." : "Без моделей."} Seed: ${admission.scope.seeds?.join(", ") || "—"}. Шагов: ${admission.scope.max_steps}; действий: ${admission.scope.max_tool_calls}. ${admission.reason || "Сервер повторно проверит область допуска перед запуском."}`
+    : "Для влияния и автономного режима выберите проверенный допуск. Учебный допуск не разрешает работу с произвольным проектом.";
+}
+for (const id of ["brainSelect", "observerSelect", "influenceSelect", "executionMode", "admissionSelect", "learningEnabled"])
+  $("#" + id).addEventListener("change", rolloutSettings);
 async function submitTask(event) {
   event.preventDefault();
   showError("");
@@ -843,7 +929,16 @@ async function submitTask(event) {
     task,
     project: $("#projectSelect").value,
     llm: $("#llmSelect").value,
-    brain: $("#brainSelect").value,
+    controller_id: $("#brainSelect").value,
+    observer_id: $("#observerSelect").value || null,
+    influence: Number($("#influenceSelect").value),
+    execution_mode: $("#executionMode").value,
+    admission_id: $("#admissionSelect").value || null,
+    learning: $("#learningEnabled").checked,
+    memory_profile: $("#memoryProfile").value,
+    seed: Number($("#seedValue").value),
+    max_tool_calls: Number($("#maxToolCalls").value),
+    max_model_calls: Number($("#maxModelCalls").value),
     max_steps: Number($("#maxSteps").value),
     model: $("#reasonerModel").value.trim(),
     decision_model: $("#deciderModel").value.trim(),
@@ -978,6 +1073,21 @@ setInterval(() => {
 (async () => {
   try {
     bootstrap = await api("/api/bootstrap");
+    for (const selector of ["#brainSelect", "#observerSelect"]) {
+      const empty = selector === "#observerSelect" ? [el("option", "", "Без наблюдателя")] : [];
+      if (empty.length) empty[0].value = "";
+      $(selector).replaceChildren(...empty, ...bootstrap.controllers.map((choice) => {
+        const option = el("option", "", choice.label);
+        option.value = choice.id;
+        return option;
+      }));
+    }
+    for (const admission of bootstrap.admissions) {
+      const option = el("option", "", admission.label + (admission.available ? "" : " · нужна проверка"));
+      option.value = admission.id;
+      option.disabled = !admission.available;
+      $("#admissionSelect").append(option);
+    }
     $("#projectSelect").replaceChildren(
       ...bootstrap.projects.map((project) => {
         const option = el("option", "", project.name);

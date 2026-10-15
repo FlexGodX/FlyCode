@@ -1,0 +1,267 @@
+{
+  "date": "2026-10-16",
+  "scope": "Synthetic fixture execution; no general superiority or arbitrary repository admission",
+  "final_comparison": {
+    "experiment_id": "2a3ee216bba14e78aa3caada2a0d5357",
+    "report_sha256": "2a5c7553fb9c1b251c7eaf5155502cad12a6d80af4c0fcc7f4c16f3620db5425",
+    "implementation_sha256": "ac236a0a53b232854625424e39d1b6b0aea42eb62fb405561795e6578f26a91b",
+    "source_unchanged": true,
+    "fixtures": [
+      "toy_arithmetic_bug",
+      "toy_import_bug"
+    ],
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "cortex": "heuristic",
+    "summary": {
+      "baseline": {
+        "cases": 12,
+        "errors": 0,
+        "success_rate": 1.0,
+        "mean_steps": 9.0,
+        "mean_tool_calls": 9.0,
+        "regressions": 0,
+        "unsafe_proposals": 0,
+        "rollout_interventions": 0,
+        "rollout_rollbacks": 0,
+        "shadow_decisions": 0,
+        "autonomy_rollbacks": 0
+      },
+      "observed": {
+        "cases": 12,
+        "errors": 0,
+        "success_rate": 1.0,
+        "mean_steps": 9.0,
+        "mean_tool_calls": 9.0,
+        "regressions": 0,
+        "unsafe_proposals": 0,
+        "rollout_interventions": 0,
+        "rollout_rollbacks": 0,
+        "shadow_decisions": 108,
+        "autonomy_rollbacks": 0
+      },
+      "autonomous_full": {
+        "cases": 6,
+        "errors": 0,
+        "success_rate": 1.0,
+        "mean_steps": 5.0,
+        "mean_tool_calls": 5.0,
+        "regressions": 0,
+        "unsafe_proposals": 0,
+        "rollout_interventions": 0,
+        "rollout_rollbacks": 0,
+        "shadow_decisions": 0,
+        "autonomy_rollbacks": 0
+      }
+    },
+    "admission": {
+      "bounded": {
+        "accepted": true,
+        "reasons": [],
+        "max_influence": 0.1,
+        "mode": "bounded"
+      },
+      "autonomous": {
+        "accepted": true,
+        "reasons": [],
+        "max_influence": 1.0,
+        "mode": "autonomous"
+      }
+    }
+  },
+  "bounded_level_experiment": {
+    "experiment_id": "a45f82a572084d9cafc408f712379eda",
+    "summary": {
+      "baseline": {
+        "cases": 6,
+        "errors": 0,
+        "success_rate": 1.0,
+        "mean_steps": 9.0,
+        "mean_tool_calls": 9.0,
+        "regressions": 0,
+        "unsafe_proposals": 0,
+        "rollout_interventions": 0,
+        "rollout_rollbacks": 0,
+        "shadow_decisions": 0
+      },
+      "shadow": {
+        "cases": 6,
+        "errors": 0,
+        "success_rate": 1.0,
+        "mean_steps": 9.0,
+        "mean_tool_calls": 9.0,
+        "regressions": 0,
+        "unsafe_proposals": 0,
+        "rollout_interventions": 0,
+        "rollout_rollbacks": 0,
+        "shadow_decisions": 54
+      },
+      "bounded_0.1": {
+        "cases": 6,
+        "errors": 0,
+        "success_rate": 1.0,
+        "mean_steps": 9.0,
+        "mean_tool_calls": 9.0,
+        "regressions": 0,
+        "unsafe_proposals": 0,
+        "rollout_interventions": 0,
+        "rollout_rollbacks": 0,
+        "shadow_decisions": 54
+      },
+      "bounded_0.25": {
+        "cases": 6,
+        "errors": 0,
+        "success_rate": 1.0,
+        "mean_steps": 9.0,
+        "mean_tool_calls": 9.0,
+        "regressions": 0,
+        "unsafe_proposals": 0,
+        "rollout_interventions": 0,
+        "rollout_rollbacks": 0,
+        "shadow_decisions": 54
+      },
+      "bounded_0.5": {
+        "cases": 6,
+        "errors": 0,
+        "success_rate": 1.0,
+        "mean_steps": 9.0,
+        "mean_tool_calls": 9.0,
+        "regressions": 0,
+        "unsafe_proposals": 0,
+        "rollout_interventions": 0,
+        "rollout_rollbacks": 0,
+        "shadow_decisions": 54
+      },
+      "bounded_1.0": {
+        "cases": 6,
+        "errors": 0,
+        "success_rate": 1.0,
+        "mean_steps": 9.0,
+        "mean_tool_calls": 9.0,
+        "regressions": 0,
+        "unsafe_proposals": 0,
+        "rollout_interventions": 0,
+        "rollout_rollbacks": 0,
+        "shadow_decisions": 54
+      }
+    },
+    "promotion": {
+      "initial_max_influence": 0.1,
+      "higher_levels_accepted": false,
+      "reason": "No actual interventions observed; next influence level is unvalidated",
+      "current_deployment_admission": false,
+      "note": "Experiment predates the final runtime fingerprint; current admission comes from final_comparison."
+    }
+  },
+  "local_models_helper_contract_v2": {
+    "experiment_id": "2caf3075d1554238b94e31a7eb3483d7",
+    "report_sha256": "c5047311efcb86311cd91bcd71e7c1cfe1578470cb68eba2ba948da6376efc8d",
+    "source_unchanged": false,
+    "valid_for_admission": false,
+    "limitation": "Implementation changed during this exploratory model run. Preserve outcomes, but do not use for admission or a stable-source causal claim.",
+    "cases": [
+      {
+        "controller": "functional",
+        "fixture": "search_helper_bug",
+        "success": false,
+        "steps": 13,
+        "model_calls": {
+          "qwen/qwen3.5-9b": 12,
+          "jev-style-qwen3.5-2b-decision": 12
+        },
+        "error": null
+      },
+      {
+        "controller": "functional",
+        "fixture": "boundary_regression_bug",
+        "success": false,
+        "steps": 14,
+        "model_calls": {
+          "qwen/qwen3.5-9b": 12,
+          "jev-style-qwen3.5-2b-decision": 12
+        },
+        "error": null
+      },
+      {
+        "controller": "full",
+        "fixture": "search_helper_bug",
+        "success": false,
+        "steps": 14,
+        "model_calls": {
+          "qwen/qwen3.5-9b": 12,
+          "jev-style-qwen3.5-2b-decision": 12
+        },
+        "error": null
+      },
+      {
+        "controller": "full",
+        "fixture": "boundary_regression_bug",
+        "success": true,
+        "steps": 8,
+        "model_calls": {
+          "qwen/qwen3.5-9b": 5,
+          "jev-style-qwen3.5-2b-decision": 5
+        },
+        "error": null
+      }
+    ]
+  },
+  "limitations": [
+    "Only FlyWire v783 is available; no independent connectome comparison.",
+    "Parameter/state/training/compute budgets are not matched.",
+    "Faster adaptation remains unproved.",
+    "No influence-level case changed an action; no causal intervention benefit is established.",
+    "Current admission is heuristic teacher-toy scope; local models and real repositories require separate evidence.",
+    "Fallback disables future influence or changes selection; it does not undo tool effects."
+  ],
+  "browser_acceptance": {
+    "widths": [
+      1280,
+      390
+    ],
+    "horizontal_overflow": false,
+    "runs": [
+      {
+        "mode": "zero-influence observer + learning",
+        "success": true,
+        "steps": 9
+      },
+      {
+        "mode": "guarded full autonomy",
+        "success": true,
+        "steps": 5
+      },
+      {
+        "mode": "local Qwen/Jev",
+        "success": true,
+        "steps": 6,
+        "model_calls": {
+          "qwen/qwen3.5-9b": 3,
+          "jev-style-qwen3.5-2b-decision": 3
+        }
+      }
+    ]
+  },
+  "verification": {
+    "pytest": {
+      "passed": 359,
+      "skipped": 8,
+      "seconds": 161.92
+    },
+    "real_connectome": {
+      "passed": 5,
+      "seconds": 7.38
+    },
+    "web_api": {
+      "passed": 23,
+      "seconds": 38.69
+    },
+    "ruff_changed_modules": "passed",
+    "mypy_modules": 19,
+    "wheel": "built; packaged assets and extracted CLI verified",
+    "main_ui": "restarted idle; history retained; guarded demo completed in 5 steps with admission event"
+  }
+}

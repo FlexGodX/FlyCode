@@ -1832,3 +1832,17 @@ dialog::backdrop {
 .completion-stats {
   color: #82986c;
 }
+
+.controller-settings {
+  margin-top: 18px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--green);
+}
+.controller-settings summary { cursor: pointer; line-height: 1.6; }
+.check-field { flex-direction: row; align-items: center; line-height: 1.6; }
+.check-field input { width: auto; flex-shrink: 0; }
+.controller-activity { overflow-wrap: anywhere; }
+.controller-activity p { margin: 12px 0; font-size: 12px; line-height: 1.8; }
+.dialog-footer { position: sticky; bottom: -28px; background: var(--paper); padding-bottom: 14px; }

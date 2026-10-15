@@ -10,7 +10,8 @@ using tests and application health checks.
 **Status: working MVP through Phase 4.** The agent autonomously repairs a demo
 FastAPI/PostgreSQL project, starts Docker Compose, applies Alembic migrations
 and checks the API. Real FlyWire, a reduced circuit and offline training
-workflows are available; research acceptance results are listed below.
+workflows, persistent learning, observers and guarded scoped autonomy are
+available; research acceptance results are listed below.
 
 ## MVP capabilities
 
@@ -311,8 +312,8 @@ observer artifact.
 
 With the actual FlyWire graph, both toy tasks completed in 9 steps with exactly
 the same actions as the active-only runs; recommendations agreed on 12 of 18
-steps. This is a CLI mode with initial telemetry. Phases 13–14 still require
-broader validation and controlled increases in controller influence.
+steps. The observer is available in the CLI and browser. Broader validation on
+unseen repositories remains an empirical requirement.
 
 ### Observer analysis and admission checks
 
@@ -336,9 +337,53 @@ An `accepted=true` file alone cannot authorize use: checks are recomputed.
 `--mode autonomous` compares measured `hard` runs against paired `bias` runs
 on the same task set.
 
-This prepares admission for the next phases; nonzero influence execution is
-connected separately. Existing research `--control hard` is not a validated
-mode for arbitrary repositories.
+## Bounded influence and guarded autonomy — Phases 13–14
+
+After creating admission, run a matching synthetic fixture:
+
+```bash
+flycode run --repo /tmp/flycode-bounded --fixture toy_arithmetic_bug \
+  --task "Fix the bug" --brain functional --shadow-brain full --influence .1 \
+  --validation-report ~/.cache/flycode/validation.json
+flycode validate-rollout --report /path/to/experiment/report.json \
+  --controller autonomous_full --baseline baseline --mode autonomous \
+  --output ~/.cache/flycode/autonomous-validation.json
+flycode run --repo /tmp/flycode-autonomous --fixture toy_arithmetic_bug \
+  --task "Fix the bug" --brain full --autonomous \
+  --validation-report ~/.cache/flycode/autonomous-validation.json
+```
+
+Influence can change only allowlisted diagnostic choices: reads, search, status
+and logs. It cannot displace edits, SQL, tests or STOP. Levels are
+0/10/25/50/100%; each candidate score correction is bounded by `0.2 × influence`.
+A failed intervened action or regression disables influence for the rest of the
+episode; already executed tool effects are not undone. Clean runs without an
+actual intervention cannot authorize promotion to the next level.
+
+`--autonomous` enables guarded hard selection. A failed hard choice that differs
+from bias, or a regression, switches the remainder of the episode to bias.
+Safety masks, budgets and verified completion remain active. Research
+`--control hard` does not substitute for admission. Local-model admission also
+binds the exact task instruction.
+
+Open **«Наблюдение, память и допуск»** in browser settings to choose a prepared
+full/reduced graph, trained checkpoint, distilled student, observer or Functional
+Fly memory profile. Profiles are isolated by name, controller and seed, saved
+atomically, and retained between tasks. Activity shows recommendations, actual
+choices, learning and fallbacks. Older history remains readable.
+The server indexes `~/.cache/flycode` by default; `FLYCODE_ARTIFACT_ROOT` selects
+another artifact root. Browser clients select opaque IDs, never filesystem paths.
+
+Current admission covers two teacher toys, three seeds and the heuristic cortex.
+It does not authorize arbitrary repositories or Qwen/Jev without their own
+paired evidence. This is evidence compatibility, not authentication against the
+owner of local files.
+
+[Measured rollout results](docs/research-results/2026-10-16-rollout.json): all
+36 influence-level cases completed, with zero actual interventions; promotion
+above 10% was rejected. In a separate final comparison, guarded full control
+completed 6/6 toy cases in 5 steps, versus 12/12 baseline cases in 9 steps.
+This narrow result does not demonstrate a general advantage.
 
 The [expanded measurements](docs/research-results/2026-10-15-expanded-evaluation.json)
 include null results and the limitations of the initial helper-reuse check.
@@ -473,8 +518,9 @@ remain. See the [project status](docs/handoff.md) for details.
 - Phase 6–8 acceptance covers toy tasks; generalization remains untested.
 - Phase 10 has bounded persistent learning, but faster task adaptation is unproven.
 - Phase 11 needs other connectomes, matched compute budgets and unseen repositories.
-- Phase 12 needs broader telemetry; Phases 13–14 are not implemented yet.
-- Research modes are CLI-only; the UI currently offers Functional Fly and frozen FlyWire.
+- Phase 12 needs broader telemetry on real tasks.
+- Phases 13–14 have scoped implementations; broad autonomy and causal benefit remain unproved.
+- The browser supports local artifacts, observers, memory and evidence-gated execution.
 
 ## Documentation
 

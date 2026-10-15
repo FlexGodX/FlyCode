@@ -84,7 +84,7 @@ assert len({case['repository'] for case in report['cases']}) == len(report['case
 - [x] Implement analysis and validation artifact creation/loading. A passing narrow toy scope must not authorize a novel repository or another model/checkpoint.
 - [x] Run multi-seed shadow episodes and produce an inspectable report with explicit coverage limits; commit.
 
-Status at the first delivery: software for Tasks 1–3 and the scoped real-graph pilot are verified. The initial local-model helper check was audited and strengthened to observable delegation; revision-2 model runs continue under `heldout-local-v2/`. Research acceptance (faster adaptation, matched compute, independent connectomes and unseen real repositories) remains unproved or unmeasured. Subsequent source changes deliberately invalidate earlier admission files.
+Status at the first delivery: software for Tasks 1–3 and the scoped real-graph pilot are verified. The initial local-model helper check was audited and strengthened to observable delegation; revision-2 model runs are retained under `heldout-local-v2/`; the implementation changed during that exploratory run, so it cannot authorize deployment. Research acceptance (faster adaptation, matched compute, independent connectomes and unseen real repositories) remains unproved or unmeasured. Subsequent source changes deliberately invalidate earlier admission files.
 
 ## Task 4 — Bounded candidate influence (Phase 13)
 
@@ -92,16 +92,16 @@ Status at the first delivery: software for Tasks 1–3 and the scoped real-graph
 
 **Interfaces:** `RolloutConfig` selects influence from `0/.1/.25/.5/1`. Candidate intervention consumes the active `TournamentResult` and observer scores; it never changes the active `NeuralState` sent to Qwen/Jev. Preserve the zero-influence API. Report requested/applied influence, original/proposed/executed IDs, bounded score correction and rejection/rollback reasons.
 
-- [ ] Red tests: zero reproduces the active result; finite bounded correction can change only allowed diagnostic choices; an active edit/stop cannot be displaced; invalid/duplicate scores fall back.
+- [x] Red tests: zero reproduces the active result; finite bounded correction can change only allowed diagnostic choices; an active edit/stop cannot be displaced; invalid/duplicate scores fall back.
 
 ```python
 assert decision.applied_influence == 0  # active winner is an edit
 assert decision.executed_choice == active.winner.id
 ```
 
-- [ ] Implement a narrow allowlist: read_file/list_files/search/git_status/git_diff/docker_logs/postgres_status/service_health with assessed risk below .4 and the existing safety mask. Exclude SQL queries, run_tests, edits and STOP from early intervention. Bound the observer correction and disable influence after a regression/failed intervened action.
-- [ ] Add CLI evidence requirements for deployment. Isolated benchmark fixtures may exercise experimental influence to produce evidence; this does not unlock arbitrary project execution.
-- [ ] Execute actual paired task comparisons and rollback tests at every supported level; commit the limited rollout implementation and findings.
+- [x] Implement a narrow allowlist: read_file/list_files/search/git_status/git_diff/docker_logs/postgres_status/service_health with assessed risk below .4 and the existing safety mask. Exclude SQL queries, run_tests, edits and STOP from early intervention. Bound the observer correction and disable influence after a regression/failed intervened action.
+- [x] Add CLI evidence requirements for deployment. Isolated benchmark fixtures may exercise experimental influence to produce evidence; this does not unlock arbitrary project execution.
+- [x] Execute actual paired task comparisons and rollback tests at every supported level; commit the limited rollout implementation and findings.
 
 ## Task 5 — Validated autonomous mode (Phase 14)
 
@@ -109,27 +109,29 @@ assert decision.executed_choice == active.winner.id
 
 **Interfaces:** an explicit autonomous mode uses controller selection only inside a matching validated task/controller/model scope. It retains safety, budgets, verification and stop handling. Legacy research `--control hard` remains clearly experimental and is not a deployment attestation.
 
-- [ ] Write red tests that absent, corrupt, stale/mismatched or insufficient evidence prevents environment mutation; valid scoped evidence permits a matching fixture and rejects an unrelated repository.
-- [ ] Implement the scoped gate and autonomous selector with rollback to the active controller on measured failure; record the gate decision and reason in telemetry.
-- [ ] Run validation and actual matching task executions. Keep general production readiness and research superiority unclaimed outside measured scope; commit.
+- [x] Write red tests that absent, corrupt, stale/mismatched or insufficient evidence prevents environment mutation; valid scoped evidence permits a matching fixture and rejects an unrelated repository.
+- [x] Implement the scoped gate and autonomous selector with fallback to bias ranking on measured failure; record the gate decision and reason in telemetry.
+- [x] Run validation and actual matching task executions. Keep general production readiness and research superiority unclaimed outside measured scope; commit.
 
 ## Task 6 — Browser configuration and activity (all implemented modes)
 
-**Files:** modify `web/runs.py`, `web/app.py`, `web/static/index.html`, `web/static/app.js`, `web/static/style.css`; create `web/artifacts.py`; extend `tests/unit/web/test_app.py` and `tests/browser/agent-ui.cjs`.
+**Files:** modify `web/runs.py`, `web/app.py`, `web/static/index.html`, `web/static/app.js`, `web/static/styles.css`; create `web/artifacts.py`; extend `tests/unit/web/test_app.py` and `test_artifacts.py` and `tests/browser/agent-ui.cjs`.
 
 **Interfaces:** bootstrap returns server-owned controller/artifact identifiers and available validated scopes. Requests select identifiers, observer, influence/mode and a memory profile name. Resolve paths only on the server under configured artifact/memory roots; load active memory before wrapping, close controllers in finally and save learning atomically. Old history remains readable with defaults.
 
-- [ ] Read FastAPI/security skills and existing UI before changes. Capture current settings/activity screenshots.
-- [ ] Red API tests: trained/reduced/shadow runs, missing artifact errors before worker start, memory traversal/symlink rejection, incompatible learning and evidence scopes, historical requests with old fields.
-- [ ] Implement artifact catalogue, configuration and validated server execution; rerun API tests.
-- [ ] Add clear Russian controls and separate observed/active/executed recommendations plus learning/rollback activity. Restore selections from history; disable unavailable combinations with a concrete reason.
-- [ ] Visually verify desktop/mobile settings, a real completed shadow run and activity details; capture after screenshots and fix observed defects.
-- [ ] Commit browser changes with acceptance evidence.
+- [x] Read FastAPI/security skills and existing UI before changes. Capture current settings/activity screenshots.
+- [x] Red API tests: trained/reduced/shadow runs, missing artifact errors before worker start, memory traversal/symlink rejection, incompatible learning and evidence scopes, historical requests with old fields.
+- [x] Implement artifact catalogue, configuration and validated server execution; rerun API tests.
+- [x] Add clear Russian controls and separate observed/active/executed recommendations plus learning/rollback activity. Restore selections from history; disable unavailable combinations with a concrete reason.
+- [x] Visually verify desktop/mobile settings, a real completed shadow run and activity details; capture after screenshots and fix observed defects.
+- [x] Commit browser changes with acceptance evidence.
 
 ## Task 7 — Final verification and publication
 
-- [ ] Update RU/EN README, handoff and portable JSON measurements for the final implementation. Separate software delivery, empirical acceptance and remaining data/evidence gaps for each phase.
-- [ ] Run focused checks per edit and the full pytest suite at the final source revision; run relevant real-connectome/local-model cases and lint/types on changed modules. Report pre-existing static failures by name.
-- [ ] Build/inspect the wheel, restart the idle local UI, verify durable history and no active task interruption.
+- [x] Update RU/EN README, handoff and portable JSON measurements for the final implementation. Separate software delivery, empirical acceptance and remaining data/evidence gaps for each phase.
+- [x] Run focused checks per edit and the full pytest suite at the final source revision; run relevant real-connectome/local-model cases and lint/types on changed modules. Report pre-existing static failures by name.
+- [x] Build/inspect the wheel, restart the idle local UI, verify durable history and no active task interruption.
 - [ ] Review the complete diff, push verified commits to the existing public repository and verify local/remote state.
-- [ ] Complete the goal only when every required deliverable above is implemented/verified; if an external data/evidence gap remains, retain an explicit active status rather than fabricate scientific acceptance.
+- [ ] Complete the implementation goal only when every software, measurement, documentation and publication deliverable above is verified. Keep unpassed empirical phase criteria explicitly open; recording these gaps satisfies the reporting deliverable, not scientific acceptance.
+
+Implementation note (2026-10-16): guarded autonomy lives in `policy/autonomy.py`; integration cases in `test_rollout_execution.py` and `test_autonomy_execution.py` exercise real tools and fallbacks. Admission binds the exact instruction for local models. Browser screenshots cover 1280px and 390px, zero-influence learning and a completed scoped autonomous run. Research criteria remain separate from software completion.

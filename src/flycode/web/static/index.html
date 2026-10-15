@@ -425,7 +425,26 @@
           <option value="full">FlyWire 783 · настоящий граф связей</option>
         </select>
       </label>
-      <p class="field-help">Полный граф использует локально подготовленные данные FlyWire. При отсутствии данных запуск выдаст ошибку.</p>
+      <p class="field-help">Графы и обученные контроллеры загружаются из локального каталога артефактов.</p>
+      <details class="controller-settings">
+        <summary>Наблюдение, память и допуск</summary>
+        <label class="field-label">Наблюдатель<select id="observerSelect"><option value="">Без наблюдателя</option></select></label>
+        <p class="field-help">При нулевом влиянии наблюдатель сравнивает решения и не меняет действия агента.</p>
+        <label class="field-label">Влияние наблюдателя<select id="influenceSelect">
+          <option value="0">0% · только наблюдение</option><option value="0.1">10%</option>
+          <option value="0.25">25%</option><option value="0.5">50%</option><option value="1">100%</option>
+        </select></label>
+        <label class="field-label">Выбор действий<select id="executionMode">
+          <option value="standard">Обычный · оценка вариантов и контроллер</option>
+          <option value="autonomous">Автономный · контроллер с защитой от сбоев</option>
+        </select></label>
+        <label class="field-label">Проверенный допуск<select id="admissionSelect"><option value="">Не выбран</option></select></label>
+        <p class="field-help" id="admissionHelp">Допуск нужен для ненулевого влияния и автономного режима. Он действует только в измеренной области задач.</p>
+        <label class="field-label check-field"><input id="learningEnabled" type="checkbox">Учиться на результатах · Functional Fly</label>
+        <label class="field-label">Профиль памяти<input id="memoryProfile" value="default" maxlength="64"></label>
+        <p class="field-help">Опыт сохраняется между задачами одного профиля, контроллера и seed. Допуск требует отключённого обучения.</p>
+      </details>
+      <details class="controller-settings"><summary>Модели, бюджеты и повторяемость</summary>
       <label class="field-label"
         >Режим выполнения<select id="llmSelect">
           <option value="lmstudio">Локальные модели · LM Studio</option>
@@ -461,6 +480,10 @@
           max="100"
           value="25"
       /></label>
+      <label class="field-label">Максимум действий<input id="maxToolCalls" type="number" min="1" max="1000" value="60"></label>
+      <label class="field-label">Максимум вызовов моделей<input id="maxModelCalls" type="number" min="1" max="1000" value="60"></label>
+      <label class="field-label">Начальное состояние · seed<input id="seedValue" type="number" min="0" max="4294967295" value="0"></label>
+      </details>
       <p class="field-help">
         Остановка дождётся текущего вызова модели или инструмента. Новые
         действия после неё не запускаются.
