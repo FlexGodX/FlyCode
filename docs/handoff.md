@@ -1,9 +1,21 @@
 # FlyCode handoff brief
 
-Authoritative roadmap: `docs/Plan.md` (§1–100). Operating rules: `AGENTS.md`.
+Authoritative roadmap: `docs/Plan.md` (§1–101). Operating rules: `AGENTS.md`.
 The baseline MVP covers Phase 4 (§78). Phase 5 (§79) now runs the same tasks
 with a verified, sparse biological graph. Hermes in the roadmap means FlyCode
 itself: connected agents are hosted here and orchestrated by the controller.
+
+## Proposed verification module (2026-10-16)
+
+`docs/Plan.md` §101 incorporates `docs/specs/testing-module.md` v1.0: proposed
+snapshot/plan contracts, isolated runners, deterministic verdicts and immutable
+evidence for project correctness, orchestration reliability and research.
+TST-01..15 map to TV-01..17 and proposed Phases 21–25. Phases 21–22 support
+single-agent execution first and must precede acceptance of multi-agent phase 17;
+the numbering does not create a dependency on completing all of Phases 15–20.
+This is documentation only. Existing pytest/tool/research results do not certify
+this new module; `run_tests`, completion gates and admission keep their current
+runtime semantics until an explicit, tested migration is implemented.
 
 ## Proposed next scope: multi-agent orchestration (2026-10-16)
 

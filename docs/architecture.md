@@ -52,3 +52,17 @@ This is a specification, not an implemented runtime. See
 [orchestration specification](specs/connectome-orchestration.md) for proposed
 Phases 15–20, contracts, agent communication and acceptance scenarios. Existing
 single-agent admission does not authorize multi-agent scheduling.
+
+## Proposed verification module
+
+A shared verification engine will bind checks to an immutable subject snapshot
+and a versioned acceptance plan. Isolated runners produce evidence; a deterministic
+evaluator produces the verdict. Testing agents may propose cases and diagnose
+failures, while completion and admission remain separate policy gates.
+
+The module covers project correctness, orchestration reliability and controlled
+connectome experiments as distinct evaluations. Proposed Phases 21–25, runner
+boundaries, trust limits, contracts and acceptance scenarios are defined in
+[Plan §101](Plan.md#101-модуль-тестирования-и-проверки-результата) and the normative
+[testing specification](specs/testing-module.md). This is not yet implemented;
+existing `run_tests`, telemetry and research commands are integration points.
