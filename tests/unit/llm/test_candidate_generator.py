@@ -88,3 +88,13 @@ class TestConsolidate:
         ctx = CortexContext(task="fix add()", behavior_mode="consolidate", observation=healthy)
         summary = gen.consolidate(ctx, transcript=["did a thing"])
         assert "succeeded" in summary
+
+
+def test_missing_sqlalchemy_import_is_repaired_from_pytest_failure():
+    source = 'from fastapi import FastAPI\n\ndef users():\n    return select(User)\n'
+    output = "E   NameError: name 'select' is not defined\napp/main.py:4: NameError\n"
+    ctx = CortexContext(task="fix API", behavior_mode="execute", observation=observation(),
+                        working_memory=[f"read_file(app/main.py):\n{source}", f"run_tests stdout:\n{output}"])
+    actions = HeuristicCandidateGenerator().generate_candidates(ctx)
+    assert actions[0].tool == "edit_file"
+    assert "from sqlalchemy import select" in actions[0].arguments["new_text"]

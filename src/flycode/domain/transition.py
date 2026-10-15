@@ -63,8 +63,17 @@ class Transition(BaseModel):
 
     @property
     def is_regression(self) -> bool:
-        """Did this action make things measurably worse?"""
+        """Did this action make things measurably worse?
+
+        Only fires against a previously *measured* test state: when the
+        previous observation has no test result yet (status "unknown"), a
+        failing first `run_tests` discovers a pre-existing breakage rather
+        than causing one, so it is not a regression.
+        """
+        prev_status = self.previous.tests_status
+        if prev_status not in ("passed", "failed"):
+            return False
         return self.delta.new_failing_tests > 0 or (
             self.delta.tests_status_changed and self.current.tests_status == "failed"
-            and self.previous.tests_status == "passed"
+            and prev_status == "passed"
         )

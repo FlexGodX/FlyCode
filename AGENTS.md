@@ -118,8 +118,14 @@ Boris Cherny (creator of Claude Code) keeps his team's file around 100 lines. Un
 ## 10. Project context
 
 FlyCode: a hybrid autonomous coding agent (LLM cortex + fly-derived neural
-controller) implementing the phased plan in the project's planning doc.
-See `docs/architecture.md`, `docs/safety.md`, `docs/research.md`.
+controller) implementing the phased plan in `docs/Plan.md` - that file is the
+authoritative plan (§1-89), and every `plan §N` reference in code points into
+it. Start any non-trivial task by reading the numbered section it belongs to.
+
+Supporting docs: `docs/architecture.md`, `docs/safety.md`, `docs/research.md`,
+`docs/quickstart.md` (quickstart is partially stale - verify API names against
+`src/` before trusting its snippets). Current phase state and the handoff brief
+for a fresh session live in `docs/handoff.md`.
 
 **Stack**
 
@@ -163,7 +169,9 @@ Accumulated corrections. This section is for the agent to maintain, not just the
 
 When the user corrects your approach, append a one-line rule here before ending the session. Write it concretely ("Always use X for Y"), never abstractly ("be careful with Y"). If an existing line already covers the correction, tighten it instead of adding a new one. Remove lines when the underlying issue goes away (model upgrades, refactors, process changes).
 
-- (empty)
+- Always track `recent_errors` per tool (`SoftwareEnvironment._infra_errors`) and clear a tool's entry on its next success - append-only infra errors make `is_healthy` unreachable for any repo that was broken at step 1.
+- Always give a fixture that declares infrastructure (compose/db/http) the full `MaterializeResult` (docker_services/database_type/health_check_url) - the e2e acceptance test and `FixtureConfig` consumers read those fields.
+- Never choose the "next phase" from memory: read the phase section in `docs/Plan.md` (§74-88) and its acceptance line first.
 
 ## 12. How this file was built
 

@@ -17,7 +17,15 @@ from .observer import observe
 MAX_LOG_LINES = 40
 MAX_ERROR_LINES = 20
 INFRA_TOOLS = frozenset(
-    {"docker_compose", "docker_logs", "postgres_status", "postgres_query", "http_request", "service_health"}
+    {
+        "docker_compose",
+        "docker_logs",
+        "postgres_status",
+        "postgres_query",
+        "alembic",
+        "http_request",
+        "service_health",
+    }
 )
 
 
@@ -42,6 +50,7 @@ class SoftwareEnvironment:
         self._database: dict = {}
         self._services: dict = {}
         self._recent_logs: list[str] = []
+        self._infra_errors: dict[str, str] = {}
         self._recent_errors: list[str] = []
         self._modified_files: set[str] = set()
         self._created_files: set[str] = set()
@@ -57,7 +66,23 @@ class SoftwareEnvironment:
         self._novelty.reset()
 
         if task.fixture:
-            fixtures.materialize(task.fixture, self.repo_root)
+            fixture = fixtures.materialize(task.fixture, self.repo_root)
+            if fixture.database_type != "none":
+                self._database["required"] = True
+            urls = [url for url in (fixture.health_check_url, fixture.api_endpoint) if url]
+            if urls:
+                self._services["required_urls"] = list(dict.fromkeys(urls))
+
+        if any((self.repo_root / name).exists() for name in
+               ("compose.yml", "compose.yaml", "docker-compose.yml", "docker-compose.yaml")):
+            self._docker["required"] = True
+        if (self.repo_root / "alembic.ini").exists():
+            self._database["migration_required"] = True
+        criteria = task.success_criteria
+        if criteria.get("database"):
+            self._database["required"] = True
+        if criteria.get("service_urls"):
+            self._services["required_urls"] = list(criteria["service_urls"])
 
         self._observation = observe(
             self.repo_root,
@@ -65,6 +90,9 @@ class SoftwareEnvironment:
             task_id=task.id,
             step_number=self._step_number,
             resource_state=self._resource_state(),
+            docker=self._docker,
+            database=self._database,
+            services=self._services,
         )
         return self._observation
 
@@ -141,20 +169,53 @@ class SoftwareEnvironment:
     ) -> None:
         if action.tool == "run_tests":
             self._tests = dict(payload)
-        elif action.tool == "create_file":
+        elif action.tool == "create_file" and success:
             path = payload.get("path") or action.arguments.get("path")
             if path:
                 self._created_files.add(path)
-        elif action.tool == "edit_file":
+        elif action.tool == "edit_file" and success:
             path = payload.get("path") or action.arguments.get("path")
             if path:
                 self._modified_files.add(path)
         elif action.tool == "docker_compose":
-            self._docker = {"running": success, "last_action": action.arguments.get("action", "ps")}
+            if action.arguments.get("action", "ps") in ("up", "down", "restart", "stop"):
+                self._tests = {**self._tests, "status": "unknown"}
+                self._database.pop("connected", None)
+                self._database.pop("migration_applied", None)
+                self._services.pop("checked_urls", None)
+                self._services.pop("app_running", None)
+            self._docker = {
+                **self._docker,
+                "running": payload.get("running", False),
+                "last_action": action.arguments.get("action", "ps"),
+                # recovery.py reads a non-empty `error` as "container crashed"
+                "error": error_message or "",
+            }
         elif action.tool in ("postgres_status", "postgres_query"):
-            self._database = {"connected": payload.get("connected", success), "available": True}
-        elif action.tool == "service_health":
-            self._services = {"app_running": success}
+            self._database = {
+                **self._database,
+                "connected": payload.get("connected", success),
+                "available": True,
+            }
+        elif action.tool == "alembic":
+            self._database = {**self._database, "migration_failed": not success}
+            if action.arguments.get("action", "current") == "upgrade":
+                self._database["migration_applied"] = payload.get("migration_applied", False)
+        elif action.tool in ("service_health", "http_request"):
+            url = action.arguments.get("url", "")
+            checked = {**self._services.get("checked_urls", {}), url: success}
+            self._services = {**self._services, "checked_urls": checked,
+                              "app_running": all(checked.values())}
+
+        if success and action.tool in ("edit_file", "create_file"):
+            self._tests = {**self._tests, "status": "unknown"}
+            self._services.pop("checked_urls", None)
+            self._services.pop("app_running", None)
+            if self._docker.get("required"):
+                self._docker.pop("running", None)
+                self._docker.pop("last_action", None)
+            if self._database.get("migration_required"):
+                self._database.pop("migration_applied", None)
 
         log_line = f"{action.tool} -> {'ok' if success else 'error'}"
         self._recent_logs.append(log_line)
@@ -165,9 +226,19 @@ class SoftwareEnvironment:
         # stale old_text) or test failures - those are already surfaced via
         # `tests`/`build`, so double-counting them here would make `is_healthy`
         # stick to False long after the underlying issue is fixed.
-        if not success and error_message and action.tool in INFRA_TOOLS:
-            self._recent_errors.append(error_message)
-            self._recent_errors = self._recent_errors[-MAX_ERROR_LINES:]
+        #
+        # Errors are tracked per tool so a later success for the *same* tool
+        # clears its stale error: a repo whose Postgres was down on step 1 and
+        # is up on step 7 must still be able to reach `is_healthy` - that is
+        # exactly what the Phase 4 acceptance ("app fully running") asks for.
+        if action.tool in INFRA_TOOLS:
+            key = (f"http:{action.arguments.get('url', '')}"
+                   if action.tool in ("http_request", "service_health") else action.tool)
+            if success:
+                self._infra_errors.pop(key, None)
+            elif error_message:
+                self._infra_errors[key] = error_message
+            self._recent_errors = list(self._infra_errors.values())[-MAX_ERROR_LINES:]
 
     def _resource_state(self) -> dict:
         max_calls = self.task.max_tool_calls if self.task else None

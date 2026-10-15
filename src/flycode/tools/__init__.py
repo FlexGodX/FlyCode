@@ -39,6 +39,7 @@ def register_environment_tools() -> None:
             "docker_logs": environment_tools.docker_logs,
             "postgres_status": environment_tools.postgres_status,
             "postgres_query": environment_tools.postgres_query,
+            "alembic": environment_tools.alembic,
             "http_request": environment_tools.http_request,
             "service_health": environment_tools.service_health,
         }

@@ -207,7 +207,7 @@ def toy_regression_bug(dest: Path) -> MaterializeResult:
     )
 
 
-def toy_import_bug(dest: Path) -> Path:
+def toy_import_bug(dest: Path) -> MaterializeResult:
     """A tiny package with a missing import causing a NameError at test time."""
     if dest.exists():
         shutil.rmtree(dest)
@@ -233,16 +233,289 @@ def toy_import_bug(dest: Path) -> Path:
         "    result = timestamp_prefix('fly')\n"
         "    assert result.endswith('fly')\n",
     )
-    return dest
+    return MaterializeResult(
+        path=dest,
+        config=FixtureConfig(
+            category="import_bugs",
+            broken_file_paths=["greeter.py"],
+            broken_line_offsets=[10],
+            database="none",
+            http="none",
+        ),
+    )
+
+
+_FASTAPI_POSTGRES_APP_FILES: dict[str, str] = {
+    "Dockerfile": (
+        "FROM python:3.12-slim\n"
+        "\n"
+        "WORKDIR /app\n"
+        "\n"
+        "COPY requirements.txt .\n"
+        "RUN pip install --no-cache-dir -r requirements.txt\n"
+        "\n"
+        "COPY . .\n"
+        "\n"
+        'CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]\n'
+    ),
+    "docker-compose.yml": (
+        "services:\n"
+        "  db:\n"
+        "    image: postgres:15\n"
+        "    environment:\n"
+        "      POSTGRES_USER: postgres\n"
+        "      POSTGRES_PASSWORD: secret\n"
+        "      POSTGRES_DB: appdb\n"
+        "    healthcheck:\n"
+        '      test: ["CMD-SHELL", "pg_isready -U postgres"]\n'
+        "      interval: 2s\n"
+        "      timeout: 2s\n"
+        "      retries: 15\n"
+        "\n"
+        "  app:\n"
+        "    build: .\n"
+        "    environment:\n"
+        "      DB_HOST: db\n"
+        "      POSTGRES_PASSWORD: secret\n"
+        "      DATABASE_NAME: appdb\n"
+        "    ports:\n"
+        "      # BUG: the app is published on 8001, but the README, the compose\n"
+        "      # health check and every client expect http://localhost:8000\n"
+        '      - "8001:8000"\n'
+        "    depends_on:\n"
+        "      db:\n"
+        "        condition: service_healthy\n"
+        "    healthcheck:\n"
+        "      test:\n"
+        "        [\"CMD\", \"python\", \"-c\",\n"
+        "         \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\"]\n"
+        "      interval: 2s\n"
+        "      timeout: 3s\n"
+        "      retries: 20\n"
+    ),
+    "requirements.txt": "alembic\nfastapi\nhttpx\npsycopg2-binary\npytest\nsqlalchemy\nuvicorn\n",
+    "alembic.ini": (
+        "[alembic]\n"
+        "# BUG: the migration scripts live in migrations/, not alembic/\n"
+        "script_location = alembic\n"
+    ),
+    "migrations/env.py": (
+        "import os\n"
+        "\n"
+        "from alembic import context\n"
+        "from sqlalchemy import engine_from_config, pool\n"
+        "\n"
+        "config = context.config\n"
+        "\n"
+        "# BUG: reads POSTGRES_PASS, which nothing sets - compose provides\n"
+        "# POSTGRES_PASSWORD\n"
+        'DB_PASSWORD = os.environ.get("POSTGRES_PASS", "postgres")\n'
+        'DB_HOST = os.environ.get("DB_HOST", "localhost")\n'
+        'DB_NAME = os.environ.get("DATABASE_NAME", "appdb")\n'
+        "config.set_main_option(\n"
+        '    "sqlalchemy.url",\n'
+        '    f"postgresql+psycopg2://postgres:{DB_PASSWORD}@{DB_HOST}:5432/{DB_NAME}",\n'
+        ")\n"
+        "\n"
+        "target_metadata = None\n"
+        "\n"
+        "\n"
+        "def run_migrations_online() -> None:\n"
+        "    connectable = engine_from_config(\n"
+        '        config.get_section(config.config_ini_section, {}),\n'
+        '        prefix="sqlalchemy.",\n'
+        "        poolclass=pool.NullPool,\n"
+        "    )\n"
+        "    with connectable.connect() as connection:\n"
+        "        context.configure(connection=connection, target_metadata=target_metadata)\n"
+        "        with context.begin_transaction():\n"
+        "            context.run_migrations()\n"
+        "\n"
+        "\n"
+        "run_migrations_online()\n"
+    ),
+    "migrations/versions/001_create_users.py": (
+        '"""create users table"""\n'
+        "from alembic import op\n"
+        "import sqlalchemy as sa\n"
+        "\n"
+        'revision = "001"\n'
+        "down_revision = None\n"
+        "branch_labels = None\n"
+        "depends_on = None\n"
+        "\n"
+        "\n"
+        "def upgrade() -> None:\n"
+        "    op.create_table(\n"
+        '        "users",\n'
+        '        sa.Column("id", sa.Integer(), primary_key=True),\n'
+        '        sa.Column("email", sa.String(length=255), nullable=False, unique=True),\n'
+        "    )\n"
+        "\n"
+        "\n"
+        "def downgrade() -> None:\n"
+        '    op.drop_table("users")\n'
+    ),
+    "app/__init__.py": '"""Demo application package."""\n',
+    "app/models.py": (
+        "from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column\n"
+        "\n"
+        "\n"
+        "class Base(DeclarativeBase):\n"
+        "    pass\n"
+        "\n"
+        "\n"
+        "class User(Base):\n"
+        '    __tablename__ = "users"\n'
+        "\n"
+        "    id: Mapped[int] = mapped_column(primary_key=True)\n"
+        "    email: Mapped[str] = mapped_column(unique=True)\n"
+    ),
+    "app/database.py": (
+        "import os\n"
+        "\n"
+        "from sqlalchemy import create_engine\n"
+        "from sqlalchemy.orm import sessionmaker\n"
+        "\n"
+        "# BUG: compose and .env both provide POSTGRES_PASSWORD; nothing sets\n"
+        "# POSTGRES_PASS\n"
+        'DB_PASSWORD = os.environ.get("POSTGRES_PASS", "postgres")\n'
+        'DB_HOST = os.environ.get("DB_HOST", "localhost")\n'
+        'DB_NAME = os.environ.get("DATABASE_NAME", "appdb")\n'
+        "\n"
+        'DATABASE_URL = f"postgresql+psycopg2://postgres:{DB_PASSWORD}@{DB_HOST}:5432/{DB_NAME}"\n'
+        "\n"
+        "engine = create_engine(DATABASE_URL, future=True)\n"
+        "SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)\n"
+        "\n"
+        "\n"
+        "def get_db():\n"
+        "    db = SessionLocal()\n"
+        "    try:\n"
+        "        yield db\n"
+        "    finally:\n"
+        "        db.close()\n"
+    ),
+    "app/main.py": (
+        '"""FastAPI application for the Phase 4 target demo (plan §51)."""\n'
+        "from fastapi import Depends, FastAPI\n"
+        "from sqlalchemy.orm import Session\n"
+        "\n"
+        "from app.database import get_db\n"
+        "from app.models import User\n"
+        "\n"
+        'app = FastAPI(title="FlyCode Demo App")\n'
+        "\n"
+        "\n"
+        '@app.get("/health")\n'
+        "def health() -> dict:\n"
+        '    return {"status": "ok"}\n'
+        "\n"
+        "\n"
+        "# BUG: the documented endpoint is /users, not /user\n"
+        '@app.get("/user")\n'
+        "def list_users(db: Session = Depends(get_db)) -> list[dict]:\n"
+        "    # BUG: sqlalchemy.select is never imported\n"
+        "    rows = db.execute(select(User)).scalars().all()\n"
+        '    return [{"id": row.id, "email": row.email} for row in rows]\n'
+    ),
+    "tests/__init__.py": "",
+    "tests/test_users.py": (
+        "from fastapi.testclient import TestClient\n"
+        "from sqlalchemy import select\n"
+        "\n"
+        "from app.database import SessionLocal, engine\n"
+        "from app.main import app\n"
+        "from app.models import Base, User\n"
+        "\n"
+        "client = TestClient(app)\n"
+        "\n"
+        "\n"
+        "def test_health():\n"
+        '    assert client.get("/health").json() == {"status": "ok"}\n'
+        "\n"
+        "\n"
+        "def test_list_users_returns_seeded_user():\n"
+        "    Base.metadata.create_all(engine)\n"
+        "    with SessionLocal() as session:\n"
+        "        if not session.scalars(select(User)).first():\n"
+        '            session.add(User(email="fly@example.com"))\n'
+        "            session.commit()\n"
+        "\n"
+        '    response = client.get("/users")\n'
+        "\n"
+        "    assert response.status_code == 200\n"
+        '    assert response.json() == [{"id": 1, "email": "fly@example.com"}]\n'
+    ),
+    "README.md": (
+        "# FlyCode Phase 4 demo app\n"
+        "\n"
+        "FastAPI + PostgreSQL + SQLAlchemy + Alembic, started with Docker Compose.\n"
+        "\n"
+        "```bash\n"
+        "docker compose up -d\n"
+        "docker compose exec -T app python -m alembic upgrade head\n"
+        "docker compose exec -T app python -m pytest -q\n"
+        "curl http://localhost:8000/health\n"
+        "curl http://localhost:8000/users\n"
+        "```\n"
+        "\n"
+        "The application is intentionally broken. Fix the configuration, the\n"
+        "migration and the code until `docker compose up` is healthy, the\n"
+        "migration applies and the test suite passes.\n"
+    ),
+}
+
+
+def fastapi_postgres_app(dest: Path) -> MaterializeResult:
+    """The Phase 4 target demo: FastAPI + Postgres + Alembic + Docker Compose.
+
+    Plan §51: intentionally broken in five places - docker configuration,
+    migration, DB connection, API route and a Python bug - so that "get this
+    application fully running" requires Docker, Postgres, Alembic, HTTP and
+    service-health tool calls instead of a single file edit.
+    """
+    if dest.exists():
+        shutil.rmtree(dest)
+    dest.mkdir(parents=True)
+
+    for relative, content in _FASTAPI_POSTGRES_APP_FILES.items():
+        _write(dest, relative, content)
+
+    return MaterializeResult(
+        path=dest,
+        config=FixtureConfig(
+            category="docker",
+            broken_file_paths=[
+                "docker-compose.yml",
+                "alembic.ini",
+                "app/database.py",
+                "app/main.py",
+            ],
+            docker="default",
+            docker_compose_file="docker-compose.yml",
+            database="postgres",
+            database_url="postgresql+psycopg2://postgres:secret@localhost:5432/appdb",
+            migration_path="migrations/versions",
+            http="custom",
+            api_endpoint="http://localhost:8000/health",
+            web_port=8000,
+        ),
+        docker_services=["db", "app"],
+        database_type="postgres",
+        api_endpoint="http://localhost:8000/users",
+        health_check_url="http://localhost:8000/health",
+    )
 
 
 FIXTURES = {
     "toy_arithmetic_bug": toy_arithmetic_bug,
     "toy_import_bug": toy_import_bug,
+    "fastapi_postgres_app": fastapi_postgres_app,
 }
 
 
-def materialize(name: str, dest: Path) -> Path:
+def materialize(name: str, dest: Path) -> MaterializeResult:
     """Build fixture `name` fresh into `dest` and return it."""
     try:
         builder = FIXTURES[name]

@@ -89,14 +89,3 @@ class TaskSpec(BaseModel):
 
     def has_partial_observability(self) -> bool:
         return bool(self.hidden_observations)
-
-    def has_migrations(self) -> bool:
-        """Check if fixture includes database migrations."""
-        return bool(self.fixture_config and self.fixture_config.get("migrations"))
-
-    @property
-    def migration_path(self) -> str | None:
-        """Path to migrations directory if applicable."""
-        if self.fixture_config and self.fixture_config.get("migrations"):
-            return self.fixture_config["migrations"].get("path")
-        return None

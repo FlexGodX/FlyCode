@@ -15,6 +15,7 @@ whatever pytest reports - they read the traceback's file:line and the
 import re
 
 from ..domain import DEFAULT_CANDIDATE_COUNT, CandidateAction
+from .environment_candidates import environment_candidates
 from .protocol import CortexContext
 
 _CALL_RE = re.compile(r"^>\s+assert\s+(?P<func>\w+)\(")
@@ -27,6 +28,43 @@ _PYTEST_RE = re.compile(r"^run_tests stdout:\n(?P<stdout>.*)$", re.DOTALL)
 # Symbols the missing-import heuristic knows how to resolve.
 KNOWN_MODULES = {"datetime", "os", "sys", "json", "re", "math", "time", "logging"}
 
+# Compose file names that mark a repository as declaring its own service stack.
+COMPOSE_FILES = ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml")
+
+
+def _infra_candidates(obs) -> list[CandidateAction]:
+    """Propose bringing the repository's declared stack up (plan §78).
+
+    Deliberately shallow: the MVP tools cannot discover a service topology on
+    their own, so the rule only fires when the repo declares a compose file and
+    Docker does not already report the stack as running. Which service is
+    broken, which migration is missing and which URL to probe stay the LLM
+    cortex's job.
+    """
+    if not any(name in obs.file_tree for name in COMPOSE_FILES):
+        return []
+    if obs.docker.get("running") is True:
+        return []
+    if obs.docker.get("last_action") == "up":
+        # An `up` was already issued and the stack still is not running: stop
+        # re-issuing the same call and let diagnosis/recovery take over.
+        return []
+    return [
+        _candidate(
+            "docker_compose",
+            {"action": "up"},
+            "bring the declared compose stack up before reasoning about the code",
+            expected_progress=0.7,
+            expected_information_gain=0.5,
+        ),
+        _candidate(
+            "postgres_status",
+            {},
+            "check whether the database service became reachable",
+            expected_progress=0.2,
+        ),
+    ]
+
 
 class HeuristicCandidateGenerator:
     """Deterministic rule-based `LLMCortex` implementation."""
@@ -36,6 +74,21 @@ class HeuristicCandidateGenerator:
         obs = context.observation
         file_contents = _extract_read_files(context.working_memory)
         pytest_stdout = _extract_pytest_stdout(context.working_memory)
+
+        environment = environment_candidates(
+            obs, file_contents, _candidate, lambda: self._execute(obs, file_contents, pytest_stdout)
+        )
+        if environment:
+            return environment
+
+        # Reflex (plan §78): while a declared service stack is down, every
+        # DB/HTTP-backed tool call fails for infrastructure reasons, so bringing
+        # the stack up has to happen before anything is scored - the same reason
+        # the recovery reflex bypasses the LLM (plan §31). Once the stack is up,
+        # or once an `up` has already failed, normal scoring resumes.
+        infra = _infra_candidates(obs)
+        if infra:
+            return infra
 
         if mode == "explore":
             return self._explore(obs)
@@ -126,16 +179,18 @@ class HeuristicCandidateGenerator:
                         expected_progress=0.6,
                     )
                 ]
-            if missing_import["name"] in KNOWN_MODULES:
+            if missing_import["name"] in KNOWN_MODULES or missing_import["name"] == "select":
                 content = file_contents[missing_import["file"]]
                 first_line = content.splitlines()[0] if content else ""
+                statement = ("from sqlalchemy import select" if missing_import["name"] == "select"
+                             else f"import {missing_import['name']}")
                 return [
                     _candidate(
                         "edit_file",
                         {
                             "path": missing_import["file"],
                             "old_text": first_line,
-                            "new_text": f"import {missing_import['name']}\n{first_line}",
+                            "new_text": f"{statement}\n{first_line}",
                         },
                         f"add missing 'import {missing_import['name']}'",
                         expected_progress=0.9,

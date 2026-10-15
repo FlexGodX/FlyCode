@@ -55,12 +55,24 @@ def assess_risk(action: ToolAction) -> RiskAssessment:
     """Score an action's risk and flag whether it must be blocked (plan §30)."""
     text = _action_text(action)
     reasons: list[str] = []
+    # Renaming a reference to an existing environment variable does not change
+    # its value. Reference repairs still require post-edit verification.
+    env_reference = False
+    if action.tool == "edit_file" and action.arguments.get("content") is None:
+        pattern = r'''os\.environ\.get\((['"])[A-Z][A-Z0-9_]*\1(?P<default>,\s*['"][^'"]*['"])?\)'''
+        old = re.fullmatch(pattern, str(action.arguments.get("old_text", "")))
+        new = re.fullmatch(pattern, str(action.arguments.get("new_text", "")))
+        env_reference = bool(old and new and old.group("default") == new.group("default"))
 
     for pattern, label in HIGH_RISK_PATTERNS:
+        if label == "credential change" and env_reference:
+            continue
         if re.search(pattern, text):
             reasons.append(label)
 
     risk = action.expected_risk
+    if env_reference:
+        risk = max(risk, 0.4)
     if reasons:
         risk = max(risk, 0.9)
     if action.tool in HIGH_RISK_TOOLS and any(

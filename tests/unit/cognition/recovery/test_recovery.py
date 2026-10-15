@@ -248,3 +248,97 @@ class TestRecoveryState:
 
         assert not state.should_trigger_recovery()
         assert state.get_recommended_mode() is None
+
+
+    def test_migration_failure_triggers_recovery(self) -> None:
+        """A failed `alembic upgrade` raises RECOVER on its own (plan §31).
+
+        Regression guard: this signal used to be derived from the failing-test
+        count, so any failing test looked like a migration failure and a real
+        broken migration looked like nothing at all.
+        """
+        obs = Observation(
+            task="Run migrations",
+            tests={"status": "unknown"},
+            database={"migration_failed": True},
+            recent_errors=["alembic upgrade head: can't locate revision"],
+        )
+
+        signal = FailureSignal.from_observation(obs)
+
+        assert signal.migration_failure is True
+        assert signal.severity_score == 1.0
+
+        state = RecoveryState()
+        state.evaluate(obs)
+        assert state.should_trigger_recovery()
+        assert state.get_recommended_mode() == BehaviorMode.RECOVER
+
+    def test_failing_tests_are_not_migration_failures(self) -> None:
+        """Only an actual migration failure sets the flag."""
+        obs = Observation(task="Fix failing tests", tests={"status": "failed", "failed": 3})
+
+        signal = FailureSignal.from_observation(obs)
+
+        assert signal.migration_failure is False
+        assert signal.new_failing_tests == 3
+
+    def test_container_crash_triggers_recovery(self) -> None:
+        """A compose failure recorded by SoftwareGym raises RECOVER."""
+        obs = Observation(
+            task="Start the stack",
+            tests={"status": "unknown"},
+            docker={"running": False, "error": "docker compose up failed: port is already allocated"},
+        )
+
+        signal = FailureSignal.from_observation(obs)
+
+        assert signal.container_crashed is True
+        assert signal.severity_score == 1.0
+
+
+
+class TestRecoveryRelease:
+    """The reflex must release control when the critical failure never changes.
+
+    E.g. no Docker daemon: `docker compose up` fails, `docker["error"]` stays
+    set, and pinning every remaining step in RECOVER is useless - the agent
+    cannot fix missing infrastructure.
+    """
+
+    def _broken_obs(self) -> Observation:
+        return Observation(
+            task="Start the stack",
+            tests={"status": "unknown"},
+            docker={"running": False, "error": "docker compose up failed"},
+        )
+
+    def test_unchanged_critical_signal_releases_recover(self) -> None:
+        state = RecoveryState()
+        obs = self._broken_obs()
+
+        # First signal + MAX_UNCHANGED_CRITICAL-1 repeats: still RECOVER.
+        for _ in range(RecoveryState.MAX_UNCHANGED_CRITICAL):
+            state.evaluate(obs)
+            assert state.get_recommended_mode() == BehaviorMode.RECOVER
+
+        # The next identical signal means recovery changed nothing: release.
+        state.evaluate(obs)
+        assert state.get_recommended_mode() != BehaviorMode.RECOVER
+        assert state.should_trigger_recovery()  # the failure itself is still real
+
+    def test_changing_signal_keeps_recover(self) -> None:
+        state = RecoveryState()
+        obs = self._broken_obs()
+        for _ in range(RecoveryState.MAX_UNCHANGED_CRITICAL + 2):
+            state.evaluate(obs)
+        # A *different* critical signal (new failing tests on top) resets the streak.
+        state.evaluate(
+            Observation(
+                task="Start the stack",
+                tests={"status": "failed", "failed": 3},
+                docker={"running": False, "error": "docker compose up failed"},
+            )
+        )
+        assert state.get_recommended_mode() == BehaviorMode.RECOVER
+

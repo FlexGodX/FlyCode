@@ -1,4 +1,4 @@
-"""Environment tools - Docker/Postgres/HTTP (plan §50).
+"""Environment tools - Docker/Postgres/Alembic/HTTP (plan §50).
 
 These reach outside the sandboxed repository into infrastructure the agent is
 trying to bring up (a docker-compose stack, a database, a web server). Unlike
@@ -8,34 +8,61 @@ isn't running yet, the DB isn't up yet) - every function degrades to a
 to "postgres isn't up" as an observation instead of a crash.
 """
 
+import json
 import subprocess
+import sys
 from pathlib import Path
 
 from .filesystem import ToolResult
 
 DEFAULT_TIMEOUT = 30.0
 
+#: Alembic subcommands the agent may run (plan §50). Everything else is
+#: rejected before reaching a subprocess.
+ALEMBIC_SUBCOMMANDS: frozenset[str] = frozenset(
+    {"current", "history", "heads", "upgrade", "downgrade", "revision", "stamp"}
+)
+
+#: Subcommands that take a revision argument.
+ALEMBIC_REVISION_SUBCOMMANDS: frozenset[str] = frozenset({"upgrade", "downgrade", "stamp"})
+
 
 def docker_compose(repo_root: Path, action: str = "ps", service: str | None = None, **_: object) -> ToolResult:
+    if action not in {"up", "down", "ps", "restart", "stop", "build"}:
+        return ToolResult(success=False, error_message=f"unsupported compose subcommand '{action}'")
     args = ["docker", "compose", action]
+    if action == "up":
+        args.extend(["--build", "--wait", "--wait-timeout", "60"])
+    elif action == "ps":
+        args.extend(["--all", "--format", "json"])
     if service:
         args.append(service)
-    if action == "up" and "-d" not in args:
-        args.append("-d")
 
     try:
-        proc = subprocess.run(args, cwd=repo_root, capture_output=True, text=True, timeout=DEFAULT_TIMEOUT)
+        proc = subprocess.run(args, cwd=repo_root, capture_output=True, text=True, check=False,
+                              timeout=300.0 if action == "up" else DEFAULT_TIMEOUT)
     except FileNotFoundError:
         return ToolResult(success=False, error_message="docker is not installed or not on PATH")
     except subprocess.TimeoutExpired:
         return ToolResult(success=False, error_message="docker compose timed out")
 
+    running = action == "up" and proc.returncode == 0
+    if action == "ps" and proc.returncode == 0:
+        try:
+            raw = proc.stdout.strip()
+            containers = json.loads(raw) if raw.startswith("[") else [json.loads(s) for s in raw.splitlines()]
+            running = bool(containers) and all(
+                c.get("State") == "running" and c.get("Health", "") in ("", "healthy")
+                for c in containers
+            )
+        except (ValueError, TypeError, AttributeError):
+            return ToolResult(success=False, stdout=proc.stdout, error_message="invalid compose ps response")
     return ToolResult(
         success=proc.returncode == 0,
         stdout=proc.stdout,
         stderr=proc.stderr,
-        error_message="" if proc.returncode == 0 else proc.stderr.strip(),
-        payload={"action": action, "returncode": proc.returncode},
+        error_message="" if proc.returncode == 0 else proc.stderr.strip() or proc.stdout.strip() or "docker compose failed",
+        payload={"action": action, "returncode": proc.returncode, "running": running},
     )
 
 
@@ -46,6 +73,7 @@ def docker_logs(repo_root: Path, service: str, tail: int = 100, **_: object) -> 
             cwd=repo_root,
             capture_output=True,
             text=True,
+            check=False,
             timeout=DEFAULT_TIMEOUT,
         )
     except FileNotFoundError:
@@ -53,7 +81,8 @@ def docker_logs(repo_root: Path, service: str, tail: int = 100, **_: object) -> 
     except subprocess.TimeoutExpired:
         return ToolResult(success=False, error_message="docker compose logs timed out")
 
-    return ToolResult(success=proc.returncode == 0, stdout=proc.stdout, stderr=proc.stderr)
+    return ToolResult(success=proc.returncode == 0, stdout=proc.stdout, stderr=proc.stderr,
+                      error_message="" if proc.returncode == 0 else proc.stderr.strip() or "docker logs failed")
 
 
 def postgres_status(
@@ -63,8 +92,20 @@ def postgres_status(
     user: str = "postgres",
     password: str = "",
     database: str = "postgres",
+    service: str | None = None,
     **_: object,
 ) -> ToolResult:
+    if service:
+        try:
+            proc = subprocess.run(
+                ["docker", "compose", "exec", "-T", service, "pg_isready", "-U", user, "-d", database],
+                cwd=repo_root, capture_output=True, text=True, timeout=DEFAULT_TIMEOUT, check=False,
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+            return ToolResult(success=False, error_message=str(exc), payload={"connected": False})
+        return ToolResult(success=proc.returncode == 0, stdout=proc.stdout, stderr=proc.stderr,
+                          payload={"connected": proc.returncode == 0},
+                          error_message="" if proc.returncode == 0 else proc.stderr.strip() or proc.stdout.strip())
     try:
         import psycopg2
     except ImportError:
@@ -113,6 +154,44 @@ def postgres_query(
     return ToolResult(success=True, payload={"rows": rows, "columns": columns})
 
 
+def alembic(repo_root: Path, action: str = "current", revision: str = "head",
+            service: str | None = None, **_: object) -> ToolResult:
+    """Run an alembic subcommand against the repo's migration chain (plan §50).
+
+    A broken migration chain, a missing `alembic` binary or a misconfigured
+    `alembic.ini` are routine data ([`ToolResult(success=False, ...)`]), not
+    exceptions.
+    """
+    if action not in ALEMBIC_SUBCOMMANDS:
+        return ToolResult(
+            success=False,
+            error_message=f"unsupported alembic subcommand '{action}'",
+            payload={"action": action, "subcommands": sorted(ALEMBIC_SUBCOMMANDS)},
+        )
+
+    args = (["docker", "compose", "exec", "-T", service, "python", "-m", "alembic"]
+            if service else [sys.executable, "-m", "alembic"])
+    args.append(action)
+    if action in ALEMBIC_REVISION_SUBCOMMANDS:
+        args.append(revision)
+
+    try:
+        proc = subprocess.run(args, cwd=repo_root, capture_output=True, text=True, timeout=DEFAULT_TIMEOUT, check=False)
+    except FileNotFoundError:
+        return ToolResult(success=False, error_message="alembic is not installed or not on PATH")
+    except subprocess.TimeoutExpired:
+        return ToolResult(success=False, error_message="alembic timed out")
+
+    return ToolResult(
+        success=proc.returncode == 0,
+        stdout=proc.stdout,
+        stderr=proc.stderr,
+        error_message="" if proc.returncode == 0 else proc.stderr.strip() or proc.stdout.strip() or "alembic failed",
+        payload={"action": action, "revision": revision, "returncode": proc.returncode,
+                 "migration_applied": proc.returncode == 0 and action == "upgrade" and revision == "head"},
+    )
+
+
 def http_request(
     repo_root: Path,
     url: str,
@@ -127,13 +206,14 @@ def http_request(
 
     try:
         response = httpx.request(method, url, timeout=timeout)
-    except httpx.HTTPError as exc:
-        return ToolResult(success=False, error_message=str(exc))
+    except (httpx.HTTPError, ValueError) as exc:
+        return ToolResult(success=False, error_message=str(exc), payload={"url": url})
 
     return ToolResult(
-        success=response.status_code < 400,
+        success=200 <= response.status_code < 300,
         stdout=response.text[:5000],
-        payload={"status_code": response.status_code},
+        payload={"status_code": response.status_code, "url": url},
+        error_message="" if 200 <= response.status_code < 300 else f"HTTP {response.status_code}: {url}",
     )
 
 

@@ -77,3 +77,46 @@ def test_transition_reward_and_regression():
     )
     assert t.is_regression
     assert t.reward < 0
+
+
+def test_first_failing_test_run_is_not_a_regression():
+    """Discovering pre-existing breakage (unknown -> failed) is not a regression."""
+    obs1 = Observation(task="x")  # tests never run: status "unknown"
+    obs2 = Observation(task="x", tests={"status": "failed", "failed": 1})
+    action = ToolAction(id="a", tool="run_tests")
+    t = Transition(
+        previous=obs1,
+        action=action,
+        current=obs2,
+        delta=ObservationDelta(new_failing_tests=1),
+    )
+    assert not t.is_regression
+
+
+def test_making_a_failing_repo_worse_is_a_regression():
+    obs1 = Observation(task="x", tests={"status": "failed", "failed": 1})
+    obs2 = Observation(task="x", tests={"status": "failed", "failed": 2})
+    action = ToolAction(id="a", tool="edit_file")
+    t = Transition(
+        previous=obs1,
+        action=action,
+        current=obs2,
+        delta=ObservationDelta(new_failing_tests=1),
+    )
+    assert t.is_regression
+
+
+
+def test_environment_health_requires_all_declared_evidence():
+    obs = Observation(
+        task="run app", tests={"status": "passed"},
+        docker={"required": True, "running": True},
+        database={"required": True, "connected": True, "migration_required": True, "migration_applied": True},
+        services={"required_urls": ["http://localhost:8000/health", "http://localhost:8000/users"],
+                  "checked_urls": {"http://localhost:8000/health": True}},
+    )
+    assert not obs.is_healthy
+    obs.services["checked_urls"]["http://localhost:8000/users"] = True
+    assert obs.is_healthy
+    obs.database["migration_applied"] = False
+    assert not obs.is_healthy

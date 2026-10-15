@@ -1,132 +1,119 @@
 # FlyCode Quick Start
 
-## Installation
+## Install
+
+Python 3.12 is recommended for the current checkout.
 
 ```bash
-pip install -e ".[dev]"
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e '.[dev]'
+flycode brains
 ```
 
-## Basic Usage
-
-### Running with Functional Fly
+## Run an offline repair
 
 ```bash
-flycode run \
-  --repo ./my-project \
-  --task "Fix the FastAPI application and get tests passing" \
-  --brain functional \
-  --control bias
+flycode run --repo /tmp/flycode-toy --fixture toy_arithmetic_bug \
+  --task "Fix the bug" --brain functional --control bias
 ```
 
-### Available Brains
+Fixture destinations are recreated on every run. Use a disposable directory.
+The default heuristic cortex needs no API key. It supports the toy repairs and
+narrow, file-based rules for the environment demo below. Use the LLM cortex for
+other problems:
 
 ```bash
-# Mock brain (for testing)
-flycode run --repo ./project --brain mock
-
-# Random reservoir (baseline)
-flycode run --repo ./project --brain random
-
-# Generic RNN (baseline)
-flycode run --repo ./project --brain rnn
-
-# Functional fly (production)
-flycode run --repo ./project --brain functional
-
-# Full connectome (research only)
-flycode run --repo ./project --brain full
+# Set OPENAI_API_KEY in your environment first.
+flycode run --repo ./my-project --task "Fix the failing tests" \
+  --brain functional --llm openai
 ```
 
-### Control Modes
+Available baseline names are `mock`, `heuristic_fsm`, `random_reservoir` and
+`generic_rnn`; `functional` selects Functional Fly. `--control hard` selects
+hard control instead of the default `bias`. `frozen_connectome` is an
+experimental random-projection backend; it does not implement a real biological
+connectome. Phases 5–14 and the train/distill/benchmark/lesion/sensitivity CLI
+commands remain outside the completed working version.
+
+## Phase 4: FastAPI + Postgres
+
+Requires a running Docker daemon, the Compose plugin, network access for the
+first image build, and a free host port 8000. Postgres stays inside the Compose
+network and does not require host port 5432.
 
 ```bash
-# Bias control (default, LLM leads, fly influences)
-flycode run --brain functional --control bias
-
-# Hard control (fly decides, research only)
-flycode run --brain functional --control hard
+docker info
+docker compose version
+flycode run --repo /tmp/flycode-environment --fixture fastapi_postgres_app \
+  --task "Fix this FastAPI application and get it fully running" \
+  --brain functional --control bias --max-steps 60 --max-tool-calls 60
+curl --fail http://localhost:8000/health
+curl --fail http://localhost:8000/users
 ```
+
+The agent reads the project, repairs its configuration and code, builds the
+stack, checks Postgres, applies Alembic migrations, runs the application's tests
+inside its container and checks both HTTP endpoints. Edits invalidate previous
+verification. Completion requires all these checks; passing tests alone is
+insufficient. The service stays running after the CLI exits.
+
+Stop the demo when finished:
+
+```bash
+docker compose --project-directory /tmp/flycode-environment down
+```
+
+The real acceptance test chooses an available HTTP port and cleans up its own
+containers. It runs the agent with both bias and hard control:
+
+```bash
+python -m pytest tests/e2e/test_environment_autonomy.py -q
+python -m pytest -q
+```
+
+Without Docker/Compose, the acceptance cases are skipped explicitly.
 
 ## Python API
 
 ```python
-from flycode import SoftwareEnvironment, TaskSpec, FunctionalFlyBackend
+import asyncio
+from pathlib import Path
 
-# Create task specification
-task = TaskSpec(
-    task="Fix the FastAPI app and make tests pass",
-    repo_path="./my-project",
-    expected_steps=10,
-    seed=42,
+from flycode import (
+    HeuristicCandidateGenerator,
+    SoftwareEnvironment,
+    TaskSpec,
+    make_brain,
+    run_agent,
 )
 
-# Create environment
-env = SoftwareEnvironment(
-    repo_path="./my-project",
-)
 
-# Reset environment
-obs = env.reset(task=task)
+async def main():
+    task = TaskSpec(
+        id="example",
+        task="Fix the bug",
+        fixture="toy_import_bug",
+        max_steps=25,
+        seed=42,
+    )
+    result = await run_agent(
+        SoftwareEnvironment(Path("/tmp/flycode-api")),
+        make_brain("functional", seed=42),
+        HeuristicCandidateGenerator(),
+        task,
+    )
+    print(result.success, result.metrics.verified_completion)
 
-# Run episode (agent loop)
-transitions, final_obs = env.run_episode(task=task, max_steps=20)
 
-print(f"Completed in {final_obs.step_number} steps")
-print(f"Tests: {final_obs.tests}")
+asyncio.run(main())
 ```
 
-## Programmatic API
+For an existing service repository, pass explicit completion targets through
+`TaskSpec(success_criteria={"database": True, "service_urls": [...]}, ...)`.
+Compose files and `alembic.ini` automatically add stack and migration checks.
+Tool calls accept a `service` argument for running tests/migrations inside a
+Compose service. Read the repository's configuration to choose that service.
 
-```python
-from flycode.brain import FunctionalFlyBackend
-
-# Create brain
-brain = FunctionalFlyBackend(
-    task_compass_dim=4,
-    mb_odes=50,
-    mb_sparsity=0.05,
-)
-
-# Reset
-brain.reset()
-
-# Process observation
-from flycode.brain import NeuralStimulus
-stimulus = NeuralStimulus(
-    observation=observation_dict,
-    target_behavior="EXECUTE",
-)
-state = brain.step(stimulus)
-```
-
-## Behavior Modes
-
-```python
-from flycode.policy import BehaviorMode
-
-# Set behavior mode
-mode = BehaviorMode.EXPLORE  # or DIAGNOSE, PLAN, EXECUTE, etc.
-
-# The controller will adapt based on this
-```
-
-## Safety
-
-```python
-from flycode.safety import SafetyRiskPolicy
-
-# Create policy
-safety = SafetyRiskPolicy()
-
-# Check action
-is_safe, risk, reason = safety.check_action(action)
-
-if not is_safe:
-    print(f"Action blocked: {reason}")
-```
-
-## Next Steps
-
-See `docs/architecture.md` for detailed architecture.
-
-See `examples/` for more examples.
+See `docs/Plan.md` for the authoritative roadmap and `docs/handoff.md` for the
+verified project state.

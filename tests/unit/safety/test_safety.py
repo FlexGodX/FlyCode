@@ -44,3 +44,33 @@ def test_filter_safe_convenience_wrapper_matches_mask():
     ]
     safe = filter_safe(candidates)
     assert [c.id for c in safe] == ["safe"]
+
+
+def test_environment_variable_reference_repair_preserves_credentials():
+    action = CandidateAction(id="ref", tool="edit_file", arguments={
+        "path": "app/database.py",
+        "old_text": 'os.environ.get("POSTGRES_PASS", "postgres")',
+        "new_text": 'os.environ.get("POSTGRES_PASSWORD", "postgres")',
+    })
+    assessment = assess_risk(action)
+    assert not assessment.is_blocked
+    assert assessment.risk_level >= 0.4
+
+
+def test_actual_password_change_is_still_blocked():
+    action = CandidateAction(id="value", tool="edit_file", arguments={
+        "path": "app/database.py",
+        "old_text": 'os.environ.get("POSTGRES_PASSWORD", "old")',
+        "new_text": 'os.environ.get("POSTGRES_PASSWORD", "new")',
+    })
+    assert assess_risk(action).is_blocked
+
+
+def test_full_replacement_cannot_bypass_credential_guard_with_reference_arguments():
+    action = CandidateAction(id="replace", tool="edit_file", arguments={
+        "path": "app/database.py",
+        "old_text": 'os.environ.get("POSTGRES_PASS", "postgres")',
+        "new_text": 'os.environ.get("POSTGRES_PASSWORD", "postgres")',
+        "content": 'PASSWORD = "changed"',
+    })
+    assert assess_risk(action).is_blocked

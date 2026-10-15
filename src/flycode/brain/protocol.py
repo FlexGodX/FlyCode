@@ -89,6 +89,7 @@ class BrainBackend(ABC):
             "memory_capacity": self.get_memory_capacity(),
             "cost": self.get_computation_cost(),
             "learning": self._learning_enabled,
+            "latency_ms": self.latency_ms,
         }
 
     def __enter__(self) -> "BrainBackend":

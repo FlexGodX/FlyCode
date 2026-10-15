@@ -1,7 +1,7 @@
 """FlyCode CLI (plan §89).
 
-`flycode run` is fully implemented (Phase 0-3: SoftwareGym + baselines +
-Functional Fly). `train`/`distill`/`benchmark`/`lesion`/`sensitivity` are
+`flycode run` supports Phase 0-4: SoftwareGym, baselines, Functional Fly
+and environment autonomy. `train`/`distill`/`benchmark`/`lesion`/`sensitivity` are
 later-phase commands (§85-88) and intentionally exit with a clear
 "not implemented yet" message rather than pretending to do something.
 """

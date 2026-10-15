@@ -65,3 +65,55 @@ async def test_resource_constrained_task_stops_within_budget(tmp_path):
 
     result = await run_agent(env, make_brain("functional", seed=0), HeuristicCandidateGenerator(), task)
     assert result.tool_calls <= 3
+
+
+async def test_run_metrics_are_populated(tmp_path):
+    """Plan §66 metrics that used to be hardwired to 0 must be measured."""
+    env = SoftwareEnvironment(tmp_path / "repo")
+    brain = make_brain("functional", seed=0)
+    task = TaskSpec(id="t1", task="fix the bug", fixture="toy_arithmetic_bug", max_steps=20)
+
+    result = await run_agent(env, brain, HeuristicCandidateGenerator(), task)
+    m = result.metrics
+
+    assert result.success
+    assert m.regressions == 0  # first run_tests on a broken repo is not a regression
+    assert m.changed_lines > 0
+    assert m.novel_observations > 0
+    assert m.mean_candidate_entropy > 0.0
+    assert brain.latency_ms > 0.0
+
+
+
+async def test_successful_tool_diagnostics_are_visible_to_cortex(tmp_path, monkeypatch):
+    from flycode.domain import CandidateAction
+    from flycode.environment import software_gym
+    from flycode.tools import ToolResult
+
+    class DiagnosticCortex(HeuristicCandidateGenerator):
+        def generate_candidates(self, context):
+            if context.observation.step_number == 0:
+                return [CandidateAction(id="logs", tool="docker_logs", arguments={"service": "app"})]
+            assert any("missing relation users" in fact for fact in context.working_memory)
+            assert any("stderr warning" in fact for fact in context.working_memory)
+            return [CandidateAction(id="stop", tool="stop")]
+
+    monkeypatch.setattr(software_gym, "run_tool", lambda *a, **k: ToolResult(
+        success=True, stdout="missing relation users", stderr="stderr warning"
+    ))
+    result = await run_agent(SoftwareEnvironment(tmp_path), make_brain("functional"), DiagnosticCortex(),
+                             TaskSpec(id="diag", task="diagnose", max_steps=2))
+    assert not result.success
+
+
+async def test_agent_rejects_stop_before_verification(tmp_path):
+    from flycode.domain import CandidateAction
+
+    class EarlyStopCortex(HeuristicCandidateGenerator):
+        def generate_candidates(self, context):
+            return [CandidateAction(id="stop", tool="stop")]
+
+    result = await run_agent(SoftwareEnvironment(tmp_path), make_brain("functional"), EarlyStopCortex(),
+                             TaskSpec(id="early", task="fix", max_steps=2))
+    assert not result.success
+    assert any("verification" in line for line in result.transcript)

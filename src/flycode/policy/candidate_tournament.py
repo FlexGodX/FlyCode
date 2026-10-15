@@ -22,6 +22,8 @@ class TournamentResult(BaseModel):
     mode: ControlMode
     winner: CandidateAction | None
     blocked: list[str] = Field(default_factory=list)
+    #: Final scores per candidate id (allowed candidates only), for telemetry.
+    scores: dict[str, float] = Field(default_factory=dict)
 
 
 def run_tournament(
@@ -35,8 +37,11 @@ def run_tournament(
     if mode is ControlMode.HARD_CONTROL:
         result = hard_control.select_candidate(candidates, fly_bias)
         blocked = [m.candidate.id for m in result.safety.blocked_candidates]
-        return TournamentResult(mode=mode, winner=result.winner, blocked=blocked)
+        allowed_ids = {m.candidate.id for m in result.safety.masked if m.allowed}
+        scores = {cid: s for cid, s in result.scored.items() if cid in allowed_ids}
+        return TournamentResult(mode=mode, winner=result.winner, blocked=blocked, scores=scores)
 
     result = bias_control.rank_candidates(candidates, fly_bias)
     blocked = [m.candidate.id for m in result.safety.blocked_candidates]
-    return TournamentResult(mode=mode, winner=result.winner, blocked=blocked)
+    scores = {r.candidate.id: r.final_score for r in result.ranked if r.allowed}
+    return TournamentResult(mode=mode, winner=result.winner, blocked=blocked, scores=scores)

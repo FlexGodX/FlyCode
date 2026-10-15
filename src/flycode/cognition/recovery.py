@@ -46,12 +46,19 @@ class FailureSignal(BaseModel):
         service_not_healthy = bool(obs.services) and obs.services.get("app_running") is False
         container_crashed = bool(obs.docker.get("error"))
 
+        # Migration failure is its own signal (plan §31): a failed
+        # `alembic upgrade` means the schema is not what the app expects, which
+        # is not the same thing as a failing test.
+        migration_failure = bool(db.get("migration_failed"))
+
         # Test regressions
         test_failures = obs.failing_tests
 
         # Any critical infra failure is immediately maximal severity; otherwise
         # severity tracks the number of failing tests.
-        critical_infra = database_not_healthy or service_not_healthy or container_crashed
+        critical_infra = (
+            database_not_healthy or service_not_healthy or container_crashed or migration_failure
+        )
         severity_score = 1.0 if critical_infra else min(1.0, test_failures / 5.0)
 
         return cls(
@@ -60,7 +67,7 @@ class FailureSignal(BaseModel):
             container_crashed=container_crashed,
             database_not_healthy=database_not_healthy,
             service_not_healthy=service_not_healthy,
-            migration_failure=test_failures > 0,
+            migration_failure=migration_failure,
             unknown_trace=bool(obs.recent_errors and not obs.recent_logs),
             severity_score=severity_score,
         )
@@ -69,11 +76,17 @@ class FailureSignal(BaseModel):
 class RecoveryState:
     """Recovery tracking across the agent trajectory."""
 
+    #: Consecutive identical critical signals after which the reflex releases
+    #: control: the failure is not actionable by the agent (e.g. no Docker
+    #: daemon), so pinning every remaining step in RECOVER is useless.
+    MAX_UNCHANGED_CRITICAL = 3
+
     def __init__(self) -> None:
         self._failures: list[FailureSignal] = []
         self._recovery_attempts: dict[str, int] = {}
         self._needs_recovery: bool = False
         self._override_mode: BehaviorMode | None = None
+        self._unchanged_critical: int = 0
 
     def evaluate(self, observation: Observation) -> "RecoveryState":
         """Evaluate current observation and decide if recovery is needed."""
@@ -82,6 +95,17 @@ class RecoveryState:
         # A fully healthy observation clears the reflex: recovery succeeded.
         if signal.severity_score == 0.0 and self._needs_recovery:
             self.clear()
+
+        # Count consecutive *unchanged* critical signals so the reflex can
+        # release control when the failure is outside the agent's reach.
+        if (
+            self._failures
+            and signal.severity_score >= 0.7
+            and signal == self._failures[-1]
+        ):
+            self._unchanged_critical += 1
+        else:
+            self._unchanged_critical = 0
 
         self._failures.append(signal)
 
@@ -112,7 +136,7 @@ class RecoveryState:
         if self._override_mode is not None:
             return self._override_mode
 
-        if self._needs_recovery:
+        if self._needs_recovery and self._unchanged_critical < self.MAX_UNCHANGED_CRITICAL:
             return BehaviorMode.RECOVER
 
         if self.should_trigger_diagnose():
@@ -125,6 +149,7 @@ class RecoveryState:
         self._failures = []
         self._needs_recovery = False
         self._override_mode = None
+        self._unchanged_critical = 0
 
     def log(self) -> str:
         """Return a human-readable summary."""

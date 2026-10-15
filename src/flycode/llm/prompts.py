@@ -10,6 +10,26 @@ Respond ONLY with a JSON array of {n_candidates} candidate actions, each with:
   tool (one of: {tools}), arguments (object), rationale (string),
   expected_progress (0..1), expected_information_gain (0..1),
   expected_risk (0..1), confidence (0..1).
+
+Tool arguments:
+  read_file: path; list_files: path (optional); search: pattern, path (optional).
+  edit_file: path, old_text, new_text; create_file: path, content.
+  git_status, git_diff: no arguments.
+  run_tests: target (optional), service (optional Compose service).
+  docker_compose: action (up/down/ps/restart/stop/build), service (optional).
+    up rebuilds images and waits for service health; run it again after edits.
+  docker_logs: service, tail (optional).
+  postgres_status: service (optional PostgreSQL Compose service), or
+    host/port/user/password/database for a direct connection.
+  postgres_query: query, host/port/user/password/database (optional).
+  alembic: action, revision (default head), service (optional Compose service).
+  http_request: url, method (optional); service_health: url; stop: no arguments.
+
+Inspect README and configuration before choosing service names or URLs.
+Use a Compose service for tests and migrations when it supplies the runtime
+dependencies and environment variables. Diagnose failures using tool output.
+Propose stop only after tests pass following the last edit and all required
+Docker, database, migration and service URL checks in Observation succeed.
 """
 
 USER_TEMPLATE = """Task: {task}

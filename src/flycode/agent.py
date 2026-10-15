@@ -8,6 +8,7 @@ contains no brain- or LLM-specific logic - it only wires the interfaces
 together, so any registered backend/cortex combination can be dropped in.
 """
 
+import math
 import time
 from pathlib import Path
 
@@ -67,12 +68,21 @@ async def run_agent(
     neural_state = None
     start = time.monotonic()
 
+    changed_lines = 0
+    candidate_entropies: list[float] = []
+    seen_signatures = {obs.token_signature()}
+    latency_total_ms = 0.0
+    latency_steps = 0
+
     for _ in range(task.max_steps):
         if obs.tool_calls_used >= task.max_tool_calls:
             break
 
         stimulus = make_stimulus(obs, behavior_mode=arbiter.current.value)
+        step_start = time.perf_counter()
         neural_state = brain.step(stimulus)
+        latency_total_ms += (time.perf_counter() - step_start) * 1000.0
+        latency_steps += 1
         rpe_values.append(neural_state.update_weight)
         arbiter.observe(neural_state.behavior_mode)
         mode = arbiter.current
@@ -110,12 +120,16 @@ async def run_agent(
         fly_bias = _fly_bias_for(brain, candidates, mode.value, neural_state.action_bias)
         result = run_tournament(candidates, fly_bias, control_mode)
         unsafe_proposals += len(result.blocked)
+        candidate_entropies.append(_score_entropy(result.scores))
 
         if result.winner is None:
             transcript.append(f"[{mode.value}] all candidates blocked by safety; stopping")
             break
 
         winner = result.winner
+        if winner.tool == "stop" and not obs.is_healthy:
+            transcript.append(f"[{mode.value}] stop rejected: completion requires verification")
+            break
         action = ToolAction(
             id=winner.id,
             tool=winner.tool,
@@ -133,6 +147,8 @@ async def run_agent(
 
         transition = await env.step(action)
         obs = transition.current
+        seen_signatures.add(obs.token_signature())
+        changed_lines += _changed_lines(action, transition)
 
         if transition.is_regression:
             regressions += 1
@@ -180,19 +196,29 @@ async def run_agent(
         brain=brain.name,
         control_mode=control_mode.value,
         success=obs.is_healthy,
-        verified_completion=obs.tests_status == "passed",
+        verified_completion=obs.is_healthy,
         steps=obs.step_number,
         tool_calls=obs.tool_calls_used,
         llm_calls=llm_calls,
         wall_time_s=time.monotonic() - start,
+        changed_lines=changed_lines,
         regressions=regressions,
         recovery_events=recovery_events,
         unsafe_proposals=unsafe_proposals,
         repeated_actions=repeated_actions,
+        novel_observations=len(seen_signatures),
         strategy_switches=arbiter.strategy_switches,
         final_confidence=neural_state.confidence if neural_state is not None else 0.0,
+        mean_candidate_entropy=sum(candidate_entropies) / len(candidate_entropies) if candidate_entropies else 0.0,
         mean_rpe=sum(rpe_values) / len(rpe_values) if rpe_values else 0.0,
     )
+    if latency_steps:
+        # Measured mean step latency (plan §62 matched-compute). Backends that
+        # expose latency_ms as a read-only property keep their own estimate.
+        try:
+            brain.latency_ms = latency_total_ms / latency_steps
+        except AttributeError:
+            pass
     if telemetry is not None:
         telemetry.log_run(metrics)
 
@@ -226,7 +252,46 @@ def _update_working_memory(memory: WorkingMemory, action: ToolAction, transition
         memory.add(f"run_tests stdout:\n{transition.stdout[-MAX_WORKING_MEMORY_CHARS:]}")
     elif action.tool in ("edit_file", "create_file"):
         path = action.arguments.get("path", "?")
+        if transition.success:
+            prefix = f"read_file({path}):\n"
+            memory.facts = [fact for fact in memory.facts if not fact.startswith(prefix)]
         status = "ok" if transition.success else f"FAILED: {transition.error_message}"
         memory.add(f"{action.tool}({path}): {status}")
     elif not transition.success and transition.error_message:
         memory.add(f"{action.tool} failed: {transition.error_message}")
+    if action.tool not in ("read_file", "run_tests"):
+        if transition.stdout:
+            memory.add(f"{action.tool} stdout:\n{transition.stdout[-MAX_WORKING_MEMORY_CHARS:]}")
+        if transition.stderr:
+            memory.add(f"{action.tool} stderr:\n{transition.stderr[-MAX_WORKING_MEMORY_CHARS:]}")
+        if transition.payload:
+            memory.add(f"{action.tool} result: {str(transition.payload)[:MAX_WORKING_MEMORY_CHARS]}")
+
+
+def _score_entropy(scores: dict[str, float]) -> float:
+    """Shannon entropy (nats) of the softmax over final candidate scores.
+
+    Plan §66 "candidate entropy": how spread out the tournament's preferences
+    are. 0.0 means one candidate dominates; high values mean near-uniform.
+    """
+    if len(scores) < 2:
+        return 0.0
+    peak = max(scores.values())
+    weights = [math.exp(s - peak) for s in scores.values()]
+    total = sum(weights)
+    return -sum((w / total) * math.log(w / total) for w in weights)
+
+
+def _changed_lines(action: ToolAction, transition) -> int:
+    """Lines added+removed by a successful edit/create (plan §66 "changed lines")."""
+    if not transition.success:
+        return 0
+    if action.tool == "edit_file":
+        old = str(action.arguments.get("old_text", ""))
+        new = str(action.arguments.get("new_text", ""))
+        return old.count("\n") + new.count("\n") + (2 if old or new else 0)
+    if action.tool == "create_file":
+        content = str(action.arguments.get("content", ""))
+        return content.count("\n") + (1 if content else 0)
+    return 0
+

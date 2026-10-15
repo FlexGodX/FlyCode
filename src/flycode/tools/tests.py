@@ -14,8 +14,10 @@ SUMMARY_RE = re.compile(
 )
 
 
-def run_tests(repo_root: Path, target: str = "", timeout: float = 60.0, **_: object) -> ToolResult:
-    args = [sys.executable, "-m", "pytest", "-q"]
+def run_tests(repo_root: Path, target: str = "", timeout: float = 60.0,
+              service: str | None = None, **_: object) -> ToolResult:
+    args = (["docker", "compose", "exec", "-T", service, "python"] if service else [sys.executable])
+    args.extend(["-m", "pytest", "-q"])
     if target:
         args.append(target)
 
@@ -25,8 +27,11 @@ def run_tests(repo_root: Path, target: str = "", timeout: float = 60.0, **_: obj
             cwd=repo_root,
             capture_output=True,
             text=True,
+            check=False,
             timeout=timeout,
         )
+    except FileNotFoundError as exc:
+        return ToolResult(success=False, error_message=str(exc), payload={"status": "error", "errors": 1})
     except subprocess.TimeoutExpired as exc:
         return ToolResult(
             success=False,

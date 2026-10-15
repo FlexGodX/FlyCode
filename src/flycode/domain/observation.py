@@ -93,6 +93,11 @@ class Observation(BaseModel):
             self.tests_status == "passed"
             and self.build_status in ("success", "unknown")
             and not self.recent_errors
+            and (not self.docker.get("required") or self.docker.get("running") is True)
+            and (not self.database.get("required") or self.database.get("connected") is True)
+            and (not self.database.get("migration_required") or self.database.get("migration_applied") is True)
+            and all(self.services.get("checked_urls", {}).get(url) is True
+                    for url in self.services.get("required_urls", []))
         )
 
     def redacted(self, fields: list[str]) -> "Observation":
