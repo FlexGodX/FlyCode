@@ -11,11 +11,18 @@ from urllib.parse import urlparse
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    StreamingResponse,
+)
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..llm.catalogue import ModelCatalogue
+from .folders import choose_folder
+from .projects import FolderPickerRequest, ProjectRequest
 from .runs import ACTIVE, RunManager, RunRequest
 
 STATIC = Path(__file__).with_name("static")
@@ -33,6 +40,7 @@ def create_app(workspace: Path | None = None, data_dir: Path | None = None,
     token = secrets.token_urlsafe(32)
     model_catalogue = ModelCatalogue()
     model_gate = Lock()
+    folder_gate = Lock()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -75,8 +83,33 @@ def create_app(workspace: Path | None = None, data_dir: Path | None = None,
             if (path / ".git").exists() or (path / "pyproject.toml").exists() or (path / "package.json").exists():
                 projects.append({"id": f"./{path.name}", "name": path.name, "description": str(path)})
         with manager.lock:
+            registered = [project.model_dump() for project in manager.projects.projects]
+            registered_ids = {project["id"] for project in registered}
+            projects = registered + [project for project in projects if project["id"] not in registered_ids]
             catalogue = manager.catalogue.refresh()
         return {"token": token, "workspace": str(manager.workspace), "projects": projects, **catalogue}
+
+    @app.post("/api/projects/choose-folder")
+    def pick_folder(body: FolderPickerRequest) -> dict:
+        if not folder_gate.acquire(blocking=False):
+            raise HTTPException(409, "Окно выбора папки уже открыто")
+        try:
+            return {"path": choose_folder(body.mode, body.name, manager.workspace)}
+        except RuntimeError as exc:
+            raise HTTPException(503, str(exc)) from exc
+        finally:
+            folder_gate.release()
+
+    @app.post("/api/projects", status_code=201)
+    def create_project(body: ProjectRequest) -> dict:
+        try:
+            with manager.lock:
+                return manager.projects.register(body, manager.workspace, manager.projects_file).model_dump()
+        except FileExistsError as exc:
+            raise HTTPException(400, "Папка уже существует. Выберите подключение существующей папки") from exc
+        except (OSError, ValueError, RuntimeError) as exc:
+            message = str(exc) if isinstance(exc, ValueError) else "Не удалось открыть или создать папку проекта"
+            raise HTTPException(400, message) from exc
 
     @app.get("/api/models")
     def models() -> dict:
@@ -164,6 +197,15 @@ def create_app(workspace: Path | None = None, data_dir: Path | None = None,
     @app.get("/")
     def index() -> FileResponse:
         return FileResponse(STATIC / "index.html")
+
+    @app.get("/desktop")
+    def desktop() -> HTMLResponse:
+        document = (STATIC / "index.html").read_text(encoding="utf-8")
+        document = document.replace("</head>", (
+            '<link rel="stylesheet" href="/static/desktop.css" />'
+            '<script src="/static/desktop.js" defer></script></head>'
+        )).replace("<body>", '<body class="desktop-ui">')
+        return HTMLResponse(document)
 
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     return app

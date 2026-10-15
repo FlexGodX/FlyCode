@@ -52,6 +52,12 @@ flycode ui --workspace . --port 8790
 Open **http://127.0.0.1:8790**. The installed Python package is sufficient:
 no Node.js, frontend build or separate server is needed. The interface is in Russian.
 
+The optional [desktop interface](http://127.0.0.1:8790/desktop) adds compact
+navigation, light/dark themes and collapsible panels. The classic interface stays
+at `/`; sidebar links switch between them. Both share projects, chats, history
+and model preferences. Projects can use any local folder without Git, selected
+through a native system dialog. Chats without a project keep their files separate.
+
 - **«Попробовать на демо» (Try a demo)** repairs a real toy bug without models.
 - For your own task, select a project, describe the outcome and press the arrow
   or `⌘ Enter` / `Ctrl Enter`. Local Qwen + Jev are selected by default.
@@ -67,8 +73,8 @@ no Node.js, frontend build or separate server is needed. The interface is in Rus
   Stop waits for
   the current call; it prevents new actions and preserves edits already applied.
 
-`--workspace` scopes project selection to that directory. To work across several
-projects, pass their parent directory. **The agent edits the selected project's
+`--workspace` sets the initial directory. Register additional local folders using
+the Projects button in the sidebar. **The agent edits the selected project's
 files directly.** Demos always get separate directories and never recreate a
 selected project. One task runs at a time. The server binds to loopback and is
 not published to the internet.

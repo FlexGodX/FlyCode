@@ -2,6 +2,27 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Optional desktop workspace — 2026-10-16
+
+`/desktop` adds a separate presentation based on measured layout/tokens from
+the installed Codex renderer. `/` retains the classic interface. Both use the
+existing runtime, projects, run history, model preferences and event stream.
+The desktop shell has light/dark themes, collapsible navigation, keyboard
+controls and an optional inspector. No orchestration phase is closed by this UI.
+
+Local projects may register existing folders or create new ones without Git.
+The native chooser runs in a separate Python/Tk process. Projectless chats use
+explicit `project=null` and separate empty directories; omitted project retains
+the legacy API demo default. See `docs/specs/desktop-interface.md` and the two
+UI plans dated 2026-10-16.
+
+Verification: 17 interface API tests passed; desktop/390/320 browser scenarios
+covered real demo repair, Stop, history/changes, themes and keyboard. Classic,
+project and projectless-chat browser acceptance also passed. The staged UI-only
+snapshot independently passed 17 API tests and desktop browser acceptance.
+Changed-file Ruff/mypy and JavaScript syntax passed. No broad suite was run for
+this UI task; the verification foundation remains separate work.
+
 ## Specification delivery — 2026-10-16
 
 Active goal: implement §§100–103 using

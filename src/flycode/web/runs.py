@@ -24,13 +24,14 @@ from ..research.validation import authorize
 from ..telemetry import TelemetryLogger
 from ..telemetry.events import AgentEvent
 from .artifacts import ArtifactCatalogue, default_artifact_root
+from .projects import ProjectRegistry
 
 ACTIVE = {"queued", "running", "stopping"}
 
 
 class RunRequest(BaseModel):
     task: str = Field(min_length=1, max_length=10000)
-    project: str = Field(default="demo", max_length=1000)
+    project: str | None = Field(default="demo", max_length=1000)
     llm: Literal["lmstudio", "heuristic"] = "lmstudio"
     brain: Literal["functional", "full", "reduced"] = "functional"
     controller_id: str | None = Field(default=None, max_length=100)
@@ -95,6 +96,9 @@ class RunManager:
         self.data_dir = data_dir.resolve()
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.lock = RLock()
+        self.projects_file = self.data_dir / "projects.json"
+        self.projects = (ProjectRegistry.model_validate_json(self.projects_file.read_text(encoding="utf-8"))
+                         if self.projects_file.exists() else ProjectRegistry())
         self.records: dict[str, RunRecord] = {}
         self.events: dict[str, list[AgentEvent]] = {}
         self.stops: dict[str, Event] = {}
@@ -122,6 +126,10 @@ class RunManager:
                 continue
 
     def project_path(self, project: str) -> Path:
+        with self.lock:
+            registered = self.projects.resolve(project)
+        if registered is not None:
+            return registered
         if Path(project).is_absolute():
             raise ValueError("Select a project inside the workspace")
         path = (self.workspace / project).resolve()
@@ -155,17 +163,20 @@ class RunManager:
             journal.append(event)
 
     def start(self, request: RunRequest) -> dict:
-        repo = None if request.project == "demo" else self.project_path(request.project)
+        run_id = uuid4().hex
+        repo = (self.data_dir / run_id / "repository" if request.project is None else
+                None if request.project == "demo" else self.project_path(request.project))
         if request.llm == "heuristic" and repo is not None:
             raise ValueError("Offline demonstration is available only in the demo project")
         with self.lock:
             if any(record.status in ACTIVE for record in self.records.values()):
                 raise RuntimeError("An agent is already running; stop it before starting another")
             brain, cortex_config, memory, admission = self._prepare(request, repo)
-            run_id = uuid4().hex
             record = RunRecord(id=run_id, request=request)
             self.records[run_id], self.events[run_id], self.stops[run_id] = record, [], Event()
             self._save(record)
+            if request.project is None:
+                cast(Path, repo).mkdir()
             self.emit(run_id, "status", {"phase": "queued"})
             if admission is not None:
                 self.emit(run_id, "admission", admission)

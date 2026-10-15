@@ -46,6 +46,7 @@ const fs = require("node:fs");
   await page.getByRole("tab", { name: "Журнал", exact: true }).click();
   assert.ok((await page.getByText("tool_end", { exact: true }).count()) > 0);
   await page.getByRole("button", { name: "Новая задача", exact: true }).click();
+  await page.getByRole("button", { name: "Попробовать на демо" }).click();
   await page
     .getByRole("textbox", { name: "Опишите задачу" })
     .fill("<img src=x onerror=alert(1)>");

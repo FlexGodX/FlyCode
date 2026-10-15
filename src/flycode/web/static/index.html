@@ -101,11 +101,17 @@
             placeholder="Найти задачу"
             aria-label="Найти задачу"
         /></label>
+        <button type="button" class="history-item unassigned-chats" id="unassignedChats" disabled><svg><use href="#i-chat" /></svg><span>Без проекта</span></button>
+        <div class="sidebar-heading project-heading">
+          ПРОЕКТЫ<button type="button" class="icon-button" id="createProject" aria-label="Создать проект" title="Создать проект" disabled><svg><use href="#i-plus" /></svg></button>
+        </div>
+        <nav class="project-list" id="projectList" aria-label="Проекты"></nav>
         <div class="sidebar-heading">
-          НЕДАВНИЕ ЗАДАЧИ<span id="historyCount">0</span>
+          <span id="historyTitle">ЧАТЫ БЕЗ ПРОЕКТА</span><span id="historyCount">0</span>
         </div>
         <nav class="history" id="history" aria-label="История задач"></nav>
         <div class="sidebar-bottom">
+          <a class="interface-switch" href="/desktop">Desktop-интерфейс<svg><use href="#i-panel" /></svg></a>
           <div class="local-note">
             <span class="local-dot"></span>Всё на вашем компьютере
           </div>
@@ -201,18 +207,18 @@
                 FlyCode исследует, решает и проверяет.
               </p>
               <div class="suggestions">
-                <button id="demoSuggestion" class="suggestion">
+                <button id="demoSuggestion" class="suggestion" disabled>
                   <span class="suggestion-icon"
                     ><svg><use href="#i-bolt" /></svg></span
                   ><strong>Попробовать на демо</strong
                   ><span>Исправить ошибку и увидеть весь процесс</span
                   ><span class="suggestion-arrow">↗</span>
                 </button>
-                <button id="projectSuggestion" class="suggestion">
+                <button id="projectSuggestion" class="suggestion" disabled>
                   <span class="suggestion-icon"
                     ><svg><use href="#i-folder" /></svg></span
                   ><strong>Задача в моём проекте</strong
-                  ><span>Выбрать репозиторий и начать работу</span
+                  ><span>Выбрать локальную папку и начать работу</span
                   ><span class="suggestion-arrow">↗</span>
                 </button>
               </div>
@@ -254,7 +260,7 @@
             <div class="composer-toolbar">
               <label class="project-picker"
                 ><svg><use href="#i-folder" /></svg
-                ><select id="projectSelect" aria-label="Проект"></select
+                ><select id="projectSelect" aria-label="Проект" disabled></select
               ></label>
               <div class="execution-controls">
               <button type="button" class="engine-picker" id="modelsButton" aria-label="Выбор моделей" aria-haspopup="dialog">
@@ -272,6 +278,7 @@
                 type="submit"
                 class="send-button"
                 id="sendButton"
+                disabled
                 aria-label="Запустить задачу"
                 title="Запустить · ⌘ Enter"
               >
@@ -412,6 +419,23 @@
         </div>
       </aside>
     </div>
+    <dialog id="projectDialog" aria-labelledby="projectDialogTitle">
+      <form method="dialog" class="dialog-heading">
+        <div><div class="eyebrow">ЛОКАЛЬНЫЙ ПРОЕКТ</div><h2 id="projectDialogTitle">Создать проект</h2></div>
+        <button class="icon-button" aria-label="Закрыть создание проекта"><svg><use href="#i-close" /></svg></button>
+      </form>
+      <form id="projectForm">
+        <label class="field-label">Название проекта<input id="projectName" maxlength="100" required></label>
+        <label class="field-label">Папка проекта<select id="projectFolderMode">
+          <option value="existing">Подключить существующую папку</option>
+          <option value="create">Создать новую папку</option>
+        </select></label>
+        <div class="field-label"><label for="projectPath">Путь к папке</label><div class="folder-input"><input id="projectPath" maxlength="1000" placeholder="/Users/name/projects/my-project" required><button type="button" class="folder-browse" id="chooseFolder">Выбрать папку…</button></div></div>
+        <p class="field-help">Выберите папку в системном окне или введите полный путь. Git не требуется. В одном проекте можно создавать несколько чатов.</p>
+        <p class="inline-error" id="projectError" role="alert" hidden></p>
+        <div class="dialog-footer"><span>Файлы остаются на вашем компьютере</span><button type="submit" class="primary-button" id="saveProject">Сохранить проект</button></div>
+      </form>
+    </dialog>
     <dialog id="settingsDialog" aria-labelledby="settingsTitle">
       <form method="dialog" class="dialog-heading">
         <div>

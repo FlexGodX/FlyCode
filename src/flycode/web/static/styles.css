@@ -183,6 +183,33 @@ kbd {
   flex: 1;
   min-height: 100px;
 }
+.project-heading {
+  align-items: center;
+  padding-bottom: 4px;
+}
+.unassigned-chats {
+  margin-bottom: 12px;
+}
+.sidebar-heading #historyTitle {
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+}
+.project-heading .icon-button {
+  width: 44px;
+  height: 44px;
+}
+.project-list {
+  max-height: 24dvh;
+  overflow: auto;
+  flex-shrink: 0;
+  margin-bottom: 20px;
+}
+.project-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .history-empty {
   font-size: 12px;
   line-height: 1.7;
@@ -234,6 +261,22 @@ kbd {
 }
 .sidebar-bottom {
   margin-top: 20px;
+}
+.interface-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 8px 12px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 11px;
+}
+.interface-switch:hover {
+  color: var(--ink);
+}
+.interface-switch svg {
+  width: 15px;
 }
 .local-note {
   font-size: 10px;
@@ -1397,6 +1440,24 @@ dialog::backdrop {
   color: #a0aa94;
   line-height: 1.8;
   margin: 8px 0;
+}
+.folder-input {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.folder-input input {
+  flex: 1 1 180px;
+}
+.folder-browse {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #dce3d1;
+  border-radius: 7px;
+  background: var(--white);
+  color: var(--green);
+  font-size: 12px;
 }
 .model-health {
   font-size: 10px;

@@ -138,7 +138,44 @@ function eventTime(event) {
   });
 }
 function projectName(id) {
+  if (!id) return "Без проекта";
   return bootstrap?.projects.find((project) => project.id === id)?.name || id;
+}
+function renderProjects() {
+  const current = $("#projectSelect").value;
+  $("#unassignedChats").classList.toggle("selected", !current);
+  $("#unassignedChats").setAttribute("aria-pressed", String(!current));
+  $("#projectList").replaceChildren(...bootstrap.projects.map((project) => {
+    const button = el("button", "history-item" + (project.id === current ? " selected" : ""));
+    button.append(icon("folder"), el("span", "project-name", project.name));
+    button.title = project.description;
+    button.setAttribute("aria-pressed", String(project.id === current));
+    button.addEventListener("click", () => selectProject(project.id));
+    return button;
+  }));
+}
+function renderProjectOptions(current) {
+  const unassigned = el("option", "", "Без проекта");
+  unassigned.value = "";
+  $("#projectSelect").replaceChildren(unassigned, ...bootstrap.projects.map((project) => {
+    const option = el("option", "", project.name);
+    option.value = project.id;
+    option.title = project.description;
+    return option;
+  }));
+  $("#projectSelect").value = bootstrap.projects.some(project => project.id === current) ? current : "";
+  renderProjects();
+}
+function selectProject(id) {
+  if (activeRun()) {
+    toast("Сначала завершите или остановите текущую задачу.");
+    return;
+  }
+  $("#projectSelect").value = id;
+  localStorage.setItem("flycode.project", id);
+  if (id !== "demo" && nextModels.llm === "heuristic") nextModels = {...nextModels, llm: "lmstudio"};
+  newTask();
+  renderProjects();
 }
 function modelName(id) {
   if (!id) return "Отключён";
@@ -225,8 +262,11 @@ function updateObservation(observation) {
 }
 function renderHistory() {
   const filter = $("#search").value.toLowerCase();
-  $("#historyCount").textContent = history.length;
-  const items = history.filter((run) =>
+  const current = $("#projectSelect").value;
+  const chats = history.filter(run => (run.request.project ?? "") === current);
+  $("#historyTitle").textContent = current ? "ЧАТЫ ПРОЕКТА" : "ЧАТЫ БЕЗ ПРОЕКТА";
+  $("#historyCount").textContent = chats.length;
+  const items = chats.filter((run) =>
     run.request.task.toLowerCase().includes(filter),
   );
   $("#history").replaceChildren();
@@ -235,9 +275,10 @@ function renderHistory() {
       el(
         "p",
         "history-empty",
-        history.length
+        chats.length
           ? "Ничего не найдено"
-          : "Здесь появятся ваши задачи и результаты работы агента.",
+          : current ? "Здесь появятся чаты этого проекта. Нажмите «Новая задача», чтобы начать."
+            : "Здесь появятся чаты без проекта. Нажмите «Новая задача», чтобы начать.",
       ),
     );
   for (const run of items) {
@@ -270,13 +311,17 @@ function controls() {
     ? "Реальный граф FlyWire с приближённой динамикой. Входы и выходы заданы программно; это исследовательский режим."
     : "Functional Fly — функциональная модель контроллера. Схема показывает ход вызовов, а не биологический коннектом.";
   $("#sendButton").hidden = !!running;
-  $("#sendButton").disabled = !!running;
+  $("#sendButton").disabled = !bootstrap || !!running;
   $("#stopButton").hidden = !running;
   $("#stopButton").disabled = running?.status === "stopping";
   $("#stopButton").lastChild.textContent =
     running?.status === "stopping" ? "Останавливаем…" : "Остановить";
   $("#taskInput").disabled = !!running;
-  $("#projectSelect").disabled = !!running;
+  $("#projectSelect").disabled = !bootstrap || !!running;
+  $("#createProject").disabled = !bootstrap || !!running;
+  $("#unassignedChats").disabled = !bootstrap || !!running;
+  $("#demoSuggestion").disabled = !bootstrap || !!running;
+  $("#projectSuggestion").disabled = !bootstrap || !!running;
   $("#settingsButton").disabled = !!running;
   $("#modelsButton").disabled = !!running || probing;
   $("#connectionButton").disabled = !!running || probing;
@@ -313,7 +358,8 @@ function controls() {
     document.createTextNode(
       $("#projectSelect").value === "demo"
         ? "Демо запускается в отдельной папке."
-        : "Агент применяет изменения напрямую в выбранном проекте.",
+        : $("#projectSelect").value ? "Агент применяет изменения напрямую в выбранном проекте."
+          : "Этот чат не связан с проектом. Его файлы хранятся отдельно.",
     ),
     el("span", "", "⌘ Enter — отправить"),
   );
@@ -739,6 +785,11 @@ function handleEvent(event) {
 }
 function openRun(run) {
   source?.close();
+  if (run.request.project === null || bootstrap.projects.some(project => project.id === run.request.project)) {
+    $("#projectSelect").value = run.request.project ?? "";
+    localStorage.setItem("flycode.project", run.request.project ?? "");
+    renderProjects();
+  }
   selected = run;
   seen = new Set();
   stepCards = new Map();
@@ -840,7 +891,7 @@ function newTask() {
   seen.clear();
   $("#welcome").hidden = false;
   $("#taskTitle").textContent = "Новая задача";
-  $("#projectTitle").textContent = "Рабочее пространство";
+  $("#projectTitle").textContent = projectName($("#projectSelect").value);
   $("#changeCount").textContent = "0";
   $("#taskInput").value = "";
   $("#eventConnection").textContent = "Локальная сессия";
@@ -992,7 +1043,7 @@ async function submitTask(event) {
   }
   const body = {
     task,
-    project: $("#projectSelect").value,
+    project: $("#projectSelect").value || null,
     llm: nextModels.llm,
     controller_id: $("#brainSelect").value,
     observer_id: $("#observerSelect").value || null,
@@ -1049,20 +1100,62 @@ $("#saveSettings").addEventListener("click", () => {
 });
 
 $("#brainSelect").addEventListener("change", controls);
+$("#unassignedChats").addEventListener("click", () => selectProject(""));
+$("#createProject").addEventListener("click", () => {
+  $("#projectForm").reset();
+  $("#projectError").hidden = true;
+  $("#projectDialog").showModal();
+  $("#projectName").focus();
+});
+$("#chooseFolder").addEventListener("click", async () => {
+  $("#chooseFolder").disabled = true;
+  $("#saveProject").disabled = true;
+  $("#projectError").hidden = true;
+  try {
+    const result = await api("/api/projects/choose-folder", {method: "POST", body: JSON.stringify({
+      mode: $("#projectFolderMode").value, name: $("#projectName").value,
+    })});
+    if (result.path && $("#projectDialog").open) $("#projectPath").value = result.path;
+  } catch (error) {
+    $("#projectError").textContent = error.message;
+    $("#projectError").hidden = false;
+  } finally {
+    $("#chooseFolder").disabled = false;
+    $("#saveProject").disabled = false;
+  }
+});
+$("#projectForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  $("#saveProject").disabled = true;
+  $("#projectError").hidden = true;
+  try {
+    const project = await api("/api/projects", {method: "POST", body: JSON.stringify({
+      name: $("#projectName").value, path: $("#projectPath").value,
+      create: $("#projectFolderMode").value === "create",
+    })});
+    bootstrap.projects = [project, ...bootstrap.projects.filter(item => item.id !== project.id)];
+    renderProjectOptions(project.id);
+    selectProject(project.id);
+    $("#projectDialog").close();
+  } catch (error) {
+    $("#projectError").textContent = error.message;
+    $("#projectError").hidden = false;
+  } finally {
+    $("#saveProject").disabled = false;
+  }
+});
 $("#projectSelect").addEventListener("change", () => {
-  if ($("#projectSelect").value !== "demo" && nextModels.llm === "heuristic") nextModels = {...nextModels, llm: "lmstudio"};
-  controls();
+  selectProject($("#projectSelect").value);
 });
 $("#demoSuggestion").addEventListener("click", () => {
-  $("#taskInput").value =
-    "Исправь ошибку в арифметике и убедись, что тесты проходят.";
-  $("#projectSelect").value = "demo";
+  selectProject("demo");
+  $("#taskInput").value = "Исправь ошибку в арифметике и убедись, что тесты проходят.";
   nextModels = {...nextModels, llm: "heuristic"};
   controls();
   $("#taskInput").focus();
 });
 $("#projectSuggestion").addEventListener("click", () => {
-  $("#projectSelect").value = ".";
+  if (!$("#projectSelect").value || $("#projectSelect").value === "demo") selectProject(".");
   nextModels = {...nextModels, llm: "lmstudio"};
   controls();
   $("#projectSelect").focus();
@@ -1132,7 +1225,7 @@ document.addEventListener("keydown", (event) => {
   if (
     (event.metaKey || event.ctrlKey) &&
     event.key === "Enter" &&
-    !$("#settingsDialog").open && !$("#modelsDialog").open
+    !$("#settingsDialog").open && !$("#modelsDialog").open && !$("#projectDialog").open
   ) {
     event.preventDefault();
     $("#taskForm").requestSubmit();
@@ -1160,14 +1253,8 @@ setInterval(() => {
       option.disabled = !admission.available;
       $("#admissionSelect").append(option);
     }
-    $("#projectSelect").replaceChildren(
-      ...bootstrap.projects.map((project) => {
-        const option = el("option", "", project.name);
-        option.value = project.id;
-        option.title = project.description;
-        return option;
-      }),
-    );
+    renderProjectOptions(localStorage.getItem("flycode.project"));
+    $("#projectTitle").textContent = projectName($("#projectSelect").value);
     history = await api("/api/runs");
     renderHistory();
     controls();
