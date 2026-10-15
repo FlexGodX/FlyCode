@@ -1,5 +1,6 @@
-"""Zero-influence observer inside FlyCode, preserving active routing (§58–59,86)."""
+"""Observer with optional bounded diagnostic influence, preserving active routing."""
 
+import math
 import time
 
 from ..domain import (
@@ -9,7 +10,8 @@ from ..domain import (
     ToolAction,
     Transition,
 )
-from ..policy import ControlMode, run_tournament
+from ..policy import ControlMode, TournamentResult, run_tournament
+from ..policy.rollout import RolloutController
 from .protocol import BrainBackend
 
 
@@ -20,13 +22,14 @@ def _scores(brain: BrainBackend, candidates: list[CandidateAction], mode: str) -
 
 
 class ShadowBackend(BrainBackend):
-    def __init__(self, active: BrainBackend, observer: BrainBackend) -> None:
+    def __init__(self, active: BrainBackend, observer: BrainBackend, influence: float = 0.) -> None:
         super().__init__(seed=active.seed)
         self.active, self.observer = active, observer
         self.name = f'shadow({active.name},{observer.name})'
         self.tier = active.tier
         self._learning_enabled = active.learning_enabled()
         self._observer_error: str | None = None
+        self.rollout = RolloutController(influence)
         observer.set_learning_mode(False)
         for attribute in ('adaptation', 'rpe', 'habituation'):
             if hasattr(active, attribute):
@@ -38,7 +41,7 @@ class ShadowBackend(BrainBackend):
             return None
         try:
             return getattr(self.observer, method)(*args)
-        except (ValueError, RuntimeError, ArithmeticError) as exc:
+        except (ValueError, TypeError, RuntimeError, ArithmeticError) as exc:
             self._observer_error = str(exc)
             return None
 
@@ -48,6 +51,8 @@ class ShadowBackend(BrainBackend):
         self._steps = 0
         self._observer_error = None
         self._observer_latency = 0.
+        self._intervention_latency = 0.
+        self.rollout.reset()
         self._observe('reset')
 
     def step(self, stimulus: NeuralStimulus) -> NeuralState:
@@ -64,20 +69,39 @@ class ShadowBackend(BrainBackend):
     def score_candidates(self, candidates: list[CandidateAction], mode: str) -> dict[str, float]:
         return _scores(self.active, candidates, mode)
 
+    def _observer_scores(self, candidates: list[CandidateAction]) -> dict[str, float]:
+        scores = _scores(self.observer, candidates, self.observer.get_state().behavior_mode)
+        if not isinstance(scores, dict):
+            raise TypeError('Observer must return candidate scores')
+        if not all(math.isfinite(value) for value in scores.values()):
+            raise ValueError('Observer scores must be finite')
+        return scores
+
+    def intervene(self, candidates: list[CandidateAction], active_result: TournamentResult) -> TournamentResult:
+        start = time.perf_counter()
+        scores = {}
+        if self.rollout.config.influence and self._observer_error is None:
+            try:
+                scores = self._observer_scores(candidates)
+            except (ValueError, TypeError, RuntimeError, ArithmeticError) as exc:
+                self._observer_error = str(exc)
+        result = self.rollout.select(candidates, active_result, scores, observer_error=self._observer_error)
+        self._intervention_latency = (time.perf_counter() - start) * 1000.
+        return result
+
     def shadow_decision(self, candidates: list[CandidateAction], mode: ControlMode, actual: CandidateAction) -> dict:
         start = time.perf_counter()
         recommendation = None
         if self._observer_error is None:
             try:
-                state = self.observer.get_state()
-                recommendation = run_tournament(candidates, _scores(self.observer, candidates, state.behavior_mode), mode).winner
-            except (ValueError, RuntimeError, ArithmeticError) as exc:
+                recommendation = run_tournament(candidates, self._observer_scores(candidates), mode).winner
+            except (ValueError, TypeError, RuntimeError, ArithmeticError) as exc:
                 self._observer_error = str(exc)
-        return {'influence': 0., 'active_choice': actual.id,
+        return {'influence': self.rollout.last.applied_influence if self.rollout.last else 0., 'active_choice': actual.id,
                 'shadow_choice': recommendation.id if recommendation else None,
                 'agreement': recommendation.id == actual.id if recommendation else None,
                 'risk_delta': recommendation.expected_risk - actual.expected_risk if recommendation else None,
-                'observer_latency_ms': self._observer_latency + (time.perf_counter() - start) * 1000.,
+                'observer_latency_ms': self._observer_latency + self._intervention_latency + (time.perf_counter() - start) * 1000.,
                 'counterfactual_success': None, 'tool_call_delta': None, 'error': self._observer_error}
 
     def record_outcome(self, action: ToolAction, mode: str, utility: float, success: bool) -> None:
@@ -89,6 +113,7 @@ class ShadowBackend(BrainBackend):
         if hasattr(self.active, 'learn_transition'):
             self.active.learn_transition(transition)
         self._observe('learn_transition', transition)
+        self.rollout.observe(transition)
 
     def set_learning_mode(self, enabled: bool) -> None:
         self.active.set_learning_mode(enabled)
@@ -107,11 +132,12 @@ class ShadowBackend(BrainBackend):
         return self.active.get_computation_cost() + self.observer.get_computation_cost()
 
     def describe(self) -> dict:
-        return {**super().describe(), 'active': self.active.describe(), 'observer': self.observer.describe(), 'influence': 0.}
+        return {**super().describe(), 'active': self.active.describe(), 'observer': self.observer.describe(),
+                'influence': self.rollout.config.influence, 'rollout': self.rollout.state.model_dump()}
 
     def close(self) -> None:
         self.active.close()
         try:
             self.observer.close()
-        except (ValueError, RuntimeError, ArithmeticError) as exc:
+        except (ValueError, TypeError, RuntimeError, ArithmeticError) as exc:
             self._observer_error = str(exc)

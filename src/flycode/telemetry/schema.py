@@ -16,6 +16,8 @@ class TrainingStep(BaseModel):
     future_return: float = 0.0
     model_routing: dict | None = None
     shadow_decision: dict | None = None
+    rollout_decision: dict | None = None
+    autonomy_decision: dict | None = None
 
 
 class RunMetrics(BaseModel):
@@ -47,3 +49,6 @@ class RunMetrics(BaseModel):
     online_learning_ms: float = 0.0
     shadow_decisions: int = 0
     shadow_agreements: int = 0
+    rollout_interventions: int = 0
+    rollout_rollbacks: int = 0
+    autonomy_rollbacks: int = 0

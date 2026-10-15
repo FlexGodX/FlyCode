@@ -13,7 +13,8 @@
     },
     {
       "id": "autonomous_full",
-      "brain": "full"
+      "brain": "full",
+      "autonomous": true
     }
   ],
   "fixtures": [

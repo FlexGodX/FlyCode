@@ -51,6 +51,10 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument("--shadow-brain", default=None, help="Zero-influence observer backend")
     run.add_argument("--shadow-connectome-path", default=None, help="Prepared observer graph directory")
     run.add_argument("--shadow-checkpoint", default=None, help="Observer checkpoint directory")
+    run.add_argument("--influence", type=float, choices=[0., .1, .25, .5, 1.], default=0.,
+                     help="Bounded observer influence on diagnostic choices; requires validation")
+    run.add_argument("--validation-report", default=None, help="Scoped admission JSON from validate-rollout")
+    run.add_argument("--autonomous", action="store_true", help="Validated guarded hard selection; sets --control hard")
     run.add_argument("--control", type=str, choices=["bias", "hard"], default="bias")
     run.add_argument("--llm", type=str, choices=["heuristic", "openai", "lmstudio"], default="heuristic")
     run.add_argument("--model", type=str, default=None, help="Reasoner: gpt-4o-mini (openai), qwen/qwen3.5-9b (lmstudio)")
@@ -151,7 +155,20 @@ async def _run(args: argparse.Namespace) -> int:
     )
 
     env = SoftwareEnvironment(repo, seed=args.seed)
+    admission = None
     try:
+        if args.autonomous:
+            if (not args.validation_report or args.influence or args.learn or args.learning_memory
+                    or args.llm not in {"heuristic", "lmstudio"}):
+                raise ValueError("Autonomy requires matching admission, frozen policy and a measured cortex")
+            args.control = "hard"
+        if args.influence:
+            if not args.shadow_brain or not args.validation_report:
+                raise ValueError("Nonzero influence requires --shadow-brain and --validation-report")
+            if args.control != "bias" or args.learn or args.learning_memory or args.llm not in {"heuristic", "lmstudio"}:
+                raise ValueError("Bounded admission requires frozen bias control with a measured heuristic/local cortex")
+        elif args.validation_report and not args.autonomous:
+            raise ValueError("An admission report requires bounded influence or autonomous execution")
         if (args.learn or args.learning_memory) and args.brain not in {"functional", "functional_fly"}:
             raise ValueError("Online learning currently requires Functional Fly")
         if args.checkpoint and args.brain not in {"full", "reduced", "functional", "functional_fly"}:
@@ -166,6 +183,7 @@ async def _run(args: argparse.Namespace) -> int:
             if directory.exists() and not directory.is_dir():
                 raise ValueError("Learning memory must be a directory")
             if (directory / "learning.json").exists():
+                assert hasattr(brain, "load_learning")
                 brain.load_learning(directory)
         brain.set_learning_mode(bool(args.learn or args.learning_memory))
         if not args.shadow_brain and (args.shadow_connectome_path or args.shadow_checkpoint):
@@ -181,8 +199,26 @@ async def _run(args: argparse.Namespace) -> int:
                                if args.shadow_brain in {"full", "reduced"} else {})
             if args.shadow_checkpoint and args.shadow_brain in {"functional", "functional_fly"}:
                 observer_kwargs = {"checkpoint_path": args.shadow_checkpoint}
-            brain = ShadowBackend(brain, make_brain(args.shadow_brain, seed=args.seed, **observer_kwargs))
-    except (OSError, ValueError) as exc:
+            brain = ShadowBackend(brain, make_brain(args.shadow_brain, seed=args.seed, **observer_kwargs),
+                                  influence=args.influence)
+        if args.influence or args.autonomous:
+            from .research.benchmark import BrainSpec, ControllerSpec
+            from .research.cortex import CortexConfig
+            from .research.validation import authorize
+
+            spec = ControllerSpec(id="runtime", brain=args.brain,
+                connectome_path=args.connectome_path if args.brain in {"full", "reduced"} else None,
+                checkpoint=args.checkpoint, observer=(BrainSpec(brain=args.shadow_brain,
+                    connectome_path=args.shadow_connectome_path, checkpoint=args.shadow_checkpoint)
+                    if args.shadow_brain else None), influence=args.influence, autonomous=args.autonomous)
+            admission = authorize(Path(args.validation_report).expanduser(), identity=spec.identity(brain),
+                config=CortexConfig(cortex=args.llm, model=args.model or "qwen/qwen3.5-9b",
+                    decision_model=args.decision_model, base_url=args.base_url,
+                    request_timeout=args.request_timeout, max_model_calls=args.max_model_calls),
+                fixture=args.fixture, seed=args.seed, control=args.control, max_steps=args.max_steps,
+                max_tool_calls=args.max_tool_calls, mode="autonomous" if args.autonomous else "bounded",
+                influence=1. if args.autonomous else args.influence, task=args.task)
+    except (OSError, ValueError, TypeError) as exc:
         print(f"Brain setup failed: {exc}", file=sys.stderr)
         return 2
     if args.llm == "heuristic":
@@ -203,6 +239,10 @@ async def _run(args: argparse.Namespace) -> int:
                                  timeout=args.request_timeout)
     control_mode = ControlMode.HARD_CONTROL if args.control == "hard" else ControlMode.BIAS_CONTROL
     telemetry = TelemetryLogger(Path(args.telemetry_dir)) if args.telemetry_dir else None
+    if admission is not None:
+        print("admission: matching controller/task/model/budget evidence accepted")
+        if telemetry is not None:
+            (telemetry.directory / "run.admission.json").write_text(json.dumps(admission, indent=2))
 
     result = await run_agent(
         env,
@@ -212,6 +252,7 @@ async def _run(args: argparse.Namespace) -> int:
         control_mode=control_mode,
         episodic_memory=EpisodicMemory(),
         telemetry=telemetry,
+        autonomous_guard=args.autonomous,
     )
 
     print(f"success={result.success} steps={result.steps} tool_calls={result.tool_calls}")
@@ -219,11 +260,18 @@ async def _run(args: argparse.Namespace) -> int:
     if result.metrics.model_calls:
         print(f"model_calls: {result.metrics.model_calls}")
     if result.metrics.shadow_decisions:
-        print(f"shadow_agreements: {result.metrics.shadow_agreements}/{result.metrics.shadow_decisions} influence=0")
+        print(f"shadow_agreements: {result.metrics.shadow_agreements}/{result.metrics.shadow_decisions} "
+              f"requested_influence={args.influence:g}")
+    if args.influence:
+        print(f"rollout: influence={args.influence} interventions={result.metrics.rollout_interventions} "
+              f"rollbacks={result.metrics.rollout_rollbacks}")
+    if args.autonomous:
+        print(f"autonomy: guarded hard control, rollbacks={result.metrics.autonomy_rollbacks}")
     for line in result.transcript:
         print(f"  {line}")
     if args.learning_memory:
         try:
+            assert hasattr(brain, "save_learning")
             brain.save_learning(Path(args.learning_memory).expanduser())
         except OSError as exc:
             print(f"Learning memory could not be saved: {exc}", file=sys.stderr)
@@ -261,8 +309,8 @@ def main(argv: list[str] | None = None) -> int:
         from .research.adaptation import AdaptationConfig, run_adaptation
 
         try:
-            config = AdaptationConfig.model_validate_json(Path(args.config).read_text())
-            report = asyncio.run(run_adaptation(config, Path(args.output)))
+            adaptation_config = AdaptationConfig.model_validate_json(Path(args.config).read_text())
+            report = asyncio.run(run_adaptation(adaptation_config, Path(args.output)))
             print(json.dumps({'experiment_id': report['experiment_id'], 'summary': report['summary'],
                               'faster_adaptation_demonstrated': report['faster_adaptation_demonstrated']}, indent=2))
             return 1 if any(case['error'] for case in report['cases']) else 0

@@ -28,6 +28,7 @@ from .environment import SoftwareEnvironment
 from .llm.protocol import CortexContext, LLMCortex
 from .memory import Episode, EpisodicMemory, WorkingMemory, consolidate
 from .policy import BehaviorArbiter, ControlMode, run_tournament
+from .policy.autonomy import AutonomyController
 from .telemetry import RunMetrics, TelemetryLogger, TrainingStep
 from .telemetry.events import EventSink, emit
 
@@ -55,8 +56,13 @@ async def run_agent(
     recovery: bool = True,  # Enable recovery reflex
     on_event: EventSink | None = None,
     should_stop: Callable[[], bool] | None = None,
+    autonomous_guard: bool = False,
 ) -> RunResult:
     """Drive one task to completion (or until the step/tool-call budget runs out)."""
+    if autonomous_guard and (control_mode is not ControlMode.HARD_CONTROL
+            or (hasattr(brain, "rollout") and brain.rollout.config.influence)):
+        raise ValueError("Guarded autonomy requires hard control without bounded observer influence")
+    autonomy = AutonomyController() if autonomous_guard else None
     emit(on_event, "status", phase="preparing")
     obs = await env.reset(task)
     emit(on_event, "observation", observation=obs.model_dump())
@@ -96,6 +102,7 @@ async def run_agent(
     initial_rollbacks = adaptation.state.rollbacks if adaptation is not None else 0
 
     for _ in range(task.max_steps):
+        effective_control = autonomy.control_mode if autonomy is not None else control_mode
         if should_stop is not None and should_stop():
             break
         if obs.tool_calls_used >= task.max_tool_calls:
@@ -133,7 +140,7 @@ async def run_agent(
             candidate_tools=list(VALID_TOOLS),
             n_candidates=DEFAULT_CANDIDATE_COUNT,
             neural_state=neural_state,
-            control_mode=control_mode.value,
+            control_mode=effective_control.value,
         )
         emit(on_event, "planning", mode=mode.value)
         candidates = cortex.generate_candidates(context)
@@ -154,7 +161,17 @@ async def run_agent(
             break
 
         fly_bias = _fly_bias_for(brain, candidates, mode.value, neural_state.action_bias)
-        result = run_tournament(candidates, fly_bias, control_mode)
+        result = autonomy.select(candidates, fly_bias) if autonomy is not None else run_tournament(candidates, fly_bias, effective_control)
+        autonomy_decision = autonomy.last if autonomy is not None else None
+        if autonomy_decision is not None:
+            emit(on_event, "autonomy", step=obs.step_number + 1, **autonomy_decision.model_dump())
+        active_winner = result.winner
+        rollout_decision = None
+        if hasattr(brain, "intervene") and hasattr(brain, "rollout"):
+            result = brain.intervene(candidates, result)
+            if brain.rollout.config.influence:
+                rollout_decision = brain.rollout.last
+                emit(on_event, "rollout", step=obs.step_number + 1, **rollout_decision.model_dump())
         unsafe_proposals += len(result.blocked)
         candidate_entropies.append(_score_entropy(result.scores))
 
@@ -182,7 +199,8 @@ async def run_agent(
              blocked=result.blocked, routing=routing)
         comparison = None
         if hasattr(brain, "shadow_decision"):
-            comparison = brain.shadow_decision(candidates, control_mode, winner)
+            comparison = brain.shadow_decision(candidates, effective_control, active_winner or winner)
+            comparison["executed_choice"] = winner.id
             shadow_decisions += 1
             shadow_agreements += int(comparison["agreement"] is True)
             emit(on_event, "shadow", step=obs.step_number + 1, **comparison)
@@ -215,11 +233,18 @@ async def run_agent(
         if hasattr(brain, "learn_transition"):
             learning_start = time.perf_counter()
             brain.learn_transition(transition)
+            if rollout_decision is not None and rollout_decision.rolled_back:
+                emit(on_event, "rollout_rollback", step=obs.step_number, **rollout_decision.model_dump())
             if brain.learning_enabled():
+                assert hasattr(brain, "adaptation")
                 learning_ms += (time.perf_counter() - learning_start) * 1000.
                 emit(on_event, "learning", step=obs.step_number, tool=action.tool,
                      state=brain.adaptation.state.model_dump())
         current_rpe = brain.rpe.get_state().delta if hasattr(brain, "rpe") else neural_state.update_weight
+        if autonomy is not None:
+            autonomy.observe(transition)
+            if autonomy_decision is not None and autonomy_decision.rolled_back:
+                emit(on_event, "autonomy_rollback", step=obs.step_number, **autonomy_decision.model_dump())
         rpe_values.append(abs(current_rpe))
 
         transcript.append(f"[{mode.value}] {action.tool}({action.arguments}) -> success={transition.success}")
@@ -237,6 +262,8 @@ async def run_agent(
                     future_return=transition.reward,
                     model_routing=routing,
                     shadow_decision=comparison,
+                    rollout_decision=rollout_decision.model_dump() if rollout_decision is not None else None,
+                    autonomy_decision=autonomy_decision.model_dump() if autonomy_decision is not None else None,
                 ),
             )
 
@@ -282,6 +309,9 @@ async def run_agent(
         online_learning_ms=learning_ms,
         shadow_decisions=shadow_decisions,
         shadow_agreements=shadow_agreements,
+        rollout_interventions=brain.rollout.state.interventions if hasattr(brain, "rollout") else 0,
+        rollout_rollbacks=brain.rollout.state.rollbacks if hasattr(brain, "rollout") else 0,
+        autonomy_rollbacks=autonomy.rollbacks if autonomy is not None else 0,
     )
     if latency_steps:
         # Measured mean step latency (plan §62 matched-compute). Backends that

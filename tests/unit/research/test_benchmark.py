@@ -100,3 +100,27 @@ async def test_benchmark_executes_lesioned_controller_without_changing_source(tm
     assert case['perturbation']['structural_edges'] == 64
     assert case['perturbation']['parent_fingerprint'] == fingerprint
     assert SparseConnectome.load(graph).fingerprint == fingerprint
+
+
+async def test_isolated_benchmark_records_requested_bounded_influence(tmp_path):
+    from flycode.research.benchmark import BenchmarkConfig, run_benchmark
+
+    config = BenchmarkConfig.model_validate({'controllers': [{'id': 'bounded', 'brain': 'functional',
+        'observer': {'brain': 'mock'}, 'influence': .1}], 'fixtures': ['toy_arithmetic_bug'],
+        'seeds': [0], 'controls': ['bias'], 'max_steps': 1})
+    report = await run_benchmark(config, tmp_path)
+    case = report['cases'][0]
+    assert case['error'] is None
+    assert case['metrics']['rollout_interventions'] == 0  # Initial run_tests cannot be displaced.
+    record = json.loads((tmp_path / report['experiment_id'] / 'trajectories' /
+                         (case['run_id'] + '.steps.jsonl')).read_text())
+    assert record['rollout_decision']['requested_influence'] == .1
+    assert record['rollout_decision']['applied_influence'] == 0.
+
+
+def test_influence_configuration_requires_observer_and_supported_level():
+    from flycode.research.benchmark import ControllerSpec
+
+    for values in [{'influence': .1}, {'influence': .2, 'observer': {'brain': 'mock'}}]:
+        with pytest.raises(ValueError):
+            ControllerSpec.model_validate({'id': 'bad', 'brain': 'functional', **values})

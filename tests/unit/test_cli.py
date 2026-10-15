@@ -198,3 +198,28 @@ def test_validation_cli_reports_missing_source_without_creating_admission(tmp_pa
     assert main(['validate-rollout', '--report', str(tmp_path / 'missing'), '--controller', 'target',
                  '--baseline', 'base', '--output', str(output)]) == 2
     assert not output.exists()
+
+
+def test_nonzero_influence_requires_admission_and_compatible_execution_before_running(tmp_path, capsys):
+    from flycode.cli import main
+
+    for flags in [
+        ['--influence', '.1'],
+        ['--influence', '.1', '--shadow-brain', 'mock'],
+        ['--influence', '.1', '--shadow-brain', 'mock', '--control', 'hard'],
+        ['--influence', '.1', '--shadow-brain', 'mock', '--learn'],
+        ['--validation-report', str(tmp_path / 'missing')],
+    ]:
+        assert main(['run', '--task', 'fix', '--repo', str(tmp_path / 'repo'), *flags]) == 2
+        assert 'Brain setup failed' in capsys.readouterr().err
+        assert not (tmp_path / 'repo').exists()
+
+
+def test_autonomous_mode_requires_evidence_and_frozen_compatible_settings(tmp_path, capsys):
+    from flycode.cli import main
+
+    for flags in [[], ['--learn'], ['--influence', '.1', '--shadow-brain', 'mock'],
+                  ['--validation-report', str(tmp_path / 'missing')]]:
+        assert main(['run', '--task', 'fix', '--autonomous', '--repo', str(tmp_path / 'repo'), *flags]) == 2
+        assert 'Brain setup failed' in capsys.readouterr().err
+        assert not (tmp_path / 'repo').exists()

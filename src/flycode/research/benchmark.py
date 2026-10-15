@@ -17,6 +17,7 @@ from ..brain import BRAIN_REGISTRY, make_brain
 from ..domain import TaskSpec
 from ..environment import SoftwareEnvironment
 from ..policy import ControlMode
+from ..policy.rollout import RolloutConfig
 from ..telemetry import TelemetryLogger
 from .cortex import CortexConfig, FixtureName, fixture_split
 from .identity import file_sha256, implementation_fingerprint
@@ -68,6 +69,17 @@ class BrainSpec(BaseModel):
 class ControllerSpec(BrainSpec):
     id: str = Field(min_length=1)
     observer: BrainSpec | None = None
+    influence: float = Field(default=0., ge=0, le=1, allow_inf_nan=False)
+    autonomous: bool = False
+
+    @model_validator(mode='after')
+    def observed_influence(self):
+        RolloutConfig(influence=self.influence)
+        if self.influence and self.observer is None:
+            raise ValueError('Nonzero influence requires an observer')
+        if self.autonomous and self.influence:
+            raise ValueError('Autonomy cannot mix bounded observer influence')
+        return self
 
     def create(self, seed: int):
         active = super().create(seed)
@@ -76,7 +88,7 @@ class ControllerSpec(BrainSpec):
         from ..brain.shadow import ShadowBackend
 
         try:
-            return ShadowBackend(active, self.observer.create(seed))
+            return ShadowBackend(active, self.observer.create(seed), influence=self.influence)
         except (OSError, ValueError, RuntimeError):
             active.close()
             raise
@@ -98,12 +110,15 @@ class BenchmarkConfig(CortexConfig):
     controls: list[Literal['bias', 'hard']] = Field(default=['bias', 'hard'], min_length=1)
     max_steps: int = Field(default=25, ge=1, le=1000)
     max_tool_calls: int = Field(default=60, ge=1, le=1000)
+    task: str = Field(default='Fix the bug and verify the result', min_length=1, max_length=10000)
 
     @model_validator(mode='after')
     def unique_cases(self):
         for values in ([item.id for item in self.controllers], self.fixtures, self.seeds, self.controls):
             if len(values) != len(set(values)):
                 raise ValueError('Benchmark IDs, seeds, fixtures and controls must be unique')
+        if any(spec.autonomous for spec in self.controllers) and 'hard' not in self.controls:
+            raise ValueError('Autonomous profiles require hard control in the experiment')
         return self
 
 
@@ -132,6 +147,8 @@ async def run_benchmark(config: BenchmarkConfig, output: Path) -> dict:
         for seed in config.seeds:
             for fixture in config.fixtures:
                 for control in config.controls:
+                    if spec.autonomous and control != 'hard':
+                        continue
                     run_id = uuid4().hex
                     repository = directory / 'repositories' / run_id
                     case: dict[str, Any] = {'controller_id': spec.id, 'seed': seed, 'fixture': fixture, 'control': control,
@@ -145,10 +162,10 @@ async def run_benchmark(config: BenchmarkConfig, output: Path) -> dict:
                         case['identity'] = spec.identity(brain)
                         cortex = config.create_cortex()
                         result = await run_agent(SoftwareEnvironment(repository, seed=seed), brain, cortex,
-                            TaskSpec(id=run_id, task='Fix the bug and verify the result', fixture=fixture,
+                            TaskSpec(id=run_id, task=config.task, fixture=fixture,
                                      seed=seed, max_steps=config.max_steps, max_tool_calls=config.max_tool_calls),
                             control_mode=ControlMode.HARD_CONTROL if control == 'hard' else ControlMode.BIAS_CONTROL,
-                            telemetry=telemetry, run_id=run_id)
+                            telemetry=telemetry, run_id=run_id, autonomous_guard=spec.autonomous)
                         case.update(metrics=result.metrics.model_dump(mode='json'), controller=brain.describe(),
                                     perturbation=brain.graph.metadata.get('perturbation') if hasattr(brain, 'graph') else None,
                                     checkpoint_sha256=_checkpoint_hash(spec),
@@ -170,6 +187,10 @@ async def run_benchmark(config: BenchmarkConfig, output: Path) -> dict:
             'mean_tool_calls': sum(m['tool_calls'] for m in metrics) / len(metrics) if metrics else None,
             'regressions': sum(m['regressions'] for m in metrics),
             'unsafe_proposals': sum(m['unsafe_proposals'] for m in metrics),
+            'rollout_interventions': sum(m['rollout_interventions'] for m in metrics),
+            'rollout_rollbacks': sum(m['rollout_rollbacks'] for m in metrics),
+            'shadow_decisions': sum(m['shadow_decisions'] for m in metrics),
+            'autonomy_rollbacks': sum(m['autonomy_rollbacks'] for m in metrics),
         }
     report['completed'] = True
     report['source_unchanged'] = implementation_fingerprint() == report['implementation_sha256']
