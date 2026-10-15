@@ -80,6 +80,21 @@ def _build_parser() -> argparse.ArgumentParser:
     benchmark.add_argument("--config", required=True, help="JSON BenchmarkConfig")
     benchmark.add_argument("--output", required=True, help="Directory for experiments and recorded trajectories")
 
+    adapt = sub.add_parser("adapt", help="Repeated task families with retained learning and frozen controls")
+    adapt.add_argument("--config", required=True, help="JSON AdaptationConfig")
+    adapt.add_argument("--output", required=True, help="Directory for results, trajectories and learned memory")
+
+    shadow_analysis = sub.add_parser("shadow-analysis", help="Analyze observed recommendations without causal success claims")
+    shadow_analysis.add_argument("--trajectories", required=True)
+    shadow_analysis.add_argument("--output", required=True)
+
+    validate = sub.add_parser("validate-rollout", help="Derive scoped admission from a paired experiment report")
+    validate.add_argument("--report", required=True)
+    validate.add_argument("--controller", required=True)
+    validate.add_argument("--baseline", required=True)
+    validate.add_argument("--mode", choices=["bounded", "autonomous"], default="bounded")
+    validate.add_argument("--output", required=True)
+
     train = sub.add_parser("train", help="Offline constrained imitation with frozen graph topology")
     train.add_argument("--trajectories", required=True, help="Directory of curated executed *.steps.jsonl episodes")
     train.add_argument("--connectome-path", default=None)
@@ -240,6 +255,42 @@ def main(argv: list[str] | None = None) -> int:
             return 1 if any(case['error'] for case in report['cases']) else 0
         except (OSError, ValueError) as exc:
             print(f"Benchmark failed: {exc}", file=sys.stderr)
+            return 2
+
+    if args.command == "adapt":
+        from .research.adaptation import AdaptationConfig, run_adaptation
+
+        try:
+            config = AdaptationConfig.model_validate_json(Path(args.config).read_text())
+            report = asyncio.run(run_adaptation(config, Path(args.output)))
+            print(json.dumps({'experiment_id': report['experiment_id'], 'summary': report['summary'],
+                              'faster_adaptation_demonstrated': report['faster_adaptation_demonstrated']}, indent=2))
+            return 1 if any(case['error'] for case in report['cases']) else 0
+        except (OSError, ValueError) as exc:
+            print(f"Adaptation experiment failed: {exc}", file=sys.stderr)
+            return 2
+
+    if args.command == "shadow-analysis":
+        from .research.shadow import save_shadow_analysis
+
+        try:
+            report = save_shadow_analysis(Path(args.trajectories), Path(args.output))
+            print(json.dumps(report, indent=2, allow_nan=False))
+            return 1 if report["invalid_records"] else 0
+        except (OSError, ValueError) as exc:
+            print(f"Shadow analysis failed: {exc}", file=sys.stderr)
+            return 2
+
+    if args.command == "validate-rollout":
+        from .research.validation import create_validation
+
+        try:
+            report = create_validation(Path(args.report), args.controller, args.baseline,
+                                       Path(args.output), mode=args.mode)
+            print(json.dumps(report, indent=2, allow_nan=False))
+            return 0 if report["accepted"] else 1
+        except (OSError, ValueError, TypeError) as exc:
+            print(f"Rollout validation failed: {exc}", file=sys.stderr)
             return 2
 
     if args.command in {"lesion", "sensitivity"}:

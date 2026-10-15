@@ -1,0 +1,334 @@
+{
+  "date": "2026-10-15",
+  "scope": "Synthetic tasks only, seeds 0/1/2 with heuristic cortex; local model pilot uses seed 0 only.",
+  "matched_compute": false,
+  "training_budget_matched": false,
+  "comparison_conditions": {
+    "max_steps": 20,
+    "max_tool_calls": 30,
+    "controls": [
+      "bias",
+      "hard"
+    ],
+    "initialization": "Every constrained checkpoint is compared only with its own seed.",
+    "fixture_revision": "Initial search fixture numeric examples, prior to requiring observable helper delegation."
+  },
+  "by_controller": {
+    "fsm": {
+      "teacher_toy": {
+        "cases": 12,
+        "successes": 12,
+        "errors": 0,
+        "mean_steps": 9.0
+      },
+      "heldout_synthetic": {
+        "cases": 12,
+        "successes": 0,
+        "errors": 0,
+        "mean_steps": 20.0
+      }
+    },
+    "full": {
+      "teacher_toy": {
+        "cases": 12,
+        "successes": 12,
+        "errors": 0,
+        "mean_steps": 5.0
+      },
+      "heldout_synthetic": {
+        "cases": 12,
+        "successes": 0,
+        "errors": 0,
+        "mean_steps": 20.0
+      }
+    },
+    "functional": {
+      "teacher_toy": {
+        "cases": 12,
+        "successes": 12,
+        "errors": 0,
+        "mean_steps": 9.0
+      },
+      "heldout_synthetic": {
+        "cases": 12,
+        "successes": 0,
+        "errors": 0,
+        "mean_steps": 20.0
+      }
+    },
+    "lesion_10pct": {
+      "teacher_toy": {
+        "cases": 12,
+        "successes": 12,
+        "errors": 0,
+        "mean_steps": 5.0
+      },
+      "heldout_synthetic": {
+        "cases": 12,
+        "successes": 0,
+        "errors": 0,
+        "mean_steps": 20.0
+      }
+    },
+    "reduced": {
+      "teacher_toy": {
+        "cases": 12,
+        "successes": 12,
+        "errors": 0,
+        "mean_steps": 5.0
+      },
+      "heldout_synthetic": {
+        "cases": 12,
+        "successes": 0,
+        "errors": 0,
+        "mean_steps": 20.0
+      }
+    },
+    "rnn": {
+      "teacher_toy": {
+        "cases": 12,
+        "successes": 0,
+        "errors": 0,
+        "mean_steps": 20.0
+      },
+      "heldout_synthetic": {
+        "cases": 12,
+        "successes": 0,
+        "errors": 0,
+        "mean_steps": 20.0
+      }
+    },
+    "student": {
+      "teacher_toy": {
+        "cases": 12,
+        "successes": 12,
+        "errors": 0,
+        "mean_steps": 9.0
+      },
+      "heldout_synthetic": {
+        "cases": 12,
+        "successes": 0,
+        "errors": 0,
+        "mean_steps": 20.0
+      }
+    },
+    "trained": {
+      "teacher_toy": {
+        "cases": 12,
+        "successes": 12,
+        "errors": 0,
+        "mean_steps": 5.0
+      },
+      "heldout_synthetic": {
+        "cases": 12,
+        "successes": 0,
+        "errors": 0,
+        "mean_steps": 20.0
+      }
+    }
+  },
+  "repeated_families": {
+    "summary": {
+      "frozen": {
+        "cases": 18,
+        "errors": 0,
+        "success_rate": 1.0,
+        "mean_tool_calls": 9.0,
+        "mean_steps": 9.0,
+        "updates": 0,
+        "rollbacks": 0,
+        "first": {
+          "cases": 6,
+          "errors": 0,
+          "success_rate": 1.0,
+          "mean_tool_calls": 9.0,
+          "mean_steps": 9.0,
+          "updates": 0,
+          "rollbacks": 0
+        },
+        "last": {
+          "cases": 6,
+          "errors": 0,
+          "success_rate": 1.0,
+          "mean_tool_calls": 9.0,
+          "mean_steps": 9.0,
+          "updates": 0,
+          "rollbacks": 0
+        }
+      },
+      "learning": {
+        "cases": 18,
+        "errors": 0,
+        "success_rate": 1.0,
+        "mean_tool_calls": 9.0,
+        "mean_steps": 9.0,
+        "updates": 160,
+        "rollbacks": 2,
+        "first": {
+          "cases": 6,
+          "errors": 0,
+          "success_rate": 1.0,
+          "mean_tool_calls": 9.0,
+          "mean_steps": 9.0,
+          "updates": 52,
+          "rollbacks": 2
+        },
+        "last": {
+          "cases": 6,
+          "errors": 0,
+          "success_rate": 1.0,
+          "mean_tool_calls": 9.0,
+          "mean_steps": 9.0,
+          "updates": 54,
+          "rollbacks": 0
+        }
+      }
+    },
+    "faster_adaptation_demonstrated": false
+  },
+  "local_models_initial_fixture": {
+    "experiment_id": "2c454e7e713748dabc6b94ec436ae2b8",
+    "fixtures_revision": "v1 numeric-only helper checks; they did not enforce reuse. Functional helper repair divided inline by 100.",
+    "max_model_calls": 24,
+    "max_steps": 20,
+    "max_tool_calls": 20,
+    "seed": 0,
+    "cases": [
+      {
+        "controller": "functional",
+        "fixture": "search_helper_bug",
+        "recorded_verified_completion": true,
+        "steps": 8,
+        "model_calls": {
+          "qwen/qwen3.5-9b": 6,
+          "jev-style-qwen3.5-2b-decision": 6
+        },
+        "model_errors": []
+      },
+      {
+        "controller": "functional",
+        "fixture": "boundary_regression_bug",
+        "recorded_verified_completion": false,
+        "steps": 14,
+        "model_calls": {
+          "qwen/qwen3.5-9b": 12,
+          "jev-style-qwen3.5-2b-decision": 12
+        },
+        "model_errors": [
+          "model-call budget exhausted"
+        ]
+      },
+      {
+        "controller": "full",
+        "fixture": "search_helper_bug",
+        "recorded_verified_completion": false,
+        "steps": 13,
+        "model_calls": {
+          "qwen/qwen3.5-9b": 12,
+          "jev-style-qwen3.5-2b-decision": 12
+        },
+        "model_errors": [
+          "model-call budget exhausted"
+        ]
+      },
+      {
+        "controller": "full",
+        "fixture": "boundary_regression_bug",
+        "recorded_verified_completion": true,
+        "steps": 11,
+        "model_calls": {
+          "qwen/qwen3.5-9b": 8,
+          "jev-style-qwen3.5-2b-decision": 8
+        },
+        "model_errors": []
+      }
+    ]
+  },
+  "baseline_recovery": {
+    "legacy_errors": 12,
+    "repair": "FSM lacked recover in STAGE_ORDER; add it and skip recovery on passed verification.",
+    "rerun_experiment_id": "8146e4e949ac493d89be16080b03dae2",
+    "rerun_summary": {
+      "fsm": {
+        "cases": 24,
+        "errors": 0,
+        "success_rate": 0.5,
+        "mean_steps": 14.5,
+        "mean_tool_calls": 14.5,
+        "regressions": 0,
+        "unsafe_proposals": 0
+      }
+    }
+  },
+  "limitations": [
+    "No matched-compute superiority or unseen real-repository generalization.",
+    "Only one biological connectome source; reduced circuits are not independent connectomes.",
+    "10% lesions did not change completion on these tasks; the engineered workflow prior can dominate.",
+    "No faster task-family adaptation; all 36 repairs take 9 steps.",
+    "Initial local-model search pass did not establish helper reuse; stronger contract and rerun are tracked separately."
+  ],
+  "shadow_admission_pilot": {
+    "experiment_id": "8e59c0f8628c437d8befe2d2c6b8a17e",
+    "summary": {
+      "baseline": {
+        "cases": 12,
+        "errors": 0,
+        "success_rate": 1.0,
+        "mean_steps": 9.0,
+        "mean_tool_calls": 9.0,
+        "regressions": 0,
+        "unsafe_proposals": 0
+      },
+      "observed": {
+        "cases": 12,
+        "errors": 0,
+        "success_rate": 1.0,
+        "mean_steps": 9.0,
+        "mean_tool_calls": 9.0,
+        "regressions": 0,
+        "unsafe_proposals": 0
+      },
+      "autonomous_full": {
+        "cases": 12,
+        "errors": 0,
+        "success_rate": 1.0,
+        "mean_steps": 5.0,
+        "mean_tool_calls": 5.0,
+        "regressions": 0,
+        "unsafe_proposals": 0
+      }
+    },
+    "analysis": {
+      "files": 36,
+      "attempted_decisions": 108,
+      "available_recommendations": 108,
+      "legacy_steps": 168,
+      "invalid_records": 0,
+      "observer_errors": 0,
+      "coverage": 1.0,
+      "agreement_rate": 0.7037037037037037,
+      "mean_expected_risk_delta": 0.0,
+      "mean_observer_latency_ms": 10.212758453808082,
+      "zero_influence": true,
+      "counterfactual_success": null,
+      "tool_call_delta": null,
+      "scope": "Recorded recommendations only; no alternative actions were executed by this analysis."
+    },
+    "modes": {
+      "bounded": {
+        "accepted": true,
+        "reasons": [],
+        "max_influence": 0.1,
+        "implementation_sha256": "304a7ccee41253537849882e06e6be1fe2f481b946b0e73232596fb58bd632b2",
+        "report_sha256": "21d6905ceff605b597fde2750d6761f7e734632993e1243d0b3582eaa84358ff"
+      },
+      "autonomous": {
+        "accepted": true,
+        "reasons": [],
+        "max_influence": 1.0,
+        "implementation_sha256": "304a7ccee41253537849882e06e6be1fe2f481b946b0e73232596fb58bd632b2",
+        "report_sha256": "21d6905ceff605b597fde2750d6761f7e734632993e1243d0b3582eaa84358ff"
+      }
+    }
+  }
+}

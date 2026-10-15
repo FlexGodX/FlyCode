@@ -5,7 +5,78 @@ The baseline MVP covers Phase 4 (§78). Phase 5 (§79) now runs the same tasks
 with a verified, sparse biological graph. Hermes in the roadmap means FlyCode
 itself: connected agents are hosted here and orchestrated by the controller.
 
-## Latest increment: adaptation, evaluation and shadow mode (2026-10-15)
+## Latest increment: broader evaluation and scoped admission (2026-10-15)
+
+Active goal: implement `docs/superpowers/plans/2026-10-15-validated-rollout.md`.
+Tasks 1–3 have software implementations; Tasks 4–7 still require execution.
+The overall goal remains active. No general research advantage is claimed.
+
+- Two additional synthetic fixtures: `search_helper_bug` and
+  `boundary_regression_bug`. They are separate from teacher toys, not unseen
+  real repositories. Helper revision 2 tests observable delegation to the shared
+  conversion function; division inline cannot pass. The initial numeric-only
+  revision missed that requirement and its model results are labelled as such.
+- Benchmark supports actual local Qwen/Jev with explicit endpoint/model/call
+  budgets. The local endpoint is resolved when the configuration is read,
+  preventing environment changes from silently relabeling an experiment.
+- `ControllerSpec.lesion_fraction` runs real tasks with zeroed existing neural
+  gains. Parent files and structural topology are retained; report fingerprints
+  distinguish the actual damaged graph from its parent.
+- `adapt --config docs/examples/adaptation.json --output PATH` retains one
+  Functional brain per seed/learning condition while resetting repositories,
+  cortex and episodic memory. Records policy hashes, guard state, first/last
+  repetition costs and task success; failures stay in denominators.
+- Extending coverage found a real baseline bug: FSM referenced a missing
+  recovery stage. Added the stage and skipped it after passed verification;
+  regression and recovery-exit tests pass. All 24 FSM cases were rerun, not
+  just the failed cases. Earlier raw failures remain in their source reports.
+- Benchmark now records active/observer identities, completed/source-unchanged
+  flags, implementation and trajectory checksums. `shadow-analysis` preserves
+  error/missing recommendation coverage and rejects inconsistent traces.
+- `validate-rollout` and `research.validation.authorize` recompute admission
+  from raw report/metrics/trajectories. Require >=3 seeds, >=2 fixtures, complete
+  paired coverage, clean verified outcomes, no extra target tool calls, matching
+  scope and >=30 observer recommendations for the first bounded step (.1).
+  Code/task/controller/graph/checkpoint/model/budget mismatches reject admission.
+  This is compatibility evidence, not authentication or a general safety proof.
+- Admission and autonomous execution are different deliverables: the latter and
+  nonzero influence are not wired into agent/CLI/UI yet. Legacy research hard
+  control retains its previous meaning. Browser changes have not started.
+
+Actual measurements, available in `docs/research-results/2026-10-15-expanded-evaluation.json`:
+
+```text
+Expanded heuristic comparison: 192 case results (168 non-FSM plus 24 corrected
+  FSM reruns), 3 seeds x 4 synthetic fixtures x 2 controls x 8 controllers.
+  Teacher toys: FSM/Functional/full/trained/lesioned/reduced/student each 12/12;
+  generic RNN 0/12. Additional synthetic tasks: every heuristic variant 0/12.
+  Params/hidden states/training budgets are NOT matched; no superiority claim.
+10% real-graph lesion: no task completion change on this limited suite.
+Repeated-family runner: 36/36 repairs, both conditions 9 steps; learning
+  accepted 160 updates and rolled back 2. Faster adaptation remains unproved.
+Initial local-model pilot: Functional search passed numeric tests in 8 steps
+  but did not reuse the helper; boundary failed at 24 model requests. Full
+  search failed at 24 requests; boundary passed in 11 steps. Seed 0 only.
+  Stronger helper contract revision 2 is being measured separately.
+Actual full-graph observer pilot: 36 paired/mode runs, 108 recommendations,
+  100% coverage, 0 observer errors, agreement 70.37%, mean observer 10.21 ms.
+  Narrow bounded and hard-mode admission checks passed on the two teacher toys;
+  actual authorize() calls confirmed matching seed-0 configurations.
+Full pytest: 310 passed, 8 skipped in 112.68s.
+Real-connectome acceptance: 5 passed in 8.37s. Wheel build succeeded.
+Focused Ruff/mypy on research/CLI/FSM and new tests passed.
+Pre-existing fixture-module findings: I001, F401, RUF012, F811 remain.
+```
+
+Current experiment root: `~/.cache/flycode/experiments/2026-10-15-rollout/`.
+`expanded-comparison/` retains pre-fix FSM errors; `fsm-recovery-fixed/` holds
+all corrected FSM runs. `adaptation/`, `heldout-local/` (old helper checks),
+`heldout-local-v2/` (stronger delegation checks) and `shadow-validation/` contain
+raw evidence. Changing implementation invalidates earlier admission files;
+regenerate after later rollout changes. Raw experiment repositories/weights are
+not published. New commands and examples are documented in RU/EN README.
+
+## Earlier increment: adaptation, evaluation and shadow mode (2026-10-15)
 
 Implementation plan: `docs/superpowers/plans/2026-10-15-adaptation-evaluation.md`.
 Portable measurements: `docs/research-results/2026-10-15-adaptation.json`.

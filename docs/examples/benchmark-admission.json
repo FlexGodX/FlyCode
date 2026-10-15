@@ -1,0 +1,35 @@
+{
+  "controllers": [
+    {
+      "id": "baseline",
+      "brain": "functional"
+    },
+    {
+      "id": "observed",
+      "brain": "functional",
+      "observer": {
+        "brain": "full"
+      }
+    },
+    {
+      "id": "autonomous_full",
+      "brain": "full"
+    }
+  ],
+  "fixtures": [
+    "toy_arithmetic_bug",
+    "toy_import_bug"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "controls": [
+    "bias",
+    "hard"
+  ],
+  "cortex": "heuristic",
+  "max_steps": 25,
+  "max_tool_calls": 60
+}

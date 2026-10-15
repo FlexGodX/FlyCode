@@ -265,16 +265,33 @@ belong to the current controller instance; the MB update count is persisted.
 In 36 actual runs, learning and frozen controllers solved every task in 9 steps:
 faster task adaptation has not been demonstrated.
 
-`benchmark` creates separate repositories and logs for every case. It currently
-supports the two toy fixtures in the example. `cortex` accepts `heuristic` or
-the research-only `tournament` probe. For frozen/trained comparisons, use one
+`benchmark` creates separate repositories and logs for every case. It supports
+the two teacher toys and separate `search_helper_bug` / `boundary_regression_bug`
+fixtures for helper discovery and boundary behavior. These are synthetic tasks,
+not unseen real repositories. `cortex` accepts `heuristic`, the research-only
+`tournament` probe or `lmstudio` with explicit model, timeout and call budgets. For frozen/trained comparisons, use one
 configuration per seed with that seed's checkpoint. Reports show actual costs;
 compute equivalence is not assumed.
 
 Phase 11 is partial: neuron input/synaptic-gain lesions and parameter sensitivity
 are measured on recorded trajectories. Graph structure and source files remain
-unchanged. `counterfactual_task_success` stays `null`: the probes do not execute
-counterfactual repository repairs.
+unchanged. `counterfactual_task_success` stays `null`: replay probes do not
+execute repository repairs. For actual task execution with a damaged controller,
+set `lesion_fraction` on a benchmark controller. Reports retain mask provenance
+and active-edge counts; source graph files remain unchanged.
+
+The repeated-family runner compares frozen and learning Functional Fly instances
+for each seed. Repositories and cortex contexts are fresh each episode; only
+the corresponding controller retains learned experience. Reports include policy
+fingerprints, rollbacks, completion and first/last repetition costs.
+`faster_adaptation_demonstrated` requires successful tasks and fewer tool calls
+for the learning condition at every one of at least three seeds.
+
+```bash
+flycode adapt --config docs/examples/adaptation.json --output ~/.cache/flycode/adaptation
+flycode benchmark --config docs/examples/benchmark-lesion.json --output ~/.cache/flycode/lesion-tasks
+flycode benchmark --config docs/examples/benchmark-heldout-lmstudio.json --output ~/.cache/flycode/heldout
+```
 
 ## Shadow observer — Phase 12
 
@@ -296,6 +313,35 @@ With the actual FlyWire graph, both toy tasks completed in 9 steps with exactly
 the same actions as the active-only runs; recommendations agreed on 12 of 18
 steps. This is a CLI mode with initial telemetry. Phases 13–14 still require
 broader validation and controlled increases in controller influence.
+
+### Observer analysis and admission checks
+
+`docs/examples/benchmark-admission.json` compares an active controller,
+an observed controller and the full graph on two toy tasks with three seeds.
+After running it, use the experiment directory identified in the output:
+
+```bash
+flycode benchmark --config docs/examples/benchmark-admission.json --output ~/.cache/flycode/admission
+flycode shadow-analysis --trajectories /path/to/experiment/trajectories --output ~/.cache/flycode/shadow-analysis.json
+flycode validate-rollout --report /path/to/experiment/report.json \
+  --controller observed --baseline baseline --mode bounded --output ~/.cache/flycode/validation.json
+```
+
+Admission requires complete paired runs, clean verified completion without
+regressions/model errors, at least three seeds, two fixtures and 30 observer
+recommendations for shadow admission. Checksums bind logs, implementation and
+controller artifacts. Initial admission permits only the 10% step. Different
+models, graphs, checkpoints, tasks or budgets require matching evidence.
+An `accepted=true` file alone cannot authorize use: checks are recomputed.
+`--mode autonomous` compares measured `hard` runs against paired `bias` runs
+on the same task set.
+
+This prepares admission for the next phases; nonzero influence execution is
+connected separately. Existing research `--control hard` is not a validated
+mode for arbitrary repositories.
+
+The [expanded measurements](docs/research-results/2026-10-15-expanded-evaluation.json)
+include null results and the limitations of the initial helper-reuse check.
 
 ## Local Qwen + Jev through LM Studio
 

@@ -162,3 +162,39 @@ def test_shadow_cli_rejects_incompatible_paths_before_running(tmp_path, capsys):
         assert main(['run', '--task', 'fix', '--repo', str(tmp_path / 'repo'), *flags]) == 2
         assert 'Brain setup failed' in capsys.readouterr().err
         assert not (tmp_path / 'repo').exists()
+
+
+def test_adaptation_cli_saves_failed_cases_and_returns_error_status(tmp_path):
+    import json
+
+    from flycode.cli import main
+
+    config = tmp_path / 'adapt.json'
+    config.write_text(json.dumps({'seeds': [0], 'fixtures': ['toy_import_bug'], 'repeats': 2,
+                                 'checkpoint': str(tmp_path / 'missing')}))
+    output = tmp_path / 'results'
+    assert main(['adapt', '--config', str(config), '--output', str(output)]) == 1
+    report = json.loads(next(output.glob('*/report.json')).read_text())
+    assert report['summary']['learning']['errors'] == 2
+
+
+def test_shadow_analysis_cli_keeps_invalid_records_visible(tmp_path):
+    import json
+
+    from flycode.cli import main
+
+    records = tmp_path / 'records'
+    records.mkdir()
+    (records / 'run.steps.jsonl').write_text('{broken')
+    output = tmp_path / 'analysis.json'
+    assert main(['shadow-analysis', '--trajectories', str(records), '--output', str(output)]) == 1
+    assert json.loads(output.read_text())['invalid_records'] == 1
+
+
+def test_validation_cli_reports_missing_source_without_creating_admission(tmp_path):
+    from flycode.cli import main
+
+    output = tmp_path / 'validation.json'
+    assert main(['validate-rollout', '--report', str(tmp_path / 'missing'), '--controller', 'target',
+                 '--baseline', 'base', '--output', str(output)]) == 2
+    assert not output.exists()

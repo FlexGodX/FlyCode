@@ -1,0 +1,29 @@
+{
+  "controllers": [
+    {
+      "id": "functional",
+      "brain": "functional"
+    },
+    {
+      "id": "full",
+      "brain": "full"
+    }
+  ],
+  "fixtures": [
+    "search_helper_bug",
+    "boundary_regression_bug"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "controls": [
+    "bias"
+  ],
+  "cortex": "lmstudio",
+  "max_steps": 20,
+  "max_tool_calls": 20,
+  "max_model_calls": 24,
+  "request_timeout": 120
+}

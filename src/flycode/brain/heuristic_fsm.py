@@ -13,7 +13,7 @@ TOOLS = ("read_file", "list_files", "search", "git_status", "git_diff",
          "docker_logs", "postgres_status", "alembic", "http_request",
          "service_health", "stop")
 
-STAGE_ORDER = ("explore", "diagnose", "plan", "execute", "verify", "consolidate", "stop")
+STAGE_ORDER = ("explore", "diagnose", "plan", "execute", "verify", "recover", "consolidate", "stop")
 
 
 class HeuristicFSMBackend(BrainBackend):
@@ -79,7 +79,7 @@ class HeuristicFSMBackend(BrainBackend):
                 self.reads_in_stage = 0
         elif stage == "verify":
             if tests_passed:
-                self.stage_index += 1
+                self.stage_index = STAGE_ORDER.index("consolidate")
                 self.reads_in_stage = 0
             else:
                 self.stage_index = STAGE_ORDER.index("recover")

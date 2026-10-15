@@ -1,0 +1,29 @@
+{
+  "controllers": [
+    {
+      "id": "full",
+      "brain": "full"
+    },
+    {
+      "id": "lesion_10pct",
+      "brain": "full",
+      "lesion_fraction": 0.1
+    }
+  ],
+  "fixtures": [
+    "toy_arithmetic_bug",
+    "toy_import_bug"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "controls": [
+    "bias",
+    "hard"
+  ],
+  "cortex": "heuristic",
+  "max_steps": 20,
+  "max_tool_calls": 30
+}

@@ -508,10 +508,52 @@ def fastapi_postgres_app(dest: Path) -> MaterializeResult:
     )
 
 
+def search_helper_bug(dest: Path) -> MaterializeResult:
+    """Held-out package task: reuse an existing monetary conversion helper."""
+    if dest.exists():
+        shutil.rmtree(dest)
+    dest.mkdir(parents=True)
+    _write(dest, "billing/__init__.py", "")
+    _write(dest, "billing/money.py", "def cents_to_amount(cents):\n    return round(cents / 100, 2)\n")
+    _write(dest, "billing/service.py", "from . import money\n\ndef invoice_total(items):\n    return sum(items)\n")
+    _write(dest, "tests/test_invoice.py",
+           "from billing.service import invoice_total\n\n"
+           "def test_invoice_uses_currency_units():\n    assert invoice_total([125, 275]) == 4.0\n\n"
+           "def test_empty_invoice():\n    assert invoice_total([]) == 0.0\n\n"
+           "def test_credit_note():\n    assert invoice_total([-75, 25]) == -0.5\n\n"
+           "def test_shared_conversion_policy(monkeypatch):\n    from billing import money\n"
+           "    monkeypatch.setattr(money, 'cents_to_amount', lambda cents: 7.5)\n"
+           "    assert invoice_total([125, 275]) == 7.5\n")
+    _write(dest, "README.md", "# Invoice totals\n\nItems are integer cents; invoice_total must return currency units. "
+           "Find and reuse billing.money.cents_to_amount at call time so updates to the shared conversion policy "
+           "also affect invoice totals. Preserve empty and credit-note behavior.\n")
+    return MaterializeResult(dest, FixtureConfig(category=FixtureCategory.NOVEL_REPO,
+                                                broken_file_paths=["billing/service.py"]))
+
+
+def boundary_regression_bug(dest: Path) -> MaterializeResult:
+    """Held-out boundary task with ordinary and invalid-input regressions."""
+    if dest.exists():
+        shutil.rmtree(dest)
+    dest.mkdir(parents=True)
+    _write(dest, "shipping.py", 'def shipping_cost(total):\n    if total < 0:\n'
+           '        raise ValueError("negative total")\n    return 0 if total > 50 else 5\n')
+    _write(dest, "tests/test_shipping.py", "import pytest\nfrom shipping import shipping_cost\n\n"
+           "@pytest.mark.parametrize(('total', 'cost'), [(0, 5), (49.99, 5), (50, 0), (50.01, 0), (100, 0)])\n"
+           "def test_shipping_bands(total, cost):\n    assert shipping_cost(total) == cost\n\n"
+           "def test_negative_total_is_rejected():\n    with pytest.raises(ValueError):\n        shipping_cost(-1)\n")
+    _write(dest, "README.md", "# Shipping boundary\n\nShipping costs 5 below a total of 50, and is free "
+           "at 50 or above. Negative totals must still raise ValueError. Fix the boundary without regressions.\n")
+    return MaterializeResult(dest, FixtureConfig(category=FixtureCategory.REGRESSION,
+                                                broken_file_paths=["shipping.py"]))
+
+
 FIXTURES = {
     "toy_arithmetic_bug": toy_arithmetic_bug,
     "toy_import_bug": toy_import_bug,
     "fastapi_postgres_app": fastapi_postgres_app,
+    "search_helper_bug": search_helper_bug,
+    "boundary_regression_bug": boundary_regression_bug,
 }
 
 

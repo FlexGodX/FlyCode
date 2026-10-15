@@ -1,0 +1,16 @@
+{
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "fixtures": [
+    "toy_arithmetic_bug",
+    "toy_import_bug"
+  ],
+  "repeats": 3,
+  "control": "bias",
+  "cortex": "heuristic",
+  "max_steps": 25,
+  "max_tool_calls": 60
+}

@@ -27,30 +27,38 @@ def _difference(states: np.ndarray, scores: np.ndarray, baseline: tuple[np.ndarr
             'tool_agreement': float(np.mean(np.argmax(scores, axis=1) == np.argmax(baseline[1], axis=1)))}
 
 
-def lesion(graph_path: Path, episodes: list[list[TrainingStep]], *, fraction: float = .1, seed: int = 0,
-           checkpoint_path: Path | None = None) -> dict:
-    _check_episodes(episodes)
+def apply_lesion(brain: FullConnectomeBackend, fraction: float, seed: int) -> dict:
+    """Apply one reproducible mask to an isolated controller, never its source artifact."""
     if not np.isfinite(fraction) or not 0 <= fraction <= 1:
         raise ValueError('Lesion fraction must be finite and between zero and one')
-    baseline = FullConnectomeBackend(seed=seed, connectome_path=graph_path, checkpoint_path=checkpoint_path)
-    reference = replay(baseline, episodes)
-    damaged = FullConnectomeBackend(seed=seed, connectome_path=graph_path, checkpoint_path=checkpoint_path)
-    n = len(damaged.graph.neuron_ids)
+    parent = brain.graph.fingerprint
+    n = len(brain.graph.neuron_ids)
     selected = np.sort(np.random.default_rng(seed).choice(n, size=round(n * fraction), replace=False))
     mask = np.zeros(n, dtype=bool)
     mask[selected] = True
-    weights = damaged.graph.weights.copy()
+    weights = brain.graph.weights.copy()
     # Zero gain on existing edges, retaining CSR structure and topology hash.
     weights.data[np.repeat(mask, np.diff(weights.indptr)) | mask[weights.indices]] = 0.
-    damaged.graph = damaged.graph.model_copy(update={'weights': weights})
-    damaged._input[selected] = 0.
+    brain.graph = brain.graph.model_copy(update={'weights': weights})
+    brain._input[selected] = 0.
+    return {'seed': seed, 'fraction': fraction, 'neurons_lesioned': len(selected),
+            'neuron_ids_sha256': hashlib.sha256(brain.graph.neuron_ids[selected].tobytes()).hexdigest(),
+            'parent_fingerprint': parent, 'graph_fingerprint': brain.graph.fingerprint,
+            'topology_hash': brain.graph.topology_hash,
+            'active_edges': int(np.count_nonzero(weights.data)), 'structural_edges': weights.nnz}
+
+
+def lesion(graph_path: Path, episodes: list[list[TrainingStep]], *, fraction: float = .1, seed: int = 0,
+           checkpoint_path: Path | None = None) -> dict:
+    _check_episodes(episodes)
+    baseline = FullConnectomeBackend(seed=seed, connectome_path=graph_path, checkpoint_path=checkpoint_path)
+    reference = replay(baseline, episodes)
+    damaged = FullConnectomeBackend(seed=seed, connectome_path=graph_path, checkpoint_path=checkpoint_path)
+    perturbation = apply_lesion(damaged, fraction, seed)
     start = time.perf_counter()
     states, scores = replay(damaged, episodes)
     report = {'experiment': 'zero input and incident synaptic gains for sampled neurons',
-              'seed': seed, 'fraction': fraction, 'neurons_lesioned': len(selected),
-              'neuron_ids_sha256': hashlib.sha256(damaged.graph.neuron_ids[selected].tobytes()).hexdigest(),
-              'parent_fingerprint': baseline.graph.fingerprint, 'topology_hash': damaged.graph.topology_hash,
-              'active_edges': int(np.count_nonzero(weights.data)), 'structural_edges': weights.nnz,
+              **perturbation,
               'dataset_sha256': fingerprint_episodes(episodes), 'state_space': '64 pooled neural values',
               'counterfactual_task_success': None, 'replay_wall_time_ms': (time.perf_counter() - start) * 1000,
               **_difference(states, scores, reference)}

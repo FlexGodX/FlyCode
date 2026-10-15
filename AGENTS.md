@@ -174,6 +174,7 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Never choose the "next phase" from memory: read the phase section in `docs/Plan.md` (§74-88) and its acceptance line first.
 
 - Treat Hermes in this project’s plan as FlyCode itself: the host for connected agents orchestrated by the fly controller. Do not request a separate Hermes repository.
+- Verify helper reuse through observable delegation; passing numeric examples alone does not establish that an existing helper was used.
 
 ## 12. How this file was built
 
