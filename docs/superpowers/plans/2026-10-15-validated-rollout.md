@@ -131,7 +131,9 @@ assert decision.executed_choice == active.winner.id
 - [x] Update RU/EN README, handoff and portable JSON measurements for the final implementation. Separate software delivery, empirical acceptance and remaining data/evidence gaps for each phase.
 - [x] Run focused checks per edit and the full pytest suite at the final source revision; run relevant real-connectome/local-model cases and lint/types on changed modules. Report pre-existing static failures by name.
 - [x] Build/inspect the wheel, restart the idle local UI, verify durable history and no active task interruption.
-- [ ] Review the complete diff, push verified commits to the existing public repository and verify local/remote state.
-- [ ] Complete the implementation goal only when every software, measurement, documentation and publication deliverable above is verified. Keep unpassed empirical phase criteria explicitly open; recording these gaps satisfies the reporting deliverable, not scientific acceptance.
+- [x] Review the complete diff, push verified commits to the existing public repository and verify local/remote state.
+- [x] Complete the implementation goal only when every software, measurement, documentation and publication deliverable above is verified. Keep unpassed empirical phase criteria explicitly open; recording these gaps satisfies the reporting deliverable, not scientific acceptance.
 
 Implementation note (2026-10-16): guarded autonomy lives in `policy/autonomy.py`; integration cases in `test_rollout_execution.py` and `test_autonomy_execution.py` exercise real tools and fallbacks. Admission binds the exact instruction for local models. Browser screenshots cover 1280px and 390px, zero-influence learning and a completed scoped autonomous run. Research criteria remain separate from software completion.
+
+Delivery: runtime commit `7d46629` and browser/documentation commit `456d444` were pushed to public `FlexGodX/FlyCode` on `master`; local and remote heads matched. The implementation deliverables are complete. The empirical phase criteria listed in the report remain open and are not represented as completed science.

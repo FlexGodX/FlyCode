@@ -8,8 +8,9 @@ itself: connected agents are hosted here and orchestrated by the controller.
 ## Latest increment: guarded rollout and browser configuration (2026-10-16)
 
 Plan: `docs/superpowers/plans/2026-10-15-validated-rollout.md`.
-Software Tasks 1–6 are implemented and verified. Publication is tracked in the
-implementation plan; research acceptance gaps remain open.
+The implementation goal is fulfilled: Tasks 1–7 are implemented, verified and
+published to public `FlexGodX/FlyCode` (`7d46629`, `456d444`). Research acceptance
+gaps remain open separately from this software delivery.
 
 - Phase 13: candidate-level corrections at 0/.1/.25/.5/1, bounded by
   `.2 * influence`, only inside an allowlist of safe diagnostics. Never promote
