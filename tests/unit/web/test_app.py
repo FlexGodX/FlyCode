@@ -169,3 +169,19 @@ def test_demo_named_user_project_has_a_distinct_selector(client, tmp_path):
     matches = [item for item in projects if item["name"] == "demo"]
     assert len(matches) == 1
     assert matches[0]["id"] != "demo"
+
+
+def test_full_controller_selection_is_executed_and_preserved(client, tmp_path, monkeypatch):
+    import numpy as np
+
+    from flycode.brain.full_connectome.graph import graph_from_edges
+
+    path = tmp_path / 'graph'
+    graph_from_edges(np.array([1, 2, 3]), np.array([1, 2]), np.array([2, 3]), np.array([3, 4])).save(path)
+    monkeypatch.setenv('FLYCODE_CONNECTOME_PATH', str(path))
+    response = client.post('/api/runs', json={'task': 'fix', 'llm': 'heuristic', 'brain': 'full'})
+    record = wait_run(client, response.json()['id'])
+    assert record['request']['brain'] == 'full'
+    assert record['result']['metrics']['brain'] == 'full_connectome'
+    assert record['status'] == 'completed'
+    assert '"connectome"' in client.get(f"/api/runs/{record['id']}/events").text

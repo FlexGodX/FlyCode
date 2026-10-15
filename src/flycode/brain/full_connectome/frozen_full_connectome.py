@@ -1,7 +1,7 @@
-"""Frozen Full Connectome Backend - Phase 5, §36.
+"""Legacy random-projection experiment; not a biological connectome.
 
-A brain backend that uses the full biological connectome of Drosophila as a
-fixed readout. No internal weights are trained - the stimulus-to-state
+A projection backend retained for comparison. Use ``--brain full`` for real
+biological adjacency. No internal weights are trained - the stimulus-to-state
 projection, the state-to-action readout and the per-node oscillation phases
 are drawn once (seeded) and then frozen.
 

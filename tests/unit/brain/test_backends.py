@@ -62,9 +62,13 @@ class TestBrainContract:
         backend.close()
 
 
-def test_make_brain_registry_covers_all_names():
+def test_make_brain_registry_covers_all_names(tmp_path):
+    from flycode.brain.full_connectome.graph import graph_from_edges
+
+    graph_from_edges(np.array([1, 2]), np.array([1]), np.array([2]), np.array([1])).save(tmp_path)
     for name in BRAIN_REGISTRY:
-        backend = make_brain(name, seed=0)
+        kwargs = {"connectome_path": tmp_path} if name == "full" else {}
+        backend = make_brain(name, seed=0, **kwargs)
         assert backend.name
         backend.close()
 

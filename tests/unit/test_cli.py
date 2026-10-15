@@ -36,3 +36,11 @@ def test_ui_accepts_workspace_and_port():
     args = _build_parser().parse_args(["ui", "--workspace", "/tmp/projects", "--port", "8787"])
     assert args.workspace == "/tmp/projects"
     assert args.port == 8787
+
+
+def test_full_brain_and_connectome_preparation_flags():
+    args = _build_parser().parse_args(['run', '--task', 'fix', '--brain', 'full', '--connectome-path', '/tmp/graph'])
+    assert args.connectome_path == '/tmp/graph'
+    prepare = _build_parser().parse_args(['connectome', 'prepare', '--source', '/tmp/raw', '--output', '/tmp/graph'])
+    assert prepare.source == '/tmp/raw'
+    assert prepare.min_synapses == 5

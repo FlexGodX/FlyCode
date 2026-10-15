@@ -161,7 +161,7 @@ Prefer single-file or single-test runs during iteration. Full suites are for the
 
 - Don't gate `Observation.is_healthy` on tool-usage failures (bad path, stale `old_text`) - only infra/service tool failures belong in `recent_errors` (see `INFRA_TOOLS` in `environment/software_gym.py`); mixing them back in makes the agent loop unable to reach CONSOLIDATE/STOP once a single retry fails.
 - Don't key a fly-bias dict by tool name when passing it through `policy.bias_control`/`hard_control` unless you mean *every* candidate of that tool to share one score - prefer per-candidate-id keys (`brain.score_candidates(...)`) for anything using habituation/mushroom-body credit.
-- `BrainBackend.tier` 2/3 (Reduced/Full Connectome) and `research/`, `training/` packages are intentionally unimplemented - they need real connectome datasets and a training loop, out of scope until Phase 5+.
+- Full Connectome uses verified FlyWire data outside Git. Never replace missing biological data with synthetic topology. Training/reduction/research acceptance must be measured against `docs/Plan.md`, not inferred from command availability.
 
 ## 11. Project Learnings
 
@@ -172,6 +172,8 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Always track `recent_errors` per tool (`SoftwareEnvironment._infra_errors`) and clear a tool's entry on its next success - append-only infra errors make `is_healthy` unreachable for any repo that was broken at step 1.
 - Always give a fixture that declares infrastructure (compose/db/http) the full `MaterializeResult` (docker_services/database_type/health_check_url) - the e2e acceptance test and `FixtureConfig` consumers read those fields.
 - Never choose the "next phase" from memory: read the phase section in `docs/Plan.md` (§74-88) and its acceptance line first.
+
+- Treat Hermes in this project’s plan as FlyCode itself: the host for connected agents orchestrated by the fly controller. Do not request a separate Hermes repository.
 
 ## 12. How this file was built
 

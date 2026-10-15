@@ -305,7 +305,7 @@
                   ><svg><use href="#i-fly" /></svg
                 ></span>
                 <div>
-                  <strong>Functional Fly</strong
+                  <strong id="controllerName">Functional Fly</strong
                   ><small>Направляет работу</small>
                 </div>
                 <span class="node-state">Готов</span>
@@ -401,7 +401,7 @@
           </section>
           <div class="inspector-footnote">
             <svg><use href="#i-fly" /></svg>
-            <p>
+            <p id="controllerNote">
               Functional Fly — функциональная модель контроллера. Схема
               показывает реальный ход вызовов, а не биологический коннектом.
             </p>
@@ -419,6 +419,13 @@
           <svg><use href="#i-close" /></svg>
         </button>
       </form>
+      <label class="field-label">Нейронный контроллер
+        <select id="brainSelect">
+          <option value="functional">Functional Fly · функциональная модель</option>
+          <option value="full">FlyWire 783 · настоящий граф связей</option>
+        </select>
+      </label>
+      <p class="field-help">Полный граф использует локально подготовленные данные FlyWire. При отсутствии данных запуск выдаст ошибку.</p>
       <label class="field-label"
         >Режим выполнения<select id="llmSelect">
           <option value="lmstudio">Локальные модели · LM Studio</option>

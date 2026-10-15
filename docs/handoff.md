@@ -1,8 +1,45 @@
 # FlyCode handoff brief
 
 Authoritative roadmap: `docs/Plan.md` (§1–99). Operating rules: `AGENTS.md`.
-The baseline MVP covers Phase 4 (§78). Local LM Studio model routing and the
-browser workspace extend that MVP without implementing Phase 5.
+The baseline MVP covers Phase 4 (§78). Phase 5 (§79) now runs the same tasks
+with a verified, sparse biological graph. Hermes in the roadmap means FlyCode
+itself: connected agents are hosted here and orchestrated by the controller.
+
+## Current extension: real FlyWire controller
+
+- `--brain full` uses `FullConnectomeBackend`, not the legacy random projection.
+  Install `.[research]`, then `flycode connectome download` and
+  `flycode connectome prepare --source ~/.cache/flycode/flywire-783`.
+- Official FlyWire v783 source: https://zenodo.org/records/10676866, CC-BY-4.0.
+  The two source files and prepared graph stay outside Git under that cache.
+  Source MD5 checksums are verified before preprocessing.
+- The prepared graph contains 139,255 proofread neurons and 2,700,513 directed
+  edges after summing neuropil duplicates and applying a five-synapse threshold.
+  Fingerprint: `7adea43f9f823703c8116a6321a78adfdc9aac9c14c80e04bfa6d991f8c6712f`.
+  Topology: `00d1a94bd95f39f6fde20a6890cc680e538270c5620eadc53a89837d683b644a`.
+- CSR recurrence uses A[target, source], three leaky tanh substeps, modeled
+  transmitter signs and normalized incoming weights. These dynamics, seeded
+  input/readout and explicit workflow prior are engineering approximations;
+  they are not measured software-solving behavior of a biological brain.
+- All activity remains inside the backend; JSON events expose 64 pooled values
+  plus provenance and counts. The browser settings offer Functional Fly/FlyWire.
+  Missing or corrupt data fails explicitly without a synthetic fallback.
+
+Verified on 2026-10-15:
+
+```text
+Full pytest: 246 passed, 7 skipped in 68.77s.
+Real graph toy repairs: 4 passed (two fixtures × bias/hard).
+Real graph Docker/PostgreSQL repairs: 2 passed (bias/hard), 46.03s.
+Actual browser FlyWire + local Qwen/Jev: verified success, 8 steps, 86.40s;
+  Qwen=5 and Jev=5 actual requests, no model errors.
+20 warmed controller steps: mean 6.31 ms, measured array storage 30.17 MiB.
+Changed Python files: targeted Ruff passed; new graph modules: mypy passed.
+```
+
+The seven default skips are four explicit real-graph tests, two real-graph
+Docker cases and one local-model test. The corresponding real runs above were
+executed separately. No comparative advantage has been established.
 
 ## Current extension: local browser workspace
 
@@ -98,8 +135,7 @@ mypy src/flycode --ignore-missing-imports -> 20 errors in the same 8 files
 ```
 
 Local inference and the wiring are verified. No improvement over the baseline
-has been established, and this extension does not implement a real biological
-connectome or satisfy Phase 5 acceptance.
+has been established. The separate real-graph extension above satisfies Phase 5.
 
 ## Phase status
 
@@ -110,8 +146,10 @@ connectome or satisfy Phase 5 acceptance.
 | 2 Baselines | §76 | Mock, FSM, random reservoir, generic RNN available |
 | 3 Functional Fly | §77 | Implemented and tested |
 | 4 Environment autonomy | §78 | Real autonomous Docker/Postgres acceptance passes in bias and hard control |
-| 5 Real connectome | §79 | Not accepted: existing frozen backend uses random projections, not biological topology |
-| 6–14 | §80–88 | Outside this delivery; training/research/Hermes integration remain unfinished |
+| 5 Real connectome | §79 | Accepted: real FlyWire graph passes toy and Docker tasks in both control modes |
+| 6–8 | §80–82 | Offline training, reduction and distillation remain unfinished |
+| 9 Candidate Tournament | §83 | Implemented: existing safety-masked hard/bias tournament tests pass |
+| 10–14 | §84–88 | Bounded adaptation, experiments and rollout inside FlyCode remain unfinished |
 
 ## Run and verify
 
@@ -187,12 +225,12 @@ silenced or folded into an unrelated cleanup. Raw diagnostics from this session
 are in `/tmp/flycode-ruff.log` and `/tmp/flycode-mypy.log`.
 
 
-## Remaining work outside Phase 4
+## Remaining work after Phase 5
 
-- Real connectome data, constrained training, reduced models, distillation,
-  bounded online learning, causal evaluation and Hermes integration.
+- Constrained training, reduced models, distillation, bounded online learning,
+  causal evaluation and gradual controller rollout inside FlyCode.
 - CLI `train`, `distill`, `benchmark`, `lesion`, `sensitivity` remain explicit
-  stubs. `--brain full` / `--brain reduced` are not supported.
+  stubs. `--brain reduced` is not supported; `--brain full` is operational.
 - Stressors declared on TaskSpec are not wired into the loop: partial
   observations, delayed rewards, context reversal and noisy feedback.
 - Benchmark coverage remains narrower than the research success criteria.

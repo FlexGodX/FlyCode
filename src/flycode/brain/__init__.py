@@ -15,6 +15,7 @@ from .mock import MockBrainBackend
 from .protocol import BrainBackend, BrainProtocol, make_stimulus
 from .random_reservoir import RandomReservoirBackend
 from .full_connectome.frozen_full_connectome import FrozenFullConnectomeBackend
+from .full_connectome.sparse_backend import FullConnectomeBackend
 
 BRAIN_REGISTRY: dict[str, type[BrainBackend]] = {
     "mock": MockBrainBackend,
@@ -25,6 +26,7 @@ BRAIN_REGISTRY: dict[str, type[BrainBackend]] = {
     "functional_fly": FunctionalFlyBackend,
     "frozen_connectome": FrozenFullConnectomeBackend,
     "frozen_full_connectome": FrozenFullConnectomeBackend,
+    "full": FullConnectomeBackend,
 }
 
 
@@ -51,6 +53,7 @@ __all__ = [
     "GenericRNNBackend",
     "FunctionalFlyBackend",
     "FrozenFullConnectomeBackend",
+    "FullConnectomeBackend",
     "BRAIN_REGISTRY",
     "make_brain",
 ]

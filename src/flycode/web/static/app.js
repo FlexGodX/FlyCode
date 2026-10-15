@@ -250,6 +250,11 @@ function renderHistory() {
 }
 function controls() {
   const running = activeRun();
+  const full = (selected?.request.brain || $("#brainSelect").value) === "full";
+  $("#controllerName").textContent = full ? "FlyWire 783" : "Functional Fly";
+  $("#controllerNote").textContent = full
+    ? "Реальный граф FlyWire с приближённой динамикой. Входы и выходы заданы программно; это исследовательский режим."
+    : "Functional Fly — функциональная модель контроллера. Схема показывает ход вызовов, а не биологический коннектом.";
   $("#sendButton").hidden = !!running;
   $("#sendButton").disabled = !!running;
   $("#stopButton").hidden = !running;
@@ -520,6 +525,10 @@ function handleEvent(event) {
       clearNodes();
       setNode("controller", true, "Выбирает режим");
       const state = data.state;
+      if (state.connectome) {
+        $("#controllerName").textContent = "FlyWire " + (state.connectome.release || "граф");
+        $("#controllerNote").textContent = `${state.connectome.neurons.toLocaleString("ru-RU")} нейронов · ${state.connectome.edges.toLocaleString("ru-RU")} связей. Приближённая динамика на измеренной топологии.`;
+      }
       $("#modeName").textContent = modeNames[data.mode] || data.mode;
       $("#modeDescription").textContent =
         modeDescriptions[data.mode] ||
@@ -706,6 +715,7 @@ function openRun(run) {
   $("#taskTitle").textContent = run.request.task;
   $("#projectSelect").value = run.request.project;
   $("#llmSelect").value = run.request.llm;
+  $("#brainSelect").value = run.request.brain || "functional";
   $("#maxSteps").value = run.request.max_steps;
   $("#reasonerModel").value = run.request.model;
   $("#deciderModel").value = run.request.decision_model;
@@ -833,6 +843,7 @@ async function submitTask(event) {
     task,
     project: $("#projectSelect").value,
     llm: $("#llmSelect").value,
+    brain: $("#brainSelect").value,
     max_steps: Number($("#maxSteps").value),
     model: $("#reasonerModel").value.trim(),
     decision_model: $("#deciderModel").value.trim(),
@@ -870,6 +881,7 @@ $("#saveSettings").addEventListener("click", () => {
   $("#settingsDialog").close();
 });
 $("#llmSelect").addEventListener("change", controls);
+$("#brainSelect").addEventListener("change", controls);
 $("#projectSelect").addEventListener("change", () => {
   if ($("#projectSelect").value !== "demo") $("#llmSelect").value = "lmstudio";
   controls();

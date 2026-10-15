@@ -8,6 +8,7 @@ later-phase commands (§85-88) and intentionally exit with a clear
 
 import argparse
 import asyncio
+import json
 import math
 import sys
 from pathlib import Path
@@ -45,6 +46,7 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument("--fixture", type=str, default=None, help="Deterministic fixture to materialize into --repo")
     run.add_argument("--task", type=str, required=True, help="Task description")
     run.add_argument("--brain", type=str, default="functional", help="Brain backend (see `flycode brains`)")
+    run.add_argument("--connectome-path", default=None, help="Prepared sparse graph directory for --brain full")
     run.add_argument("--control", type=str, choices=["bias", "hard"], default="bias")
     run.add_argument("--llm", type=str, choices=["heuristic", "openai", "lmstudio"], default="heuristic")
     run.add_argument("--model", type=str, default=None, help="Reasoner: gpt-4o-mini (openai), qwen/qwen3.5-9b (lmstudio)")
@@ -75,6 +77,17 @@ def _build_parser() -> argparse.ArgumentParser:
     ui.add_argument("--port", type=_positive_int, default=8790)
     ui.add_argument("--data-dir", default=None, help="Directory for local run history")
 
+    connectome = sub.add_parser("connectome", help="Prepare or inspect a verified FlyWire graph")
+    commands = connectome.add_subparsers(dest="connectome_command", required=True)
+    download = commands.add_parser("download")
+    download.add_argument("--destination", default=str(Path.home() / ".cache/flycode/flywire-783"))
+    prepare = commands.add_parser("prepare")
+    prepare.add_argument("--source", required=True, help="Directory containing the two official v783 files")
+    prepare.add_argument("--output", default=None)
+    prepare.add_argument("--min-synapses", type=_positive_int, default=5)
+    info = commands.add_parser("info")
+    info.add_argument("--path", default=None)
+
     return parser
 
 
@@ -90,7 +103,12 @@ async def _run(args: argparse.Namespace) -> int:
     )
 
     env = SoftwareEnvironment(repo, seed=args.seed)
-    brain = make_brain(args.brain, seed=args.seed)
+    try:
+        kwargs = {"connectome_path": args.connectome_path} if args.brain == "full" else {}
+        brain = make_brain(args.brain, seed=args.seed, **kwargs)
+    except ValueError as exc:
+        print(f"Brain setup failed: {exc}", file=sys.stderr)
+        return 2
     if args.llm == "heuristic":
         cortex = HeuristicCandidateGenerator()
     elif args.llm == "lmstudio":
@@ -146,6 +164,28 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "run":
         return asyncio.run(_run(args))
+
+    if args.command == "connectome":
+        from .brain.full_connectome.graph import SparseConnectome
+        from .brain.full_connectome.importer import download_flywire, prepare_flywire
+        from .brain.full_connectome.sparse_backend import DEFAULT_CONNECTOME
+
+        try:
+            if args.connectome_command == "download":
+                download_flywire(Path(args.destination))
+                print(f"Verified FlyWire 783 source files: {args.destination}")
+                return 0
+            if args.connectome_command == "prepare":
+                graph = prepare_flywire(Path(args.source), Path(args.output) if args.output else DEFAULT_CONNECTOME,
+                                        min_synapses=args.min_synapses)
+            else:
+                graph = SparseConnectome.load(Path(args.path) if args.path else DEFAULT_CONNECTOME)
+            print(json.dumps({**graph.metadata, "neurons": len(graph.neuron_ids), "edges": graph.weights.nnz,
+                              "fingerprint": graph.fingerprint}, indent=2))
+            return 0
+        except (OSError, ValueError, ImportError) as exc:
+            print(f"Connectome setup failed: {exc}", file=sys.stderr)
+            return 2
 
     if args.command == "ui":
         import uvicorn

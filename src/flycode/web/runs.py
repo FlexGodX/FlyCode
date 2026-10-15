@@ -24,6 +24,7 @@ class RunRequest(BaseModel):
     task: str = Field(min_length=1, max_length=10000)
     project: str = Field(default="demo", max_length=1000)
     llm: Literal["lmstudio", "heuristic"] = "lmstudio"
+    brain: Literal["functional", "full"] = "functional"
     max_steps: int = Field(default=25, ge=1, le=100)
     model: str = Field(default="qwen/qwen3.5-9b", min_length=1, max_length=200)
     decision_model: str = Field(default="jev-style-qwen3.5-2b-decision", min_length=1, max_length=200)
@@ -162,7 +163,7 @@ class RunManager:
                             max_steps=request.max_steps, max_tool_calls=request.max_steps)
             result = asyncio.run(run_agent(
                 SoftwareEnvironment(repo or self.data_dir / run_id / "repository"),
-                make_brain("functional", seed=0), cortex, task,
+                make_brain(request.brain, seed=0), cortex, task,
                 telemetry=TelemetryLogger(self.data_dir / run_id / "telemetry"), run_id=run_id,
                 on_event=sink, should_stop=stop.is_set,
             ))

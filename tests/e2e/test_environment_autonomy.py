@@ -1,6 +1,7 @@
 """Phase 4 acceptance through the real agent, tools, Docker, DB and HTTP."""
 
 import asyncio
+import os
 import socket
 import subprocess
 
@@ -41,15 +42,17 @@ def isolated_demo(monkeypatch):
     return urls
 
 
+@pytest.mark.parametrize("brain_name", ["functional", pytest.param("full", marks=pytest.mark.skipif(
+    os.environ.get("FLYCODE_TEST_CONNECTOME") != "1", reason="requires prepared biological graph"))])
 @pytest.mark.parametrize("control", [ControlMode.BIAS_CONTROL, ControlMode.HARD_CONTROL])
-async def test_agent_repairs_and_runs_fastapi_postgres(tmp_path, isolated_demo, control):
+async def test_agent_repairs_and_runs_fastapi_postgres(tmp_path, isolated_demo, control, brain_name):
     repo = tmp_path / "phase4"
     env = SoftwareEnvironment(repo)
     task = TaskSpec(id="phase4", task="Fix this application and get it fully running",
                     fixture="fastapi_postgres_app", max_steps=60, max_tool_calls=60,
                     success_criteria={"service_urls": isolated_demo})
     try:
-        result = await run_agent(env, make_brain("functional", seed=0), HeuristicCandidateGenerator(),
+        result = await run_agent(env, make_brain(brain_name, seed=0), HeuristicCandidateGenerator(),
                                  task, control_mode=control)
         assert result.success, "\n".join(result.transcript)
         assert result.metrics.verified_completion

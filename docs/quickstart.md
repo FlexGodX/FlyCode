@@ -50,8 +50,8 @@ Available baseline names are `mock`, `heuristic_fsm`, `random_reservoir` and
 `generic_rnn`; `functional` selects Functional Fly. `--control hard` selects
 hard control instead of the default `bias`. `frozen_connectome` is an
 experimental random-projection backend; it does not implement a real biological
-connectome. Phases 5–14 and the train/distill/benchmark/lesion/sensitivity CLI
-commands remain outside the completed working version.
+connectome. `--brain full` instead uses a prepared real FlyWire graph. Training
+and later research/rollout phases remain unfinished.
 
 ## Phase 4: FastAPI + Postgres
 
@@ -178,3 +178,21 @@ The live acceptance is opt-in so ordinary tests need no loaded models:
 ```bash
 FLYCODE_TEST_LMSTUDIO=1 python -m pytest tests/e2e/test_lmstudio.py -q
 ```
+
+## Real FlyWire graph (Phase 5)
+
+```bash
+python -m pip install -e '.[research]'
+flycode connectome download
+flycode connectome prepare --source ~/.cache/flycode/flywire-783
+flycode run --repo /tmp/flycode-full --fixture toy_arithmetic_bug \
+  --task "Fix the bug" --brain full
+```
+
+The 853 MB source download is verified against the official FlyWire 783 checksums.
+The prepared CSR graph has 139,255 neurons and 2,700,513 edges at a 5-synapse
+threshold. Real adjacency is frozen; rate dynamics, input mappings and initial
+readout/workflow priorities are engineered approximations. No task-performance
+advantage is established. Select FlyWire in UI settings or pass an explicit
+`--connectome-path`/`FLYCODE_CONNECTOME_PATH`. Hermes in the roadmap means FlyCode
+itself, not a separate dependency.

@@ -9,8 +9,8 @@ using tests and application health checks.
 
 **Status: working MVP through Phase 4.** The agent autonomously repairs a demo
 FastAPI/PostgreSQL project, starts Docker Compose, applies Alembic migrations
-and checks the API. Real biological connectome data and model training belong
-to later phases.
+and checks the API. A real FlyWire graph is now available as the Phase 5 extension;
+model training remains a later phase.
 
 ## MVP capabilities
 
@@ -74,7 +74,7 @@ History and events live in `~/.local/share/flycode/ui`; override this with
 Reloading restores the event journal; unfinished tasks are marked interrupted
 on server restart. Rationales are concise action explanations, not hidden model
 chain of thought. The diagram represents Functional Fly and component calls,
-not a biological connectome. Large tool outputs are clipped to 16,000 characters
+not a biophysical simulation. Large tool outputs are clipped to 16,000 characters
 in the browser journal.
 
 ## First run without an API key
@@ -131,6 +131,40 @@ The application remains running after the agent exits. Stop it with:
 docker compose --project-directory /tmp/flycode-environment down
 ```
 
+## Real FlyWire connectome — Phase 5
+
+```bash
+python -m pip install -e '.[research]'
+flycode connectome download
+flycode connectome prepare --source ~/.cache/flycode/flywire-783
+flycode connectome info
+flycode run --repo /tmp/flycode-full --fixture toy_arithmetic_bug \
+  --task "Fix the bug" --brain full
+```
+
+The initial download retrieves two official files (~853 MB) and verifies their
+checksums. Source: [FlyWire Consortium v783, CC BY 4.0](https://zenodo.org/records/10676866).
+Data stays in the local cache and is not distributed in this repository.
+
+The prepared graph contains all **139,255** released proofread neurons and
+**2,700,513** directed connections after summing neuropils and applying a
+5-synapse threshold. Use `--connectome-path PATH` or `FLYCODE_CONNECTOME_PATH`
+for another prepared artifact. Missing data fails explicitly; there is no
+random-topology fallback.
+
+Select «Нейронный контроллер → FlyWire 783» in the UI settings. The same Qwen
+and Jev agents receive the connectome controller's state for call routing and
+action scoring. In the roadmap, Hermes means FlyCode itself: the application
+hosting these agents.
+
+This is a research model: measured topology drives approximate recurrent rate
+dynamics with engineered input/readout mappings and an initial workflow prior.
+Signs follow neurotransmitter predictions: GABA/GLUT inhibitory, others
+excitatory. This convention is not a complete biophysical simulation. The
+legacy `frozen_connectome` remains a random-projection comparison. No advantage
+over Functional Fly has been established; training and graph reduction require
+separate measurements.
+
 ## Local Qwen + Jev through LM Studio
 
 FlyCode supports two local models with distinct roles:
@@ -139,7 +173,7 @@ FlyCode supports two local models with distinct roles:
 - `jev-style-qwen3.5-2b-decision` scores safe options using next-token
   probabilities in its native decision format.
 - The fly controller schedules inference and retains final action selection.
-  This is the current Functional Fly; a real biological connectome is not connected yet.
+  Choose Functional Fly or the prepared real graph with `--brain full`.
 
 If the models are already downloaded, load them and enable the local server:
 
@@ -216,7 +250,8 @@ checks; it is not an isolation boundary for untrusted code.
 | `heuristic_fsm` | Finite-state-machine baseline |
 | `random_reservoir` | Random-reservoir baseline |
 | `generic_rnn` | Recurrent-network baseline |
-| `frozen_connectome` / `frozen_full_connectome` | Experimental random projections; a real connectome is not implemented yet |
+| `full` | Real FlyWire sparse topology with modeled recurrent dynamics |
+| `frozen_connectome` / `frozen_full_connectome` | Legacy experimental random projections |
 
 `--control bias` is the default: the fly controller influences candidate
 ranking. `--control hard` selects an action using controller scores.
@@ -254,10 +289,10 @@ remain. See the [project status](docs/handoff.md) for details.
 
 - The heuristic generator is not a general-purpose code repair system.
 - An advantage over comparable FSM/RNN controllers has not been demonstrated.
-- A real connectome, constrained training, distillation, reduced models and
-  Hermes integration are outside the completed MVP.
+- Constrained training, distillation, reduced models and validated controller
+  rollout inside FlyCode remain unfinished.
 - `train`, `distill`, `benchmark`, `lesion` and `sensitivity` are explicit CLI
-  stubs. `--brain full` and `--brain reduced` are not supported.
+  stubs. `--brain reduced` is not supported yet.
 
 ## Documentation
 
