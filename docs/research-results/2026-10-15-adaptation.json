@@ -1,0 +1,372 @@
+{
+  "date": "2026-10-15",
+  "scope": "Two deterministic toy repositories; not evidence of general coding, matched compute or unseen-repository generalization.",
+  "fixtures": [
+    "toy_arithmetic_bug",
+    "toy_import_bug"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "graph_fingerprint": "7adea43f9f823703c8116a6321a78adfdc9aac9c14c80e04bfa6d991f8c6712f",
+  "constrained_comparison": {
+    "max_steps": 15,
+    "max_tool_calls": 60,
+    "controls": [
+      "bias",
+      "hard"
+    ],
+    "initialization": "Each trained checkpoint is compared only with its own frozen initialization seed.",
+    "cortex": "heuristic is unchanged; tournament adds read-only run_tests/git_diff alternatives during EXECUTE.",
+    "matched_compute": false,
+    "teacher_episodes": 6,
+    "teacher_executed_steps": 30,
+    "by_seed": [
+      {
+        "seed": 0,
+        "cortex": "heuristic",
+        "experiment_id": "5ef05e0335f1461796e24b01e8a7f5e7",
+        "summary": {
+          "frozen": {
+            "cases": 4,
+            "errors": 0,
+            "success_rate": 1.0,
+            "mean_steps": 5.0,
+            "mean_tool_calls": 5.0,
+            "regressions": 0,
+            "unsafe_proposals": 0
+          },
+          "trained": {
+            "cases": 4,
+            "errors": 0,
+            "success_rate": 1.0,
+            "mean_steps": 5.0,
+            "mean_tool_calls": 5.0,
+            "regressions": 0,
+            "unsafe_proposals": 0
+          }
+        }
+      },
+      {
+        "seed": 0,
+        "cortex": "tournament",
+        "experiment_id": "a70257f94b2345c98d55519e8b149486",
+        "summary": {
+          "frozen": {
+            "cases": 4,
+            "errors": 0,
+            "success_rate": 0.5,
+            "mean_steps": 10.0,
+            "mean_tool_calls": 10.0,
+            "regressions": 0,
+            "unsafe_proposals": 0
+          },
+          "trained": {
+            "cases": 4,
+            "errors": 0,
+            "success_rate": 1.0,
+            "mean_steps": 5.0,
+            "mean_tool_calls": 5.0,
+            "regressions": 0,
+            "unsafe_proposals": 0
+          }
+        }
+      },
+      {
+        "seed": 1,
+        "cortex": "heuristic",
+        "experiment_id": "e26d91733b2f4a3883deadb2f4ff7a8e",
+        "summary": {
+          "frozen": {
+            "cases": 4,
+            "errors": 0,
+            "success_rate": 1.0,
+            "mean_steps": 5.0,
+            "mean_tool_calls": 5.0,
+            "regressions": 0,
+            "unsafe_proposals": 0
+          },
+          "trained": {
+            "cases": 4,
+            "errors": 0,
+            "success_rate": 1.0,
+            "mean_steps": 5.0,
+            "mean_tool_calls": 5.0,
+            "regressions": 0,
+            "unsafe_proposals": 0
+          }
+        }
+      },
+      {
+        "seed": 1,
+        "cortex": "tournament",
+        "experiment_id": "bfe63d373b38444fa5923a1ad84877fb",
+        "summary": {
+          "frozen": {
+            "cases": 4,
+            "errors": 0,
+            "success_rate": 1.0,
+            "mean_steps": 5.0,
+            "mean_tool_calls": 5.0,
+            "regressions": 0,
+            "unsafe_proposals": 0
+          },
+          "trained": {
+            "cases": 4,
+            "errors": 0,
+            "success_rate": 1.0,
+            "mean_steps": 5.0,
+            "mean_tool_calls": 5.0,
+            "regressions": 0,
+            "unsafe_proposals": 0
+          }
+        }
+      },
+      {
+        "seed": 2,
+        "cortex": "heuristic",
+        "experiment_id": "12fe6bf7e0d944b69c99aaa7950b4676",
+        "summary": {
+          "frozen": {
+            "cases": 4,
+            "errors": 0,
+            "success_rate": 1.0,
+            "mean_steps": 5.0,
+            "mean_tool_calls": 5.0,
+            "regressions": 0,
+            "unsafe_proposals": 0
+          },
+          "trained": {
+            "cases": 4,
+            "errors": 0,
+            "success_rate": 1.0,
+            "mean_steps": 5.0,
+            "mean_tool_calls": 5.0,
+            "regressions": 0,
+            "unsafe_proposals": 0
+          }
+        }
+      },
+      {
+        "seed": 2,
+        "cortex": "tournament",
+        "experiment_id": "c7ba9c2ba2f7414f827620e07b0dadd5",
+        "summary": {
+          "frozen": {
+            "cases": 4,
+            "errors": 0,
+            "success_rate": 1.0,
+            "mean_steps": 5.0,
+            "mean_tool_calls": 5.0,
+            "regressions": 0,
+            "unsafe_proposals": 0
+          },
+          "trained": {
+            "cases": 4,
+            "errors": 0,
+            "success_rate": 1.0,
+            "mean_steps": 5.0,
+            "mean_tool_calls": 5.0,
+            "regressions": 0,
+            "unsafe_proposals": 0
+          }
+        }
+      }
+    ],
+    "limitation": "The task-completion difference is concentrated at seed 0 in hard control with the tournament probe. Standard heuristic results are equal."
+  },
+  "distillation": {
+    "format_version": 2,
+    "feature_schema": "quadratic_v2",
+    "validation_method": "functional controller replay",
+    "train_episodes": 1,
+    "validation_episodes": 1,
+    "seed": 0,
+    "ridge": 1e-05,
+    "max_rmse": 0.1,
+    "min_agreement": 0.9,
+    "training": {
+      "rmse": 0.013662222874318395,
+      "tool_agreement": 1.0
+    },
+    "validation": {
+      "rmse": 0.016794386558795248,
+      "tool_agreement": 1.0
+    },
+    "accepted": true,
+    "dataset_sha256": "cd25157441c053cfda5a12e3730bf05eccd5a5c0782ea22672bf9b066d917f2b",
+    "teacher_checkpoint_sha256": "513f2e061d5be3e8b648d2a3adf00c8f7f52c7bc627e5949adf2633c08180173"
+  },
+  "distillation_tasks": {
+    "functional": {
+      "cases": 12,
+      "errors": 0,
+      "success_rate": 1.0,
+      "mean_steps": 9.0,
+      "mean_tool_calls": 9.0,
+      "regressions": 0,
+      "unsafe_proposals": 0
+    },
+    "student-v2": {
+      "cases": 12,
+      "errors": 0,
+      "success_rate": 1.0,
+      "mean_steps": 9.0,
+      "mean_tool_calls": 9.0,
+      "regressions": 0,
+      "unsafe_proposals": 0
+    }
+  },
+  "online_learning": {
+    "scope": "Six alternating arithmetic/import tasks per controller and seed, bias control, heuristic cortex.",
+    "by_seed": [
+      {
+        "seed": 0,
+        "learning": false,
+        "tasks": 6,
+        "successes": 6,
+        "mean_steps": 9.0,
+        "accepted_updates": 0,
+        "rollbacks": 0
+      },
+      {
+        "seed": 0,
+        "learning": true,
+        "tasks": 6,
+        "successes": 6,
+        "mean_steps": 9.0,
+        "accepted_updates": 53,
+        "rollbacks": 1
+      },
+      {
+        "seed": 1,
+        "learning": false,
+        "tasks": 6,
+        "successes": 6,
+        "mean_steps": 9.0,
+        "accepted_updates": 0,
+        "rollbacks": 0
+      },
+      {
+        "seed": 1,
+        "learning": true,
+        "tasks": 6,
+        "successes": 6,
+        "mean_steps": 9.0,
+        "accepted_updates": 54,
+        "rollbacks": 0
+      },
+      {
+        "seed": 2,
+        "learning": false,
+        "tasks": 6,
+        "successes": 6,
+        "mean_steps": 9.0,
+        "accepted_updates": 0,
+        "rollbacks": 0
+      },
+      {
+        "seed": 2,
+        "learning": true,
+        "tasks": 6,
+        "successes": 6,
+        "mean_steps": 9.0,
+        "accepted_updates": 53,
+        "rollbacks": 1
+      }
+    ],
+    "conclusion": "No faster task adaptation demonstrated: all 36 tasks take 9 steps. Harmful updates can be rolled back."
+  },
+  "lesion": {
+    "experiment": "zero input and incident synaptic gains for sampled neurons",
+    "seed": 0,
+    "fraction": 0.1,
+    "neurons_lesioned": 13926,
+    "neuron_ids_sha256": "b0776d132fa9cfe353cc93279512d7eae377fa516ddb61a846adcfb22f2dcb77",
+    "parent_fingerprint": "7adea43f9f823703c8116a6321a78adfdc9aac9c14c80e04bfa6d991f8c6712f",
+    "topology_hash": "00d1a94bd95f39f6fde20a6890cc680e538270c5620eadc53a89837d683b644a",
+    "active_edges": 2191750,
+    "structural_edges": 2700513,
+    "dataset_sha256": "c5ce41ebdb0d0ded7ce3067305681a4ce5ff84cc9b5fcb1bf971565d6bae3d7f",
+    "state_space": "64 pooled neural values",
+    "counterfactual_task_success": null,
+    "replay_wall_time_ms": 208.92062499478925,
+    "state_rmse": 0.0022794721448489742,
+    "bias_rmse": 0.16349651526538278,
+    "tool_agreement": 0.6
+  },
+  "sensitivity": {
+    "parameter": "recurrent_gain",
+    "seed": 0,
+    "baseline_dynamics": {
+      "recurrent_gain": 1.2,
+      "leak": 0.5,
+      "input_gain": 1.0
+    },
+    "graph_fingerprint": "7adea43f9f823703c8116a6321a78adfdc9aac9c14c80e04bfa6d991f8c6712f",
+    "dataset_sha256": "c5ce41ebdb0d0ded7ce3067305681a4ce5ff84cc9b5fcb1bf971565d6bae3d7f",
+    "counterfactual_task_success": null,
+    "state_space": "64 pooled neural values",
+    "trials": [
+      {
+        "value": 0.6,
+        "topology_hash": "00d1a94bd95f39f6fde20a6890cc680e538270c5620eadc53a89837d683b644a",
+        "replay_wall_time_ms": 202.49537500058068,
+        "state_rmse": 0.0022061228396111883,
+        "bias_rmse": 0.3099091596280004,
+        "tool_agreement": 0.4
+      },
+      {
+        "value": 0.9,
+        "topology_hash": "00d1a94bd95f39f6fde20a6890cc680e538270c5620eadc53a89837d683b644a",
+        "replay_wall_time_ms": 195.75124999391846,
+        "state_rmse": 0.0010413659903272246,
+        "bias_rmse": 0.18771683457651755,
+        "tool_agreement": 0.6
+      },
+      {
+        "value": 1.2,
+        "topology_hash": "00d1a94bd95f39f6fde20a6890cc680e538270c5620eadc53a89837d683b644a",
+        "replay_wall_time_ms": 206.39816699986113,
+        "state_rmse": 0.0,
+        "bias_rmse": 0.0,
+        "tool_agreement": 1.0
+      }
+    ]
+  },
+  "shadow": {
+    "observer": "full, frozen FlyWire graph",
+    "active": "functional",
+    "cortex": "heuristic",
+    "influence": 0.0,
+    "cases": [
+      {
+        "fixture": "toy_arithmetic_bug",
+        "steps": 9,
+        "exit_code": 0,
+        "identical_active_actions": true,
+        "recommendations": 9,
+        "agreements": 6,
+        "mean_observer_latency_ms": 7.0955276670348315,
+        "counterfactual_success": null
+      },
+      {
+        "fixture": "toy_import_bug",
+        "steps": 9,
+        "exit_code": 0,
+        "identical_active_actions": true,
+        "recommendations": 9,
+        "agreements": 6,
+        "mean_observer_latency_ms": 7.149467558418918,
+        "counterfactual_success": null
+      }
+    ]
+  },
+  "source_report_sha256": {
+    "comparison-summary.json": "185d4811302035901dde5eee302f3bed4ee32abec7064067a934107ed616ba80",
+    "repeated-family/results.json": "8f6b379305d1bc7271fce3688cfd7c1ab3c461228974ced85d6768cedc6a0429",
+    "shadow/results.json": "ab5a765089150d11f51c6697caac3cd8d93e85b2b647329cc5f129eed832d33f"
+  }
+}

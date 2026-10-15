@@ -81,3 +81,84 @@ def test_distill_reports_missing_recordings_instead_of_stub(tmp_path, capsys):
     assert main(['distill', '--trajectories', str(tmp_path), '--teacher-checkpoint', str(tmp_path),
                  '--output', str(tmp_path / 'student')]) == 2
     assert 'trajector' in capsys.readouterr().err.lower()
+
+
+def test_benchmark_command_saves_configured_results(tmp_path):
+    import json
+
+    from flycode.cli import main
+
+    config = tmp_path / 'config.json'
+    config.write_text(json.dumps({'controllers': [{'id': 'fsm', 'brain': 'heuristic_fsm'}],
+                                 'seeds': [0], 'fixtures': ['toy_arithmetic_bug'],
+                                 'controls': ['bias'], 'max_steps': 1}))
+    output = tmp_path / 'results'
+    assert main(['benchmark', '--config', str(config), '--output', str(output)]) == 0
+    reports = list(output.glob('*/report.json'))
+    assert len(reports) == 1
+    report = json.loads(reports[0].read_text())
+    assert report['summary']['fsm']['success_rate'] == 0.
+
+
+def test_learning_cli_rejects_unsupported_brain_before_running(tmp_path, capsys):
+    from flycode.cli import main
+
+    assert main(['run', '--task', 'fix', '--brain', 'full', '--learn', '--repo', str(tmp_path / 'repo')]) == 2
+    assert 'Functional Fly' in capsys.readouterr().err
+    assert not (tmp_path / 'repo').exists()
+
+
+def test_causal_probe_commands_write_actual_replay_measurements(tmp_path):
+    import json
+
+    import numpy as np
+
+    from flycode.brain.full_connectome.graph import graph_from_edges
+    from flycode.cli import main
+    from flycode.domain import Observation
+    from flycode.telemetry import TrainingStep
+
+    graph = tmp_path / 'graph'
+    graph_from_edges(np.arange(8), np.arange(8), np.roll(np.arange(8), 1), np.ones(8)).save(graph)
+    records = tmp_path / 'records'
+    records.mkdir()
+    (records / 'run.steps.jsonl').write_text(TrainingStep(observation=Observation(task='probe').model_dump(),
+                                              chosen_action={'tool': 'read_file'}, outcome={}).model_dump_json())
+    for command, options in [('lesion', ['--fraction', '1']),
+                             ('sensitivity', ['--parameter', 'leak', '--values', '.2', '.3'])]:
+        output = tmp_path / (command + '.json')
+        assert main([command, '--connectome-path', str(graph), '--trajectories', str(records),
+                     '--output', str(output), *options]) == 0
+        report = json.loads(output.read_text())
+        assert report['counterfactual_task_success'] is None
+        assert report['dataset_sha256']
+
+
+def test_shadow_cli_records_recommendations_without_changing_completion(tmp_path):
+    import json
+
+    import numpy as np
+
+    from flycode.brain.full_connectome.graph import graph_from_edges
+    from flycode.cli import main
+
+    graph = tmp_path / 'graph'
+    graph_from_edges(np.arange(8), np.arange(8), np.roll(np.arange(8), 1), np.ones(8)).save(graph)
+    telemetry = tmp_path / 'telemetry'
+    assert main(['run', '--task', 'fix', '--repo', str(tmp_path / 'repo'), '--fixture', 'toy_arithmetic_bug',
+                 '--shadow-brain', 'full', '--shadow-connectome-path', str(graph),
+                 '--telemetry-dir', str(telemetry)]) == 0
+    steps = [json.loads(line) for line in (telemetry / 'run.steps.jsonl').read_text().splitlines()]
+    assert all(step['shadow_decision']['influence'] == 0. for step in steps)
+    assert len(steps) == 9
+
+
+def test_shadow_cli_rejects_incompatible_paths_before_running(tmp_path, capsys):
+    from flycode.cli import main
+
+    for flags in (['--shadow-checkpoint', 'unused'],
+                  ['--shadow-brain', 'mock', '--shadow-connectome-path', 'unused'],
+                  ['--shadow-brain', 'mock', '--shadow-checkpoint', 'unused']):
+        assert main(['run', '--task', 'fix', '--repo', str(tmp_path / 'repo'), *flags]) == 2
+        assert 'Brain setup failed' in capsys.readouterr().err
+        assert not (tmp_path / 'repo').exists()

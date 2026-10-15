@@ -1,0 +1,32 @@
+{
+  "controllers": [
+    {
+      "id": "functional",
+      "brain": "functional"
+    },
+    {
+      "id": "fsm",
+      "brain": "heuristic_fsm"
+    },
+    {
+      "id": "rnn",
+      "brain": "generic_rnn"
+    }
+  ],
+  "fixtures": [
+    "toy_arithmetic_bug",
+    "toy_import_bug"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "controls": [
+    "bias",
+    "hard"
+  ],
+  "cortex": "heuristic",
+  "max_steps": 25,
+  "max_tool_calls": 60
+}

@@ -5,7 +5,96 @@ The baseline MVP covers Phase 4 (§78). Phase 5 (§79) now runs the same tasks
 with a verified, sparse biological graph. Hermes in the roadmap means FlyCode
 itself: connected agents are hosted here and orchestrated by the controller.
 
-## Current extension: real FlyWire controller
+## Latest increment: adaptation, evaluation and shadow mode (2026-10-15)
+
+Implementation plan: `docs/superpowers/plans/2026-10-15-adaptation-evaluation.md`.
+Portable measurements: `docs/research-results/2026-10-15-adaptation.json`.
+
+- `research/benchmark.py` implements isolated toy fixture/controller/checkpoint
+  comparisons, explicit budgets, multiple seeds and controls, durable JSON
+  configuration, per-case metrics/errors, controller/cost descriptions and
+  actual trajectories. `benchmark --config docs/examples/benchmark.json
+  --output PATH` runs Functional/FSM/RNN baselines. Compute is **not matched**.
+- Research-only `TournamentCortex` preserves production proposals and adds
+  read-only run_tests/git_diff alternatives during EXECUTE. Production cortex
+  and brain priors are unchanged. Phase 6 now passes a limited task-level
+  acceptance on this explicitly named probe, not on general repositories.
+- v2 distillation uses 49 quadratic features and 784 readout parameters; v1
+  25-feature/400-parameter checkpoints remain supported. Validation replays
+  actual Functional Fly state and outcome feedback on held-out whole episodes.
+  Mode arbitration stays unchanged. Default .1 RMSE/.9 agreement gates remain.
+- Phase 10 learning uses actual executed transitions, including final STOP.
+  Task reset preserves projection, MB credits and RPE estimates; transient
+  compass, novelty, habituation and reward state reset. `clear_learning()` is
+  the explicit wipe. `--learn` enables learning; `--learning-memory PATH`
+  atomically loads/saves validated JSON. Keep the same seed/projection.
+- Bounds: learning rates <= .1, update norm <= .5, credit magnitudes <= 2,
+  RPE values <= 10, memory/replay bounded to 1024 patterns/128 samples.
+  Detached snapshots and replay error/policy-drift checks roll back harmful
+  updates; nonfinite limits are rejected before policy mutation. Guard counters
+  are per instance; MB lifetime update counts and replay are persisted.
+- `lesion` zeros input and existing incident gains for sampled neurons without
+  deleting CSR entries; `sensitivity` varies bounded dynamics parameters.
+  Both replay recorded trajectories with fresh matched initialization and
+  report pooled-state/bias changes. Counterfactual task success is unmeasured.
+- `run --shadow-brain full --telemetry-dir PATH` wraps the active controller
+  with a zero-influence observer. Optional `--shadow-connectome-path` and
+  `--shadow-checkpoint` select its artifact. Same candidates/safety mask;
+  action choice and model routing come entirely from the active controller.
+  `TrainingStep.shadow_decision` records agreement, expected-risk difference,
+  observer latency/errors; no counterfactual success/call estimate is invented.
+  Observer runtime failures do not halt active execution. Observer learning is
+  disabled. This implements Phase 12's CLI mechanism and initial telemetry.
+- Research, online memory and shadow controls are CLI-only. The browser still
+  exposes Functional Fly and frozen FlyWire. No UI source changed here.
+
+Actual measurements with FlyWire v783 (fingerprint below):
+
+```text
+Constrained teacher: six successful full/tournament bias episodes, seeds 0–2,
+  30 executed steps. Separately trained checkpoint for each initialization.
+Standard heuristic comparison: frozen=12/12, trained=12/12, mean 5 steps.
+Tournament probe: frozen=10/12, trained=12/12; mean steps 6.667 -> 5.
+  Difference is seed 0 hard control: 0/2 -> 2/2. Seeds 1/2 show no advantage.
+  Same 15-step/60-tool budgets; topology and graph fingerprint unchanged.
+Distillation v2: one train / one held-out episode; held-out RMSE .0167944,
+  top-tool agreement 1.0, accepted under unchanged default gates.
+  Student/original Functional Fly: each 12/12 actual repairs, 9 steps each.
+Online repeated families: 36 actual runs, all successful in 9 steps.
+  Learning seeds 0/1/2: accepted updates 53/54/53, rollbacks 1/0/1.
+  No faster task-level adaptation demonstrated (Phase 10 acceptance open).
+10% lesion: 13,926 neurons; active edges 2,191,750; structural edges unchanged
+  at 2,700,513; pooled state RMSE .00227947, bias RMSE .163497, agreement .6.
+Gain sensitivity: .6/.9/1.2; baseline 1.2 reproduces scores exactly.
+Real full-graph shadow vs active-only: both toys succeed in 9 steps; identical
+  executed actions, agreement 12/18, observer mean ~7.1 ms per decision.
+Persistent-memory CLI across separate runs: both repairs succeed, 17 retained
+  accepted updates and 8 replay entries; also works with a shadow observer.
+```
+
+Artifacts stay under `~/.cache/flycode/experiments/2026-10-15-adaptation/`.
+The accepted student is in `2026-10-15-constrained/student-v2`; the previous
+rejected student/report remains in `student`. Full experiment repositories and
+trajectories/checkpoints are not published. No matched-compute superiority,
+unseen-repository generalization or general LLM improvement is established.
+
+Final verification:
+
+```text
+Full pytest: 291 passed, 8 skipped in 76.16s.
+FLYCODE_TEST_CONNECTOME=1 pytest tests/e2e/test_real_connectome.py: 5 passed.
+  Includes actual training-task improvement with unchanged real topology.
+Default skips: five real-graph, two real-graph Docker, one local-model opt-in.
+Targeted Ruff: passed except pre-existing RUF046 in mushroom_body.py:118.
+Mypy on eight new research/adaptation/student/shadow modules: passed.
+Built wheel includes new research/learning/shadow modules; no biological data.
+Local UI refreshed at 127.0.0.1:8790; page and history API return HTTP 200.
+```
+
+The earlier Docker and local Qwen/Jev acceptances below were not rerun against
+this increment; ordinary Docker acceptance is included in the full suite.
+
+## Earlier increment: real FlyWire controller
 
 - `--brain full` uses `FullConnectomeBackend`, not the legacy random projection.
   Install `.[research]`, then `flycode connectome download` and
@@ -41,7 +130,7 @@ The seven default skips are four explicit real-graph tests, two real-graph
 Docker cases and one local-model test. The corresponding real runs above were
 executed separately. No comparative advantage has been established.
 
-## Current extension: offline training and smaller circuits
+## Earlier increment: offline training and smaller circuits
 
 - `training/{trajectories,checkpoint,constrained}.py`: executed JSONL episodes,
   reset boundaries, dataset fingerprint, bounded gain/leak search and ridge tool
@@ -63,7 +152,7 @@ executed separately. No comparative advantage has been established.
   This is necessary for frozen comparisons; it does not complete Phase 10.
 - The new research workflows are CLI-only. The browser still offers Functional
   Fly and the frozen full graph. Model weights and experiment data stay outside
-  Git. Benchmark/lesion/sensitivity commands remain explicit stubs.
+  Git. Benchmark/lesion/sensitivity were still stubs in this earlier increment.
 
 Measured with the actual v783 artifact on 2026-10-15:
 
@@ -99,7 +188,7 @@ Actual CLI: trained full/import and reduced/arithmetic repairs both succeed
 Local UI restarted on 127.0.0.1:8790; completed history replay verified.
 ```
 
-## Current extension: local browser workspace
+## Earlier increment: local browser workspace
 
 Implementation plan: `docs/superpowers/plans/2026-10-15-agent-interface.md`.
 
@@ -151,7 +240,7 @@ FLYCODE_PLAYWRIGHT=/path/to/node_modules/playwright \
 It defaults to `http://127.0.0.1:8790`; override with `FLYCODE_UI_URL`.
 Screenshots default to `/tmp/flycode-ui-screenshots`.
 
-## Current extension: local Qwen + Jev
+## Earlier increment: local Qwen + Jev
 
 Implementation plan: `docs/superpowers/plans/2026-10-15-lmstudio-dual-model.md`.
 
@@ -205,11 +294,15 @@ has been established. The separate real-graph extension above satisfies Phase 5.
 | 3 Functional Fly | §77 | Implemented and tested |
 | 4 Environment autonomy | §78 | Real autonomous Docker/Postgres acceptance passes in bias and hard control |
 | 5 Real connectome | §79 | Accepted: real FlyWire graph passes toy and Docker tasks in both control modes |
-| 6 Constrained training | §80 | Implemented; imitation improves, actual task advantage not established |
+| 6 Constrained training | §80 | Limited acceptance: tournament probe 10/12 frozen -> 12/12 trained across 3 seeds; difference at seed 0 |
 | 7 Reduced connectome | §81 | Limited acceptance passed: same toy repairs with much lower compute |
-| 8 Distillation | §82 | Implemented and gated; actual held-out agreement .8889 misses default .9 |
+| 8 Distillation | §82 | Limited acceptance: v2 real-controller replay RMSE .01679, agreement 1.0 on one held-out episode |
 | 9 Candidate Tournament | §83 | Implemented: existing safety-masked hard/bias tournament tests pass |
-| 10–14 | §84–88 | Bounded adaptation, experiments and rollout inside FlyCode remain unfinished |
+| 10 Online learning | §84 | Bounded persistent updates, replay/rollback tested; faster task adaptation unproven |
+| 11 Causal science | §85 | Lesion/sensitivity replay and multi-seed toy benchmarks; cross-connectome and matched compute open |
+| 12 Shadow | §86 | Zero-influence CLI observer and initial telemetry; broader collection open |
+| 13 Bounded influence | §87 | Not implemented; existing bias flag does not constitute validated rollout |
+| 14 Autonomous Fly | §88 | Not implemented; gated by benchmark validation |
 
 ## Run and verify
 
@@ -285,17 +378,21 @@ silenced or folded into an unrelated cleanup. Raw diagnostics from this session
 are in `/tmp/flycode-ruff.log` and `/tmp/flycode-mypy.log`.
 
 
-## Remaining work after Phase 5
+## Remaining work after this increment
 
-- Phase 6 needs actual task improvement, not only imitation improvement.
-- Phase 8 needs the chosen tolerance passed on diverse held-out trajectories.
-- Phase 10 needs bounded MB/RPE updates, preserved learning across episodes,
-  snapshots, rollback and drift tests; only the disabled-learning bug is fixed.
-- Phases 11–14 need causal evaluation and gradual rollout inside FlyCode.
-  `benchmark`, `lesion`, `sensitivity` remain explicit stubs.
+- Phase 6/8: more varied held-out trajectories, unseen repositories and actual
+  local-LLM comparisons; current acceptance covers narrow toy experiments.
+- Phase 10: demonstrate faster end-to-end adaptation; current repeated-family
+  result is a null finding. Existing unit reversal/prediction tests are not
+  substitutes for task-level improvement.
+- Phase 11: cross-connectome datasets, matched state/parameter/training budgets,
+  lesions with actual counterfactual task executions and delayed-reward tests.
+- Phase 12: broader recorded shadow episodes and analysis; counterfactual
+  success/tool-call deltas stay unmeasured.
+- Phase 13: explicit low-risk rollout levels, bounded influence and rollback
+  validation. Phase 14 remains gated by benchmark evidence.
+- UI selection for trained/reduced/shadow controllers and learned memory.
 - Stressors declared on TaskSpec are not wired into the loop: partial
   observations, delayed rewards, context reversal and noisy feedback.
-- Benchmark coverage remains narrower than the research success criteria.
-  Investigate baseline performance before making comparative capability claims.
-- Pre-existing duplicate `toy_import_bug` definitions and duplicate backend test
-  methods remain. No unrelated refactoring or cleanup was performed.
+- Pre-existing duplicate toy fixture/backend test definitions and repository-wide
+  Ruff/mypy findings remain; no unrelated cleanup was performed.

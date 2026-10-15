@@ -212,20 +212,90 @@ require RMSE ≤ 0.1 and top-tool agreement ≥ 90%; `--max-rmse` and
 returns exit code 1 and saves a report; the rejected checkpoint cannot be
 enabled. These research workflows are currently exposed through the CLI.
 
-Measurements on this machine, two toy projects, both `bias` and `hard`:
+The v2 student uses 784 parameters and quadratic features; existing linear
+checkpoints remain compatible. Validation replays the actual controller,
+including its state and action history.
+
+Measurements: two toy repositories, seeds 0/1/2, both `bias` and `hard`.
+The [results report](docs/research-results/2026-10-15-adaptation.json) records conditions and measurements.
 
 | Check | Result |
 |---|---|
-| Full-graph training | Imitation accuracy 44.4% → 77.8%; MSE 0.0781 → 0.0131 |
-| Actual task completion | Frozen and trained: 4/4, 5 steps each; no advantage |
+| Phase 6, standard generator | Frozen and trained: 12/12, 5 steps each |
+| Phase 6, alternative-action probe | Frozen: 10/12, mean 6.67 steps; trained: 12/12, 5 steps |
 | 4,096-neuron circuit, 12,031 edges | 4/4 successful repairs, 5 steps each |
 | Full / reduced controller step | 7.11 / 0.12 ms; arrays 30.17 / 0.38 MiB |
-| Functional Fly distillation | Held-out episode: RMSE 0.0255, agreement 88.9%; 90% gate failed |
+| Phase 8, Functional Fly distillation | Held-out episode: RMSE 0.01679, agreement 100%; gate passed |
+| Student task executions | 12/12; original Functional Fly also 12/12, 9 steps each |
 
-Phase 7 passes this limited acceptance. Phase 6 needs tasks on which training
-improves actual completion; Phase 8 needs its configured tolerance satisfied
-on more diverse held-out data. These results do not establish an advantage
-over comparable FSM/RNN controllers.
+Phases 6–8 pass limited acceptance on these data. The Phase 6 probe preserves
+normal proposals and adds read-only `run_tests`/`git_diff` alternatives during
+EXECUTE. The difference occurs at seed 0 in hard control; other seeds show
+no advantage. Each checkpoint was compared with its own frozen initialization.
+The Phase 8 gate covers one held-out episode. These results establish neither
+unseen-repository generalization nor superiority over compute-matched FSM/RNNs.
+
+## Persistent learning and research checks
+
+Phase 10: Functional Fly learns only from executed outcomes. Learned memory
+persists across tasks. MB/RPE updates, memory size and policy change are bounded;
+a replay check rejects harmful updates and restores the policy snapshot.
+Learning is disabled by default.
+
+```bash
+flycode run --repo /tmp/flycode-learn-add --fixture toy_arithmetic_bug \
+  --task "Fix the bug" --learning-memory ~/.cache/flycode/experience
+flycode run --repo /tmp/flycode-learn-import --fixture toy_import_bug \
+  --task "Fix the bug" --learning-memory ~/.cache/flycode/experience
+
+flycode benchmark --config docs/examples/benchmark.json \
+  --output ~/.cache/flycode/benchmarks
+flycode lesion --trajectories ~/.cache/flycode/training-records \
+  --checkpoint ~/.cache/flycode/checkpoints/constrained --fraction 0.1 \
+  --output ~/.cache/flycode/lesion.json
+flycode sensitivity --trajectories ~/.cache/flycode/training-records \
+  --checkpoint ~/.cache/flycode/checkpoints/constrained \
+  --parameter recurrent_gain --values 0.6 0.9 1.2 \
+  --output ~/.cache/flycode/sensitivity.json
+```
+
+Use `--learn` for learning without disk persistence. Keep the same `--seed`
+when loading experience: it is bound to the feature projection. Guard counters
+belong to the current controller instance; the MB update count is persisted.
+In 36 actual runs, learning and frozen controllers solved every task in 9 steps:
+faster task adaptation has not been demonstrated.
+
+`benchmark` creates separate repositories and logs for every case. It currently
+supports the two toy fixtures in the example. `cortex` accepts `heuristic` or
+the research-only `tournament` probe. For frozen/trained comparisons, use one
+configuration per seed with that seed's checkpoint. Reports show actual costs;
+compute equivalence is not assumed.
+
+Phase 11 is partial: neuron input/synaptic-gain lesions and parameter sensitivity
+are measured on recorded trajectories. Graph structure and source files remain
+unchanged. `counterfactual_task_success` stays `null`: the probes do not execute
+counterfactual repository repairs.
+
+## Shadow observer — Phase 12
+
+```bash
+flycode run --repo /tmp/flycode-shadow --fixture toy_arithmetic_bug \
+  --task "Fix the bug" --brain functional --shadow-brain full \
+  --telemetry-dir ~/.cache/flycode/shadow-records
+```
+
+The active controller directs the agent and model calls. The observer ranks the
+same candidates with the same safety mask and **zero influence** on the active
+choice. `shadow_decision` in `*.steps.jsonl` records both choices, agreement,
+expected-risk difference and observer latency. Counterfactual success/tool-call
+counts are unmeasured. Observer failures are recorded without stopping the
+active agent. Use `--shadow-connectome-path`/`--shadow-checkpoint` for another
+observer artifact.
+
+With the actual FlyWire graph, both toy tasks completed in 9 steps with exactly
+the same actions as the active-only runs; recommendations agreed on 12 of 18
+steps. This is a CLI mode with initial telemetry. Phases 13–14 still require
+broader validation and controlled increases in controller influence.
 
 ## Local Qwen + Jev through LM Studio
 
@@ -337,6 +407,7 @@ selection. Tests, services and migrations provide verifiable feedback.
 ```bash
 python -m pytest -q
 python -m pytest tests/e2e/test_environment_autonomy.py -q
+FLYCODE_TEST_CONNECTOME=1 python -m pytest tests/e2e/test_real_connectome.py -q
 ```
 
 See [project status](docs/handoff.md) for the latest full-suite result;
@@ -353,10 +424,11 @@ remain. See the [project status](docs/handoff.md) for details.
 
 - The heuristic generator is not a general-purpose code repair system.
 - An advantage over comparable FSM/RNN controllers has not been demonstrated.
-- Better task completion after training and distillation at 90% agreement remain unproven.
-- Phases 10–14 remain unfinished: bounded online learning, causal experiments
-  and gradual controller rollout inside FlyCode.
-- `benchmark`, `lesion` and `sensitivity` remain explicit CLI stubs.
+- Phase 6–8 acceptance covers toy tasks; generalization remains untested.
+- Phase 10 has bounded persistent learning, but faster task adaptation is unproven.
+- Phase 11 needs other connectomes, matched compute budgets and unseen repositories.
+- Phase 12 needs broader telemetry; Phases 13–14 are not implemented yet.
+- Research modes are CLI-only; the UI currently offers Functional Fly and frozen FlyWire.
 
 ## Documentation
 

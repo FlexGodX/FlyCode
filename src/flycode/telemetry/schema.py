@@ -15,6 +15,7 @@ class TrainingStep(BaseModel):
     reward_prediction_error: float = 0.0
     future_return: float = 0.0
     model_routing: dict | None = None
+    shadow_decision: dict | None = None
 
 
 class RunMetrics(BaseModel):
@@ -41,3 +42,8 @@ class RunMetrics(BaseModel):
     final_confidence: float = 0.0
     mean_candidate_entropy: float = 0.0
     mean_rpe: float = 0.0
+    online_updates: int = 0
+    online_rollbacks: int = 0
+    online_learning_ms: float = 0.0
+    shadow_decisions: int = 0
+    shadow_agreements: int = 0

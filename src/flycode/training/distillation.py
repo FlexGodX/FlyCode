@@ -5,8 +5,10 @@ from pathlib import Path
 
 import numpy as np
 
+from ..brain import make_stimulus
 from ..brain.full_connectome.sparse_backend import FullConnectomeBackend
-from ..domain import Observation
+from ..brain.functional_fly import FunctionalFlyBackend
+from ..domain import VALID_TOOLS, Observation, ToolAction
 from ..telemetry import TrainingStep
 from .constrained import replay
 from .student import save_student, student_features
@@ -14,8 +16,22 @@ from .trajectories import fingerprint_episodes
 
 
 def _features(episodes: list[list[TrainingStep]]) -> np.ndarray:
-    return np.array([student_features(Observation.model_validate(step.observation))
+    return np.array([student_features(Observation.model_validate(step.observation), width=49)
                      for episode in episodes for step in episode])
+
+
+def _student_replay(weights: np.ndarray, episodes: list[list[TrainingStep]], seed: int) -> np.ndarray:
+    student = FunctionalFlyBackend(seed=seed)
+    student._distilled_readout = weights
+    scores = []
+    for episode in episodes:
+        student.reset()
+        for step in episode:
+            state = student.step(make_stimulus(Observation.model_validate(step.observation)))
+            scores.append([state.action_bias[tool] for tool in VALID_TOOLS])
+            student.record_outcome(ToolAction.model_validate({'id': 'replay', **step.chosen_action}),
+                state.behavior_mode, step.outcome.get('utility', 0.), step.outcome.get('success', False))
+    return np.asarray(scores)
 
 
 def _metrics(predicted: np.ndarray, teacher: np.ndarray) -> dict:
@@ -43,12 +59,13 @@ def distill_controller(graph_path: Path, teacher_checkpoint: Path, episodes: lis
     weights = np.linalg.solve(x.T @ x + ridge * np.eye(x.shape[1]),
                               x.T @ np.arctanh(np.clip(targets, -.999, .999))).T
     _, heldout_targets = replay(teacher, validation)
-    training = _metrics(np.tanh(x @ weights.T), targets)
-    heldout = _metrics(np.tanh(_features(validation) @ weights.T), heldout_targets)
+    training = _metrics(_student_replay(weights, train, seed), targets)
+    heldout = _metrics(_student_replay(weights, validation, seed), heldout_targets)
     report = {'behavior': 'tool bias only; original Functional Fly mode arbitration is retained',
               'teacher_graph': teacher.graph.fingerprint, 'train_episodes': len(train),
               'teacher_checkpoint_sha256': hashlib.sha256((teacher_checkpoint / 'checkpoint.json').read_bytes()).hexdigest(),
               'dataset_sha256': fingerprint_episodes(episodes),
+              'feature_schema': 'quadratic_v2', 'validation_method': 'functional controller replay',
               'validation_episodes': len(validation), 'train_indices': order[n_validation:].tolist(),
               'validation_indices': order[:n_validation].tolist(), 'seed': seed, 'ridge': ridge,
               'max_rmse': max_rmse, 'min_agreement': min_agreement,

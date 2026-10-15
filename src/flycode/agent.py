@@ -88,6 +88,12 @@ async def run_agent(
     seen_signatures = {obs.token_signature()}
     latency_total_ms = 0.0
     latency_steps = 0
+    learning_ms = 0.0
+    shadow_decisions = 0
+    shadow_agreements = 0
+    adaptation = getattr(brain, "adaptation", None)
+    initial_updates = adaptation.state.accepted_updates if adaptation is not None else 0
+    initial_rollbacks = adaptation.state.rollbacks if adaptation is not None else 0
 
     for _ in range(task.max_steps):
         if should_stop is not None and should_stop():
@@ -100,7 +106,6 @@ async def run_agent(
         neural_state = brain.step(stimulus)
         latency_total_ms += (time.perf_counter() - step_start) * 1000.0
         latency_steps += 1
-        rpe_values.append(neural_state.update_weight)
         arbiter.observe(neural_state.behavior_mode)
         mode = arbiter.current
 
@@ -175,6 +180,12 @@ async def run_agent(
         emit(on_event, "selection", chosen_action=action.model_dump(),
              candidates=[c.model_dump() for c in candidates], scores=result.scores,
              blocked=result.blocked, routing=routing)
+        comparison = None
+        if hasattr(brain, "shadow_decision"):
+            comparison = brain.shadow_decision(candidates, control_mode, winner)
+            shadow_decisions += 1
+            shadow_agreements += int(comparison["agreement"] is True)
+            emit(on_event, "shadow", step=obs.step_number + 1, **comparison)
 
         if hasattr(brain, "habituation"):
             streak_before = brain.habituation.repetition_streak(action, mode.value)
@@ -201,6 +212,15 @@ async def run_agent(
 
         if hasattr(brain, "record_outcome"):
             brain.record_outcome(action, mode.value, transition.utility, transition.success)
+        if hasattr(brain, "learn_transition"):
+            learning_start = time.perf_counter()
+            brain.learn_transition(transition)
+            if brain.learning_enabled():
+                learning_ms += (time.perf_counter() - learning_start) * 1000.
+                emit(on_event, "learning", step=obs.step_number, tool=action.tool,
+                     state=brain.adaptation.state.model_dump())
+        current_rpe = brain.rpe.get_state().delta if hasattr(brain, "rpe") else neural_state.update_weight
+        rpe_values.append(abs(current_rpe))
 
         transcript.append(f"[{mode.value}] {action.tool}({action.arguments}) -> success={transition.success}")
 
@@ -213,9 +233,10 @@ async def run_agent(
                     candidates=[c.model_dump() for c in candidates],
                     chosen_action=action.model_dump(),
                     outcome=transition.model_dump(exclude={"previous", "current"}),
-                    reward_prediction_error=neural_state.update_weight,
+                    reward_prediction_error=current_rpe,
                     future_return=transition.reward,
                     model_routing=routing,
+                    shadow_decision=comparison,
                 ),
             )
 
@@ -256,6 +277,11 @@ async def run_agent(
         final_confidence=neural_state.confidence if neural_state is not None else 0.0,
         mean_candidate_entropy=sum(candidate_entropies) / len(candidate_entropies) if candidate_entropies else 0.0,
         mean_rpe=sum(rpe_values) / len(rpe_values) if rpe_values else 0.0,
+        online_updates=adaptation.state.accepted_updates - initial_updates if adaptation is not None else 0,
+        online_rollbacks=adaptation.state.rollbacks - initial_rollbacks if adaptation is not None else 0,
+        online_learning_ms=learning_ms,
+        shadow_decisions=shadow_decisions,
+        shadow_agreements=shadow_agreements,
     )
     if latency_steps:
         # Measured mean step latency (plan §62 matched-compute). Backends that

@@ -8,6 +8,7 @@ Tier 1 - it never touches a real connectome; it is the thing distillation
 (plan §42-43) eventually targets.
 """
 
+import hashlib
 from pathlib import Path
 
 import numpy as np
@@ -21,6 +22,7 @@ from ..cognition import (
     TaskCompass,
     ValenceModule,
 )
+from ..cognition.adaptation import AdaptationGuard, LearningRecord, PolicySnapshot
 from ..domain import (
     VALID_TOOLS,
     VALID_TRANSITIONS,
@@ -29,6 +31,7 @@ from ..domain import (
     NeuralState,
     NeuralStimulus,
     ToolAction,
+    Transition,
 )
 from .protocol import BrainBackend
 
@@ -67,6 +70,7 @@ class FunctionalFlyBackend(BrainBackend):
         self.rpe = RPEModule()
         self.drives = DriveModule()
         self.habituation = HabituationModule()
+        self.adaptation = AdaptationGuard()
         self._distilled_readout = None
         if checkpoint_path is not None:
             from ..training.student import load_student
@@ -78,16 +82,15 @@ class FunctionalFlyBackend(BrainBackend):
     def reset(self) -> None:
         self._steps = 0
         self.compass.reset()
-        self.mushroom_body.reset()
+        self.mushroom_body.reset(clear_learning=False)
         self.valence.reset()
         self.novelty.reset()
-        self.rpe.reset()
+        self.rpe.reset(clear_learning=False)
         self.drives.reset()
         self.habituation.reset()
-        self._last_observation = None
         self._last_code = None
         self._last_tool: str | None = None
-        self._executed_tool: str | None = None
+        self._last_reward = 0.
         self._state = NeuralState(behavior_mode="explore")
 
     # ------------------------------------------------------------ step
@@ -97,29 +100,6 @@ class FunctionalFlyBackend(BrainBackend):
 
         novelty_state = self.novelty.evaluate(obs)
         code = self.mushroom_body.encode(obs)
-
-        # Learn from the transition implied by (last_observation -> obs), if any.
-        reward = 0.0
-        if self._last_observation is not None:
-            # Prefer the actually-executed tool (set via record_outcome) over
-            # our own prior guess, so internal credit assignment tracks what
-            # really happened rather than what the fly biased toward.
-            tool = self._executed_tool or self._last_tool or stimulus.target_behavior
-            synthetic_action = ToolAction(
-                id="internal",
-                tool=tool,
-                expected_risk=min(1.0, max(0.0, 1.0 - stimulus.priority)) * 0.2,
-            )
-            signals = self.valence.evaluate(synthetic_action, self._last_observation, obs)
-            reward = signals.utility - 0.7 * signals.aversion
-            if self._last_code is not None and self._learning_enabled:
-                self.mushroom_body.learn(self._last_code, synthetic_action.tool, reward)
-            self.rpe.evaluate(
-                self._last_observation.token_signature(),
-                reward,
-                obs.token_signature(),
-                learn=self._learning_enabled,
-            )
 
         drive_state = self.drives.update(
             obs,
@@ -139,7 +119,7 @@ class FunctionalFlyBackend(BrainBackend):
             deviation=self.compass.state.deviation,
             persistence=self.compass.state.persistence,
             exploration_bias=drive_state.novelty_need,
-            valence=float(np.clip(reward, -1.0, 1.0)),
+            valence=self._last_reward,
             novelty=novelty_state.novelty,
             urgency=drive_state.urgency,
             confidence=self.compass.state.strategy_confidence,
@@ -147,16 +127,14 @@ class FunctionalFlyBackend(BrainBackend):
             recent_actions=self.habituation.recent(8),
             risk_level=max(risk, drive_state.risk),
             is_learning=self._learning_enabled,
-            update_weight=abs(self.rpe.get_state().delta) if self._last_observation is not None else 0.0,
+            update_weight=self.rpe.surprise(),
             behavior_mode=mode,
             mode_probs=mode_probs,
             action_bias=action_bias,
         )
 
-        self._last_observation = obs
         self._last_code = code
         self._last_tool = self._dominant_tool(action_bias)
-        self._executed_tool = None  # consumed; record_outcome() sets it again if called
         return self._state
 
     def get_state(self) -> NeuralState:
@@ -204,7 +182,8 @@ class FunctionalFlyBackend(BrainBackend):
         if self._distilled_readout is not None:
             from ..training.student import student_features
 
-            table = dict(zip(VALID_TOOLS, np.tanh(self._distilled_readout @ student_features(observation))))
+            features = student_features(observation, width=self._distilled_readout.shape[1])
+            table = dict(zip(VALID_TOOLS, np.tanh(self._distilled_readout @ features)))
         for tool in list(table.keys()):
             credit = self.mushroom_body.value(code, tool)
             discount = self.habituation.discount(ToolAction(id="probe", tool=tool), mode)
@@ -246,7 +225,81 @@ class FunctionalFlyBackend(BrainBackend):
     def record_outcome(self, action: ToolAction, mode: str, utility: float, success: bool) -> None:
         """Feed an executed action's outcome back into habituation tracking."""
         self.habituation.record(action, mode, utility, success)
-        self._executed_tool = action.tool
+        self._last_tool = action.tool
+
+    def learn_transition(self, transition: Transition) -> None:
+        """Credit only a real executed action, including the terminal action."""
+        if self._learning_enabled:
+            self.adaptation.validate_limits()
+            self.rpe.validate_limits()
+            self.mushroom_body.validate_limits()
+        self._last_reward = transition.reward
+        self.valence.evaluate(transition.action, transition.previous, transition.current)
+        code = self.mushroom_body.encode(transition.previous)
+        next_code = self.mushroom_body.encode(transition.current)
+        if not self._learning_enabled:
+            self.rpe.evaluate(code.key(), transition.reward, next_code.key(), learn=False)
+            return
+        snapshot = self.snapshot_policy()
+        self.adaptation.remember(code, transition.action.tool, transition.reward)
+        before = self.adaptation.predictions(self.mushroom_body)
+        norm = self.mushroom_body.learn(code, transition.action.tool, transition.reward)
+        self.rpe.evaluate(code.key(), transition.reward,
+                          'terminal' if transition.action.tool == 'stop' else next_code.key())
+        if not self.adaptation.accept(self.mushroom_body, before, norm):
+            self.restore_policy(snapshot)
+
+    def snapshot_policy(self) -> PolicySnapshot:
+        memory = self.mushroom_body
+        encoder = f'kenyon-v1:{memory.n_features}:{memory.n_kenyon}:{memory.sparsity!r}'.encode()
+        return PolicySnapshot(
+            encoding_sha256=hashlib.sha256(encoder + memory.projection.tobytes()).hexdigest(),
+            credits={tool: weights.tolist() for tool, weights in self.mushroom_body.credit.items()},
+            rpe_values=dict(self.rpe._values), updates=self.mushroom_body.updates)
+
+    def restore_policy(self, snapshot: PolicySnapshot) -> None:
+        snapshot = PolicySnapshot.model_validate(snapshot.model_dump())
+        if snapshot.encoding_sha256 != self.snapshot_policy().encoding_sha256:
+            raise ValueError('Learning snapshot encoding does not match this controller')
+        if (len(snapshot.credits) > 64 or len(snapshot.rpe_values) > 1024
+                or any(tool not in VALID_TOOLS or len(weights) != self.mushroom_body.n_kenyon
+                       or np.any(np.abs(weights) > 2.) for tool, weights in snapshot.credits.items())
+                or any(abs(value) > 10. for value in snapshot.rpe_values.values())):
+            raise ValueError('Learning snapshot exceeds policy limits')
+        self.mushroom_body.credit = {tool: np.array(weights) for tool, weights in snapshot.credits.items()}
+        self.mushroom_body.updates = snapshot.updates
+        self.mushroom_body.reset(clear_learning=False)
+        self.rpe._values = dict(snapshot.rpe_values)
+        self.rpe.reset(clear_learning=False)
+
+    def clear_learning(self) -> None:
+        self.mushroom_body.reset(clear_learning=True)
+        self.rpe.reset(clear_learning=True)
+        self.adaptation.clear()
+        self.reset()
+
+    def save_learning(self, directory: Path) -> None:
+        directory.mkdir(parents=True, exist_ok=True)
+        data = LearningRecord(policy=self.snapshot_policy(), replay=self.adaptation.replay)
+        temporary = directory / 'learning.tmp'
+        temporary.write_text(data.model_dump_json())
+        temporary.replace(directory / 'learning.json')
+
+    def load_learning(self, directory: Path) -> None:
+        path = directory / 'learning.json'
+        if path.stat().st_size > 2 * 1024 ** 2:
+            raise ValueError('Learning snapshot exceeds size limit')
+        data = LearningRecord.model_validate_json(path.read_text())
+        for sample in data.replay:
+            code = sample.code
+            if (sample.action not in VALID_TOOLS or code.n_units != self.mushroom_body.n_kenyon
+                    or len(code.active_indices) != len(code.activity)
+                    or len(set(code.active_indices)) != len(code.active_indices)
+                    or not all(0 <= index < code.n_units for index in code.active_indices)
+                    or not np.isfinite(code.activity).all() or not all(0 <= value <= 1 for value in code.activity)):
+                raise ValueError('Invalid learning replay code')
+        self.restore_policy(data.policy)
+        self.adaptation.replay = data.replay
 
     # ------------------------------------------------------------ matched compute
     def parameter_count(self) -> int:

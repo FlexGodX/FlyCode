@@ -46,6 +46,11 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument("--brain", type=str, default="functional", help="Brain backend (see `flycode brains`)")
     run.add_argument("--connectome-path", default=None, help="Prepared sparse graph directory for --brain full")
     run.add_argument("--checkpoint", default=None, help="Offline controller checkpoint directory")
+    run.add_argument("--learn", action="store_true", help="Enable bounded Functional Fly online learning")
+    run.add_argument("--learning-memory", default=None, help="Load/save learned Functional Fly policy in this directory")
+    run.add_argument("--shadow-brain", default=None, help="Zero-influence observer backend")
+    run.add_argument("--shadow-connectome-path", default=None, help="Prepared observer graph directory")
+    run.add_argument("--shadow-checkpoint", default=None, help="Observer checkpoint directory")
     run.add_argument("--control", type=str, choices=["bias", "hard"], default="bias")
     run.add_argument("--llm", type=str, choices=["heuristic", "openai", "lmstudio"], default="heuristic")
     run.add_argument("--model", type=str, default=None, help="Reasoner: gpt-4o-mini (openai), qwen/qwen3.5-9b (lmstudio)")
@@ -58,13 +63,22 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument("--seed", type=int, default=0)
     run.add_argument("--telemetry-dir", type=str, default=None)
 
-    for name, help_text in (
-        ("benchmark", "Multi-brain benchmark suite (Phase 11, §61-64)"),
-        ("lesion", "Virtual lesion ablation study (Phase 11, §67)"),
-        ("sensitivity", "Parameter sensitivity sweep (Phase 11, §68)"),
-    ):
-        p = sub.add_parser(name, help=help_text)
-        p.set_defaults(_not_implemented=help_text)
+    for name in ("lesion", "sensitivity"):
+        probe = sub.add_parser(name, help="Recorded-trajectory causal probe; no task-success estimate")
+        probe.add_argument("--trajectories", required=True)
+        probe.add_argument("--connectome-path", default=None)
+        probe.add_argument("--checkpoint", default=None)
+        probe.add_argument("--seed", type=int, default=0)
+        probe.add_argument("--output", required=True, help="JSON report file")
+        if name == "lesion":
+            probe.add_argument("--fraction", type=float, default=.1)
+        else:
+            probe.add_argument("--parameter", choices=["recurrent_gain", "leak", "input_gain"], required=True)
+            probe.add_argument("--values", type=float, nargs="+", required=True)
+
+    benchmark = sub.add_parser("benchmark", help="Isolated multi-seed controller/checkpoint task comparison")
+    benchmark.add_argument("--config", required=True, help="JSON BenchmarkConfig")
+    benchmark.add_argument("--output", required=True, help="Directory for experiments and recorded trajectories")
 
     train = sub.add_parser("train", help="Offline constrained imitation with frozen graph topology")
     train.add_argument("--trajectories", required=True, help="Directory of curated executed *.steps.jsonl episodes")
@@ -123,6 +137,8 @@ async def _run(args: argparse.Namespace) -> int:
 
     env = SoftwareEnvironment(repo, seed=args.seed)
     try:
+        if (args.learn or args.learning_memory) and args.brain not in {"functional", "functional_fly"}:
+            raise ValueError("Online learning currently requires Functional Fly")
         if args.checkpoint and args.brain not in {"full", "reduced", "functional", "functional_fly"}:
             raise ValueError("This brain does not support checkpoints")
         kwargs = ({"connectome_path": args.connectome_path, "checkpoint_path": args.checkpoint}
@@ -130,7 +146,28 @@ async def _run(args: argparse.Namespace) -> int:
         if args.checkpoint and args.brain in {"functional", "functional_fly"}:
             kwargs = {"checkpoint_path": args.checkpoint}
         brain = make_brain(args.brain, seed=args.seed, **kwargs)
-    except ValueError as exc:
+        if args.learning_memory:
+            directory = Path(args.learning_memory).expanduser()
+            if directory.exists() and not directory.is_dir():
+                raise ValueError("Learning memory must be a directory")
+            if (directory / "learning.json").exists():
+                brain.load_learning(directory)
+        brain.set_learning_mode(bool(args.learn or args.learning_memory))
+        if not args.shadow_brain and (args.shadow_connectome_path or args.shadow_checkpoint):
+            raise ValueError("Observer paths require --shadow-brain")
+        if args.shadow_brain:
+            from .brain.shadow import ShadowBackend
+
+            if args.shadow_connectome_path and args.shadow_brain not in {"full", "reduced"}:
+                raise ValueError("Observer graph path requires full or reduced brain")
+            if args.shadow_checkpoint and args.shadow_brain not in {"full", "reduced", "functional", "functional_fly"}:
+                raise ValueError("This observer does not support checkpoints")
+            observer_kwargs = ({"connectome_path": args.shadow_connectome_path, "checkpoint_path": args.shadow_checkpoint}
+                               if args.shadow_brain in {"full", "reduced"} else {})
+            if args.shadow_checkpoint and args.shadow_brain in {"functional", "functional_fly"}:
+                observer_kwargs = {"checkpoint_path": args.shadow_checkpoint}
+            brain = ShadowBackend(brain, make_brain(args.shadow_brain, seed=args.seed, **observer_kwargs))
+    except (OSError, ValueError) as exc:
         print(f"Brain setup failed: {exc}", file=sys.stderr)
         return 2
     if args.llm == "heuristic":
@@ -166,8 +203,16 @@ async def _run(args: argparse.Namespace) -> int:
     print(f"final_result: {result.episode.final_result}")
     if result.metrics.model_calls:
         print(f"model_calls: {result.metrics.model_calls}")
+    if result.metrics.shadow_decisions:
+        print(f"shadow_agreements: {result.metrics.shadow_agreements}/{result.metrics.shadow_decisions} influence=0")
     for line in result.transcript:
         print(f"  {line}")
+    if args.learning_memory:
+        try:
+            brain.save_learning(Path(args.learning_memory).expanduser())
+        except OSError as exc:
+            print(f"Learning memory could not be saved: {exc}", file=sys.stderr)
+            return 2
     return 0 if result.success else 1
 
 
@@ -182,12 +227,43 @@ def main(argv: list[str] | None = None) -> int:
             print(name)
         return 0
 
-    if getattr(args, "_not_implemented", None):
-        print(f"`flycode {args.command}` is not implemented yet: {args._not_implemented}", file=sys.stderr)
-        return 2
-
     if args.command == "run":
         return asyncio.run(_run(args))
+
+    if args.command == "benchmark":
+        from .research.benchmark import BenchmarkConfig, run_benchmark
+
+        try:
+            config = BenchmarkConfig.model_validate_json(Path(args.config).read_text())
+            report = asyncio.run(run_benchmark(config, Path(args.output)))
+            print(json.dumps({'experiment_id': report['experiment_id'], 'summary': report['summary']}, indent=2))
+            return 1 if any(case['error'] for case in report['cases']) else 0
+        except (OSError, ValueError) as exc:
+            print(f"Benchmark failed: {exc}", file=sys.stderr)
+            return 2
+
+    if args.command in {"lesion", "sensitivity"}:
+        from .brain.full_connectome.sparse_backend import DEFAULT_CONNECTOME
+        from .research.perturbation import lesion, sensitivity
+        from .training.trajectories import load_episodes
+
+        try:
+            episodes = load_episodes(Path(args.trajectories))
+            path = Path(args.connectome_path) if args.connectome_path else DEFAULT_CONNECTOME
+            checkpoint = Path(args.checkpoint) if args.checkpoint else None
+            if args.command == "lesion":
+                report = lesion(path, episodes, fraction=args.fraction, seed=args.seed, checkpoint_path=checkpoint)
+            else:
+                report = sensitivity(path, episodes, parameter=args.parameter, values=args.values,
+                                     seed=args.seed, checkpoint_path=checkpoint)
+            output = Path(args.output)
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(json.dumps(report, indent=2, allow_nan=False))
+            print(json.dumps(report, indent=2, allow_nan=False))
+            return 0
+        except (OSError, ValueError) as exc:
+            print(f"Causal probe failed: {exc}", file=sys.stderr)
+            return 2
 
     if args.command == "train":
         from .brain.full_connectome.sparse_backend import DEFAULT_CONNECTOME

@@ -54,18 +54,22 @@ class MushroomBody:
         self.n_features = n_features
         self.n_kenyon = n_kenyon
         self.sparsity = float(np.clip(sparsity, 0.02, 0.10))
-        self.learning_rate = learning_rate
+        if not np.isfinite(learning_rate) or learning_rate < 0:
+            raise ValueError('Learning rate must be finite and nonnegative')
+        self.learning_rate = min(learning_rate, 0.1)
         self.max_update_norm = 0.5
         self._rng = np.random.default_rng(seed if seed is not None else 0)
         self.reset()
 
     # ------------------------------------------------------------ lifecycle
-    def reset(self) -> None:
-        self.projection = self._rng.normal(0.0, 1.0, size=(self.n_kenyon, self.n_features))
-        self.projection *= self._rng.random((self.n_kenyon, self.n_features)) < 0.2
-        self.credit: dict[str, np.ndarray] = {}
-        self.pattern_bank: dict[str, str] = {}
-        self.updates = 0
+    def reset(self, *, clear_learning: bool = True) -> None:
+        if not hasattr(self, 'projection'):
+            self.projection = self._rng.normal(0.0, 1.0, size=(self.n_kenyon, self.n_features))
+            self.projection *= self._rng.random((self.n_kenyon, self.n_features)) < 0.2
+        if clear_learning:
+            self.credit: dict[str, np.ndarray] = {}
+            self.pattern_bank: dict[str, str] = {}
+            self.updates = 0
         self.state = MushroomBodyState()
 
     # ------------------------------------------------------------ encoding
@@ -122,11 +126,15 @@ class MushroomBody:
             n_units=self.n_kenyon,
         )
         self.pattern_bank[code.key()] = obs_digest(observation)
+        if len(self.pattern_bank) > 1024:
+            self.pattern_bank.pop(next(iter(self.pattern_bank)))
         return code
 
     # ------------------------------------------------------------ memory
     def _credit_for(self, action: str) -> np.ndarray:
         if action not in self.credit:
+            if len(self.credit) >= 64:
+                self.credit.pop(next(iter(self.credit)))
             self.credit[action] = np.zeros(self.n_kenyon, dtype=np.float64)
         return self.credit[action]
 
@@ -142,20 +150,30 @@ class MushroomBody:
     def plan(self, code: SparseCode, actions: list[str]) -> dict[str, float]:
         return {action: self.value(code, action) for action in actions}
 
+    def validate_limits(self) -> None:
+        if (not np.isfinite([self.learning_rate, self.max_update_norm]).all()
+                or self.learning_rate < 0 or self.max_update_norm < 0):
+            raise ValueError('Learning limits must be finite and nonnegative')
+
     def learn(self, code: SparseCode, action: str, reward: float) -> float:
         """Hebbian update of the action credit under the active Kenyon cells."""
+        self.validate_limits()
+        if not np.isfinite(reward):
+            raise ValueError('Learning reward must be finite')
         if not code.active_indices:
             return 0.0
         credit = self._credit_for(action)
         idx = np.asarray(code.active_indices, dtype=int)
         act = np.asarray(code.activity, dtype=np.float64)
 
-        error = reward - self.value(code, action)
-        raw_update = self.learning_rate * error * act
+        error = float(np.clip(reward, -1., 1.)) - self.value(code, action)
+        raw_update = min(self.learning_rate, .1) * error * act
         norm = float(np.linalg.norm(raw_update))
-        if norm > self.max_update_norm:
-            raw_update *= self.max_update_norm / norm
+        limit = min(self.max_update_norm, .5)
+        if norm > limit:
+            raw_update *= limit / norm
 
+        before = credit[idx].copy()
         credit[idx] += raw_update
         np.clip(credit, -2.0, 2.0, out=credit)
 
@@ -167,7 +185,7 @@ class MushroomBody:
             mean_credit=float(np.mean(np.abs(credit))),
             last_error=float(error),
         )
-        return norm
+        return float(np.linalg.norm(credit[idx] - before))
 
     def recall_best(self, code: SparseCode, actions: list[str]) -> tuple[str | None, float]:
         """Best remembered action for this pattern."""
