@@ -66,3 +66,13 @@ boundaries, trust limits, contracts and acceptance scenarios are defined in
 [Plan §101](Plan.md#101-модуль-тестирования-и-проверки-результата) and the normative
 [testing specification](specs/testing-module.md). This is not yet implemented;
 existing `run_tests`, telemetry and research commands are integration points.
+
+## Proposed model selection
+
+[Plan §102](Plan.md#102-выбор-моделей-и-раздельные-настройки) and the
+[model-selection specification](specs/model-selection.md) define a single primary
+model without a decision model, an optional primary/scorer pair, and a registry
+for future compatible models. The same neural routing and safety gates apply.
+One model-selection button manages all model roles; a separate execution-settings
+button sits immediately to its right. This is specification-only work; the
+current runtime and UI have not been changed.

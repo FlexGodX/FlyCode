@@ -1,9 +1,19 @@
 # FlyCode handoff brief
 
-Authoritative roadmap: `docs/Plan.md` (§1–101). Operating rules: `AGENTS.md`.
+Authoritative roadmap: `docs/Plan.md` (§1–102). Operating rules: `AGENTS.md`.
 The baseline MVP covers Phase 4 (§78). Phase 5 (§79) now runs the same tasks
 with a verified, sparse biological graph. Hermes in the roadmap means FlyCode
 itself: connected agents are hosted here and orchestrated by the controller.
+
+## Proposed model selection and settings split (2026-10-16)
+
+`docs/Plan.md` §102 incorporates `docs/specs/model-selection.md` v1.0, including
+single Qwen without Jev, optional primary/scorer roles and future compatible models
+through the same extensible catalogue. The composer has one model-selection
+button and a separate connectome/steps/execution-settings button immediately to
+its right. MOD-01..07 map to MS-01..12. The user explicitly requested specification
+only; no nullable-decider support or UI implementation was performed. Model mode
+must become part of admission identity rather than reuse dual-model evidence.
 
 ## Proposed verification module (2026-10-16)
 
