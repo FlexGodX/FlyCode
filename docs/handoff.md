@@ -41,6 +41,64 @@ The seven default skips are four explicit real-graph tests, two real-graph
 Docker cases and one local-model test. The corresponding real runs above were
 executed separately. No comparative advantage has been established.
 
+## Current extension: offline training and smaller circuits
+
+- `training/{trajectories,checkpoint,constrained}.py`: executed JSONL episodes,
+  reset boundaries, dataset fingerprint, bounded gain/leak search and ridge tool
+  readout. `train` is operational; `run --brain full --checkpoint PATH` loads
+  the result. Adjacency and its fingerprint stay unchanged. Checkpoints bind
+  parameter checksums, graph fingerprint and output vocabulary; nonfinite,
+  overflowing and mismatched arrays are rejected. Reset retains fitted weights.
+- `connectome reduce --source PATH --neurons 4096 --output PATH` extracts a
+  connected induced circuit with existing weights and original neuron IDs.
+  Input mappings are sliced from the parent, not regenerated; readout/dynamics
+  are inherited. `--checkpoint` optionally selects a trained parent.
+  `run --brain reduced --connectome-path PATH` loads the bundled checkpoint.
+- `distill --trajectories PATH --teacher-checkpoint PATH --output PATH` fits
+  only tool biases in a 400-parameter Functional Fly readout. Mode arbitration
+  is retained. Whole episodes are held out; default gates are RMSE <= .1 and
+  top-tool agreement >= .9. Failed candidates are saved but cannot be enabled.
+  Accepted candidates load with `run --brain functional --checkpoint PATH`.
+- Fixed Functional Fly's unconditional MB update when learning is disabled.
+  This is necessary for frozen comparisons; it does not complete Phase 10.
+- The new research workflows are CLI-only. The browser still offers Functional
+  Fly and the frozen full graph. Model weights and experiment data stay outside
+  Git. Benchmark/lesion/sensitivity commands remain explicit stubs.
+
+Measured with the actual v783 artifact on 2026-10-15:
+
+```text
+Teacher data: two successful Functional Fly toy episodes, 18 executed steps.
+Full graph: tool imitation accuracy .4444 -> .7778, MSE .07805 -> .01311.
+Selected dynamics: gain=1.2, leak=.5; topology/fingerprint unchanged.
+Actual task comparison: frozen and trained each solve 4/4 (two toys x two
+  control modes), five steps each. No task-completion improvement.
+Reduced graph: 4,096 neurons, 12,031 edges; 4/4 repairs, five steps each.
+  Mean of 30 warmed steps: full 7.106 ms / reduced .117 ms.
+  Array storage: full 30.172 MiB / reduced .379 MiB.
+  Fingerprint: 162b8a20ba930cd15d9f02ab2355b48935431e86b69a7e9cd92beb8c86cd8ab5.
+Distillation: one training episode, one held out; validation RMSE .02550,
+  top-tool agreement .8889. Default .9 agreement gate failed as expected.
+```
+
+Artifacts: `~/.cache/flycode/experiments/2026-10-15-constrained/` contains
+trajectories, checkpoint/training.json, student/distillation.json and
+task-comparison.json. `2026-10-15-reduced/validation.json` contains the smaller
+graph's actual runs and timing. Toy coverage is narrow; this is not evidence
+of generalization, matched-compute superiority or biological cognition.
+
+Final verification for this increment:
+
+```text
+Full pytest: 262 passed, 7 skipped in 77.28s.
+Targeted Ruff: passed; mypy on eight new research/reduction modules: passed.
+Built wheel includes training, reduced backend and UI; no biological data or
+  checkpoint weights are bundled.
+Actual CLI: trained full/import and reduced/arithmetic repairs both succeed
+  with verification, five steps each.
+Local UI restarted on 127.0.0.1:8790; completed history replay verified.
+```
+
 ## Current extension: local browser workspace
 
 Implementation plan: `docs/superpowers/plans/2026-10-15-agent-interface.md`.
@@ -147,7 +205,9 @@ has been established. The separate real-graph extension above satisfies Phase 5.
 | 3 Functional Fly | §77 | Implemented and tested |
 | 4 Environment autonomy | §78 | Real autonomous Docker/Postgres acceptance passes in bias and hard control |
 | 5 Real connectome | §79 | Accepted: real FlyWire graph passes toy and Docker tasks in both control modes |
-| 6–8 | §80–82 | Offline training, reduction and distillation remain unfinished |
+| 6 Constrained training | §80 | Implemented; imitation improves, actual task advantage not established |
+| 7 Reduced connectome | §81 | Limited acceptance passed: same toy repairs with much lower compute |
+| 8 Distillation | §82 | Implemented and gated; actual held-out agreement .8889 misses default .9 |
 | 9 Candidate Tournament | §83 | Implemented: existing safety-masked hard/bias tournament tests pass |
 | 10–14 | §84–88 | Bounded adaptation, experiments and rollout inside FlyCode remain unfinished |
 
@@ -227,10 +287,12 @@ are in `/tmp/flycode-ruff.log` and `/tmp/flycode-mypy.log`.
 
 ## Remaining work after Phase 5
 
-- Constrained training, reduced models, distillation, bounded online learning,
-  causal evaluation and gradual controller rollout inside FlyCode.
-- CLI `train`, `distill`, `benchmark`, `lesion`, `sensitivity` remain explicit
-  stubs. `--brain reduced` is not supported; `--brain full` is operational.
+- Phase 6 needs actual task improvement, not only imitation improvement.
+- Phase 8 needs the chosen tolerance passed on diverse held-out trajectories.
+- Phase 10 needs bounded MB/RPE updates, preserved learning across episodes,
+  snapshots, rollback and drift tests; only the disabled-learning bug is fixed.
+- Phases 11–14 need causal evaluation and gradual rollout inside FlyCode.
+  `benchmark`, `lesion`, `sensitivity` remain explicit stubs.
 - Stressors declared on TaskSpec are not wired into the loop: partial
   observations, delayed rewards, context reversal and noisy feedback.
 - Benchmark coverage remains narrower than the research success criteria.

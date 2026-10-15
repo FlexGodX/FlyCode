@@ -1,9 +1,7 @@
 """FlyCode CLI (plan §89).
 
-`flycode run` supports Phase 0-4: SoftwareGym, baselines, Functional Fly
-and environment autonomy. `train`/`distill`/`benchmark`/`lesion`/`sensitivity` are
-later-phase commands (§85-88) and intentionally exit with a clear
-"not implemented yet" message rather than pretending to do something.
+SoftwareGym, local models and biological controllers share one agent loop.
+Research commands report measured acceptance separately from implementation.
 """
 
 import argparse
@@ -47,6 +45,7 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument("--task", type=str, required=True, help="Task description")
     run.add_argument("--brain", type=str, default="functional", help="Brain backend (see `flycode brains`)")
     run.add_argument("--connectome-path", default=None, help="Prepared sparse graph directory for --brain full")
+    run.add_argument("--checkpoint", default=None, help="Offline controller checkpoint directory")
     run.add_argument("--control", type=str, choices=["bias", "hard"], default="bias")
     run.add_argument("--llm", type=str, choices=["heuristic", "openai", "lmstudio"], default="heuristic")
     run.add_argument("--model", type=str, default=None, help="Reasoner: gpt-4o-mini (openai), qwen/qwen3.5-9b (lmstudio)")
@@ -60,14 +59,28 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument("--telemetry-dir", type=str, default=None)
 
     for name, help_text in (
-        ("train", "Connectome-constrained / imitation training (Phase 6-8, §85)"),
-        ("distill", "Teacher -> student distillation (Phase 8, §82)"),
         ("benchmark", "Multi-brain benchmark suite (Phase 11, §61-64)"),
         ("lesion", "Virtual lesion ablation study (Phase 11, §67)"),
         ("sensitivity", "Parameter sensitivity sweep (Phase 11, §68)"),
     ):
         p = sub.add_parser(name, help=help_text)
         p.set_defaults(_not_implemented=help_text)
+
+    train = sub.add_parser("train", help="Offline constrained imitation with frozen graph topology")
+    train.add_argument("--trajectories", required=True, help="Directory of curated executed *.steps.jsonl episodes")
+    train.add_argument("--connectome-path", default=None)
+    train.add_argument("--output", required=True)
+    train.add_argument("--seed", type=int, default=0)
+    train.add_argument("--ridge", type=_positive_float, default=1e-5)
+
+    distill = sub.add_parser("distill", help="Distill trained teacher tool biases into Functional Fly")
+    distill.add_argument("--trajectories", required=True)
+    distill.add_argument("--connectome-path", default=None)
+    distill.add_argument("--teacher-checkpoint", required=True)
+    distill.add_argument("--output", required=True)
+    distill.add_argument("--seed", type=int, default=0)
+    distill.add_argument("--max-rmse", type=float, default=.1)
+    distill.add_argument("--min-agreement", type=float, default=.9)
 
     brains = sub.add_parser("brains", help="List available brain backends")
     brains.set_defaults(_list_brains=True)
@@ -87,6 +100,12 @@ def _build_parser() -> argparse.ArgumentParser:
     prepare.add_argument("--min-synapses", type=_positive_int, default=5)
     info = commands.add_parser("info")
     info.add_argument("--path", default=None)
+    reduce = commands.add_parser("reduce", help="Extract an induced connected circuit and inherit its mappings")
+    reduce.add_argument("--source", required=True, help="Prepared parent graph directory")
+    reduce.add_argument("--output", required=True)
+    reduce.add_argument("--neurons", type=_positive_int, required=True)
+    reduce.add_argument("--checkpoint", default=None, help="Optional trained parent checkpoint")
+    reduce.add_argument("--seed", type=int, default=0)
 
     return parser
 
@@ -104,7 +123,12 @@ async def _run(args: argparse.Namespace) -> int:
 
     env = SoftwareEnvironment(repo, seed=args.seed)
     try:
-        kwargs = {"connectome_path": args.connectome_path} if args.brain == "full" else {}
+        if args.checkpoint and args.brain not in {"full", "reduced", "functional", "functional_fly"}:
+            raise ValueError("This brain does not support checkpoints")
+        kwargs = ({"connectome_path": args.connectome_path, "checkpoint_path": args.checkpoint}
+                  if args.brain in {"full", "reduced"} else {})
+        if args.checkpoint and args.brain in {"functional", "functional_fly"}:
+            kwargs = {"checkpoint_path": args.checkpoint}
         brain = make_brain(args.brain, seed=args.seed, **kwargs)
     except ValueError as exc:
         print(f"Brain setup failed: {exc}", file=sys.stderr)
@@ -165,12 +189,50 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "run":
         return asyncio.run(_run(args))
 
+    if args.command == "train":
+        from .brain.full_connectome.sparse_backend import DEFAULT_CONNECTOME
+        from .training.constrained import train_connectome
+        from .training.trajectories import load_episodes
+
+        try:
+            episodes = load_episodes(Path(args.trajectories))
+            report = train_connectome(Path(args.connectome_path) if args.connectome_path else DEFAULT_CONNECTOME,
+                                       episodes, Path(args.output), seed=args.seed, ridge=args.ridge)
+            print(json.dumps(report, indent=2))
+            return 0
+        except (OSError, ValueError) as exc:
+            print(f"Offline training failed: {exc}", file=sys.stderr)
+            return 2
+
+    if args.command == "distill":
+        from .brain.full_connectome.sparse_backend import DEFAULT_CONNECTOME
+        from .training.distillation import distill_controller
+        from .training.trajectories import load_episodes
+
+        try:
+            episodes = load_episodes(Path(args.trajectories))
+            report = distill_controller(Path(args.connectome_path) if args.connectome_path else DEFAULT_CONNECTOME,
+                                        Path(args.teacher_checkpoint), episodes, Path(args.output),
+                                        max_rmse=args.max_rmse, min_agreement=args.min_agreement, seed=args.seed)
+            print(json.dumps(report, indent=2))
+            return 0 if report['accepted'] else 1
+        except (OSError, ValueError) as exc:
+            print(f"Distillation failed: {exc}", file=sys.stderr)
+            return 2
+
     if args.command == "connectome":
         from .brain.full_connectome.graph import SparseConnectome
         from .brain.full_connectome.importer import download_flywire, prepare_flywire
         from .brain.full_connectome.sparse_backend import DEFAULT_CONNECTOME
 
         try:
+            if args.connectome_command == "reduce":
+                from .brain.full_connectome.reduction import reduce_connectome
+
+                report = reduce_connectome(Path(args.source), Path(args.output), args.neurons, seed=args.seed,
+                                           checkpoint_path=Path(args.checkpoint) if args.checkpoint else None)
+                print(json.dumps(report, indent=2))
+                return 0
             if args.connectome_command == "download":
                 download_flywire(Path(args.destination))
                 print(f"Verified FlyWire 783 source files: {args.destination}")

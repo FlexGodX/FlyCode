@@ -8,7 +8,7 @@ Tier 1 - it never touches a real connectome; it is the thing distillation
 (plan §42-43) eventually targets.
 """
 
-from typing import Any
+from pathlib import Path
 
 import numpy as np
 
@@ -21,7 +21,15 @@ from ..cognition import (
     TaskCompass,
     ValenceModule,
 )
-from ..domain import BehaviorMode, CandidateAction, NeuralState, NeuralStimulus, ToolAction, VALID_TRANSITIONS
+from ..domain import (
+    VALID_TOOLS,
+    VALID_TRANSITIONS,
+    BehaviorMode,
+    CandidateAction,
+    NeuralState,
+    NeuralStimulus,
+    ToolAction,
+)
 from .protocol import BrainBackend
 
 MODE_TOOL_TABLE: dict[str, dict[str, float]] = {
@@ -49,6 +57,7 @@ class FunctionalFlyBackend(BrainBackend):
         n_kenyon: int = 256,
         sparsity: float = 0.05,
         seed: int | None = None,
+        checkpoint_path: str | Path | None = None,
     ) -> None:
         super().__init__(seed=seed)
         self.compass = TaskCompass(seed=seed)
@@ -58,6 +67,11 @@ class FunctionalFlyBackend(BrainBackend):
         self.rpe = RPEModule()
         self.drives = DriveModule()
         self.habituation = HabituationModule()
+        self._distilled_readout = None
+        if checkpoint_path is not None:
+            from ..training.student import load_student
+
+            self._distilled_readout = load_student(Path(checkpoint_path))
         self.reset()
 
     # ------------------------------------------------------------ lifecycle
@@ -98,7 +112,7 @@ class FunctionalFlyBackend(BrainBackend):
             )
             signals = self.valence.evaluate(synthetic_action, self._last_observation, obs)
             reward = signals.utility - 0.7 * signals.aversion
-            if self._last_code is not None:
+            if self._last_code is not None and self._learning_enabled:
                 self.mushroom_body.learn(self._last_code, synthetic_action.tool, reward)
             self.rpe.evaluate(
                 self._last_observation.token_signature(),
@@ -115,7 +129,7 @@ class FunctionalFlyBackend(BrainBackend):
 
         mode, mode_probs = self._select_mode(obs, drive_state, novelty_state.novelty)
         self.compass.update(mode, mode_probs)
-        action_bias = self._action_bias(mode, code)
+        action_bias = self._action_bias(mode, code, obs)
 
         risk = 1.0 if stimulus.target_behavior.lower() in {"delete", "rm", "drop", "reset"} else 0.0
 
@@ -185,8 +199,12 @@ class FunctionalFlyBackend(BrainBackend):
         return mode, probs
 
     # ------------------------------------------------------------ action bias
-    def _action_bias(self, mode: str, code) -> dict[str, float]:
+    def _action_bias(self, mode: str, code, observation) -> dict[str, float]:
         table = dict(MODE_TOOL_TABLE.get(mode, {"read_file": 0.5}))
+        if self._distilled_readout is not None:
+            from ..training.student import student_features
+
+            table = dict(zip(VALID_TOOLS, np.tanh(self._distilled_readout @ student_features(observation))))
         for tool in list(table.keys()):
             credit = self.mushroom_body.value(code, tool)
             discount = self.habituation.discount(ToolAction(id="probe", tool=tool), mode)
@@ -234,13 +252,14 @@ class FunctionalFlyBackend(BrainBackend):
     def parameter_count(self) -> int:
         return int(self.mushroom_body.projection.size) + sum(
             v.size for v in self.mushroom_body.credit.values()
-        )
+        ) + (self._distilled_readout.size if self._distilled_readout is not None else 0)
 
     def get_memory_capacity(self) -> int:
         return self.mushroom_body.get_memory_capacity()
 
     def get_computation_cost(self) -> float:
-        return float(self.mushroom_body.n_kenyon)
+        return float(self.mushroom_body.n_kenyon +
+                     (self._distilled_readout.size if self._distilled_readout is not None else 0))
 
 
 def _softmax_dict(scores: dict[str, float]) -> dict[str, float]:

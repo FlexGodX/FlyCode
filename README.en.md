@@ -9,8 +9,8 @@ using tests and application health checks.
 
 **Status: working MVP through Phase 4.** The agent autonomously repairs a demo
 FastAPI/PostgreSQL project, starts Docker Compose, applies Alembic migrations
-and checks the API. A real FlyWire graph is now available as the Phase 5 extension;
-model training remains a later phase.
+and checks the API. Real FlyWire, a reduced circuit and offline training
+workflows are available; research acceptance results are listed below.
 
 ## MVP capabilities
 
@@ -162,8 +162,70 @@ dynamics with engineered input/readout mappings and an initial workflow prior.
 Signs follow neurotransmitter predictions: GABA/GLUT inhibitory, others
 excitatory. This convention is not a complete biophysical simulation. The
 legacy `frozen_connectome` remains a random-projection comparison. No advantage
-over Functional Fly has been established; training and graph reduction require
-separate measurements.
+over Functional Fly has been established; training and reduction measurements
+are listed below.
+
+## Offline training, graph reduction and distillation
+
+First record successful runs. Training consumes **every** executed action in
+its input directory: inspect the recordings before use. Files and resets of
+the step number separate episodes; recurrent state does not leak across resets.
+
+```bash
+flycode run --repo /tmp/flycode-teacher-add --fixture toy_arithmetic_bug \
+  --task "Fix the bug" --brain functional --telemetry-dir ~/.cache/flycode/training-records
+flycode run --repo /tmp/flycode-teacher-import --fixture toy_import_bug \
+  --task "Fix the bug" --brain functional --telemetry-dir ~/.cache/flycode/training-records
+
+flycode train --trajectories ~/.cache/flycode/training-records \
+  --output ~/.cache/flycode/checkpoints/constrained
+flycode run --repo /tmp/flycode-trained --fixture toy_arithmetic_bug \
+  --task "Fix the bug" --brain full --checkpoint ~/.cache/flycode/checkpoints/constrained
+
+flycode connectome reduce --source ~/.cache/flycode/flywire-783/prepared \
+  --neurons 4096 --output ~/.cache/flycode/reduced-4096
+flycode run --repo /tmp/flycode-reduced --fixture toy_arithmetic_bug \
+  --task "Fix the bug" --brain reduced --connectome-path ~/.cache/flycode/reduced-4096
+
+flycode distill --trajectories ~/.cache/flycode/training-records \
+  --teacher-checkpoint ~/.cache/flycode/checkpoints/constrained \
+  --output ~/.cache/flycode/checkpoints/student
+# Only after distill passes validation:
+flycode run --repo /tmp/flycode-student --fixture toy_arithmetic_bug \
+  --task "Fix the bug" --brain functional --checkpoint ~/.cache/flycode/checkpoints/student
+```
+
+`train` searches recurrent gain and leak rate and fits tool readout scores.
+Adjacency remains unchanged. Input/readout arrays, dynamics and checksums are
+saved in a separate checkpoint. `training.json` reports before/after imitation
+error and accuracy. These are in-sample measurements, not evidence of better
+end-to-end task completion.
+
+`connectome reduce` selects a connected induced circuit and inherits its
+teacher's corresponding input and output mappings. It never invents edges.
+Use `--checkpoint PATH` to inherit a trained parent's parameters.
+
+`distill` transfers **tool biases** into a small Functional Fly readout;
+behavior mode arbitration is retained. Entire episodes are held out. Defaults
+require RMSE ≤ 0.1 and top-tool agreement ≥ 90%; `--max-rmse` and
+`--min-agreement` configure tolerances before an experiment. Failed validation
+returns exit code 1 and saves a report; the rejected checkpoint cannot be
+enabled. These research workflows are currently exposed through the CLI.
+
+Measurements on this machine, two toy projects, both `bias` and `hard`:
+
+| Check | Result |
+|---|---|
+| Full-graph training | Imitation accuracy 44.4% → 77.8%; MSE 0.0781 → 0.0131 |
+| Actual task completion | Frozen and trained: 4/4, 5 steps each; no advantage |
+| 4,096-neuron circuit, 12,031 edges | 4/4 successful repairs, 5 steps each |
+| Full / reduced controller step | 7.11 / 0.12 ms; arrays 30.17 / 0.38 MiB |
+| Functional Fly distillation | Held-out episode: RMSE 0.0255, agreement 88.9%; 90% gate failed |
+
+Phase 7 passes this limited acceptance. Phase 6 needs tasks on which training
+improves actual completion; Phase 8 needs its configured tolerance satisfied
+on more diverse held-out data. These results do not establish an advantage
+over comparable FSM/RNN controllers.
 
 ## Local Qwen + Jev through LM Studio
 
@@ -250,6 +312,7 @@ checks; it is not an isolation boundary for untrusted code.
 | `heuristic_fsm` | Finite-state-machine baseline |
 | `random_reservoir` | Random-reservoir baseline |
 | `generic_rnn` | Recurrent-network baseline |
+| `reduced` | Reduced biological circuit with inherited parent parameters |
 | `full` | Real FlyWire sparse topology with modeled recurrent dynamics |
 | `frozen_connectome` / `frozen_full_connectome` | Legacy experimental random projections |
 
@@ -276,7 +339,8 @@ python -m pytest -q
 python -m pytest tests/e2e/test_environment_autonomy.py -q
 ```
 
-Main suite: **206 tests passed**; LM Studio acceptance is enabled separately.
+See [project status](docs/handoff.md) for the latest full-suite result;
+LM Studio and real-graph acceptance are enabled separately.
 The Docker acceptance tests run the real agent with Docker/Postgres in both `bias` and `hard` modes and
 check HTTP responses and the Alembic revision stored in the database. They
 choose an available HTTP port and clean up their containers afterward. Without
@@ -289,10 +353,10 @@ remain. See the [project status](docs/handoff.md) for details.
 
 - The heuristic generator is not a general-purpose code repair system.
 - An advantage over comparable FSM/RNN controllers has not been demonstrated.
-- Constrained training, distillation, reduced models and validated controller
-  rollout inside FlyCode remain unfinished.
-- `train`, `distill`, `benchmark`, `lesion` and `sensitivity` are explicit CLI
-  stubs. `--brain reduced` is not supported yet.
+- Better task completion after training and distillation at 90% agreement remain unproven.
+- Phases 10–14 remain unfinished: bounded online learning, causal experiments
+  and gradual controller rollout inside FlyCode.
+- `benchmark`, `lesion` and `sensitivity` remain explicit CLI stubs.
 
 ## Documentation
 

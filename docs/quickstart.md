@@ -196,3 +196,24 @@ readout/workflow priorities are engineered approximations. No task-performance
 advantage is established. Select FlyWire in UI settings or pass an explicit
 `--connectome-path`/`FLYCODE_CONNECTOME_PATH`. Hermes in the roadmap means FlyCode
 itself, not a separate dependency.
+
+## Offline controller workflows (Phases 6–8)
+
+`flycode train --trajectories DIR --output CHECKPOINT` consumes reviewed
+`*.steps.jsonl` recordings, keeps graph topology fixed, searches bounded gain
+and leak and fits tool readout. Use `run --brain full --checkpoint CHECKPOINT`.
+Choose another graph with `--connectome-path PATH`.
+
+`flycode connectome reduce --source PREPARED --neurons 4096 --output REDUCED`
+extracts an induced connected circuit and inherits boundary mappings. Run it
+with `--brain reduced --connectome-path REDUCED`.
+
+`flycode distill --trajectories DIR --teacher-checkpoint CHECKPOINT --output STUDENT`
+uses held-out whole episodes. Defaults require RMSE <= .1 and top-tool agreement
+>= .9. Failed validation returns 1 and prevents enabling the saved candidate.
+Only an accepted student can run with `--brain functional --checkpoint STUDENT`.
+These offline workflows do not modify Qwen/Jev weights.
+
+See both READMEs for executable examples and measured limitations: training
+improved imitation but not actual task completion; the measured student missed
+the default agreement gate. Phase 10–14 acceptance remains unfinished.

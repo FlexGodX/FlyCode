@@ -2,9 +2,11 @@
 
 Tiers:
 - Tier 0: MockBrainBackend, HeuristicFSMBackend, RandomReservoirBackend, GenericRNNBackend
-- Tier 1: FunctionalFlyBackend
-- Tier 2: ReducedConnectomeBackend (not yet implemented)
-- Tier 3: FrozenFullConnectomeBackend, TrainableConnectomeBackend (not yet implemented)
+- Tier 1: FunctionalFlyBackend, optionally with a validated distilled readout
+- Tier 2: ReducedConnectomeBackend with inherited parent mappings
+- Tier 3: FullConnectomeBackend, optionally with offline-constrained parameters
+
+Legacy FrozenFullConnectomeBackend is a random-projection comparison only.
 """
 
 from ..domain import NeuralState, NeuralStimulus
@@ -16,6 +18,7 @@ from .protocol import BrainBackend, BrainProtocol, make_stimulus
 from .random_reservoir import RandomReservoirBackend
 from .full_connectome.frozen_full_connectome import FrozenFullConnectomeBackend
 from .full_connectome.sparse_backend import FullConnectomeBackend
+from .reduced_connectome import ReducedConnectomeBackend
 
 BRAIN_REGISTRY: dict[str, type[BrainBackend]] = {
     "mock": MockBrainBackend,
@@ -27,6 +30,7 @@ BRAIN_REGISTRY: dict[str, type[BrainBackend]] = {
     "frozen_connectome": FrozenFullConnectomeBackend,
     "frozen_full_connectome": FrozenFullConnectomeBackend,
     "full": FullConnectomeBackend,
+    "reduced": ReducedConnectomeBackend,
 }
 
 
@@ -54,6 +58,7 @@ __all__ = [
     "FunctionalFlyBackend",
     "FrozenFullConnectomeBackend",
     "FullConnectomeBackend",
+    "ReducedConnectomeBackend",
     "BRAIN_REGISTRY",
     "make_brain",
 ]

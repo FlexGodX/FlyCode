@@ -44,3 +44,40 @@ def test_full_brain_and_connectome_preparation_flags():
     prepare = _build_parser().parse_args(['connectome', 'prepare', '--source', '/tmp/raw', '--output', '/tmp/graph'])
     assert prepare.source == '/tmp/raw'
     assert prepare.min_synapses == 5
+
+
+def test_training_missing_trajectories_fails_explicitly(tmp_path, capsys):
+    from flycode.cli import main
+
+    result = main(['train', '--trajectories', str(tmp_path), '--output', str(tmp_path / 'output')])
+    assert result == 2
+    assert 'trajector' in capsys.readouterr().err.lower()
+    assert not (tmp_path / 'output').exists()
+
+
+def test_run_accepts_explicit_checkpoint():
+    args = _build_parser().parse_args(['run', '--task', 'fix', '--brain', 'full', '--checkpoint', '/tmp/trained'])
+    assert args.checkpoint == '/tmp/trained'
+
+
+def test_reduce_command_writes_a_loadable_biological_subcircuit(tmp_path):
+    import numpy as np
+
+    from flycode.brain import make_brain
+    from flycode.brain.full_connectome.graph import graph_from_edges
+    from flycode.cli import main
+
+    path = tmp_path / 'parent'
+    graph_from_edges(np.arange(8), np.arange(8), np.roll(np.arange(8), 1), np.ones(8)).save(path)
+    output = tmp_path / 'reduced'
+    assert main(['connectome', 'reduce', '--source', str(path), '--output', str(output), '--neurons', '4']) == 0
+    brain = make_brain('reduced', connectome_path=output)
+    assert brain.get_memory_capacity() == 4
+
+
+def test_distill_reports_missing_recordings_instead_of_stub(tmp_path, capsys):
+    from flycode.cli import main
+
+    assert main(['distill', '--trajectories', str(tmp_path), '--teacher-checkpoint', str(tmp_path),
+                 '--output', str(tmp_path / 'student')]) == 2
+    assert 'trajector' in capsys.readouterr().err.lower()

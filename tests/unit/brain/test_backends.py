@@ -64,10 +64,14 @@ class TestBrainContract:
 
 def test_make_brain_registry_covers_all_names(tmp_path):
     from flycode.brain.full_connectome.graph import graph_from_edges
+    from flycode.brain.full_connectome.reduction import reduce_connectome
 
-    graph_from_edges(np.array([1, 2]), np.array([1]), np.array([2]), np.array([1])).save(tmp_path)
+    graph_from_edges(np.array([1, 2, 3]), np.array([1, 2]), np.array([2, 3]), np.array([1, 1])).save(tmp_path)
+    reduce_connectome(tmp_path, tmp_path / 'reduced', 2)
     for name in BRAIN_REGISTRY:
         kwargs = {"connectome_path": tmp_path} if name == "full" else {}
+        if name == "reduced":
+            kwargs = {"connectome_path": tmp_path / 'reduced'}
         backend = make_brain(name, seed=0, **kwargs)
         assert backend.name
         backend.close()
@@ -241,3 +245,12 @@ class TestFrozenFullConnectomeBackend:
         assert desc["params"] > 0
         assert desc["memory_usage_mb"] > 0
         assert desc["latency_ms"] > 0
+
+
+def test_frozen_functional_controller_does_not_update_associative_weights():
+    brain = FunctionalFlyBackend(seed=0)
+    brain.set_learning_mode(False)
+    brain.step(make_stimulus(failing_observation()))
+    brain.step(make_stimulus(Observation(task='fix it', tests={'status': 'passed', 'passed': 1})))
+    assert brain.mushroom_body.updates == 0
+    assert not brain.mushroom_body.credit

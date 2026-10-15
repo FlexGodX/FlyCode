@@ -13,6 +13,7 @@ import numpy as np
 from pydantic import Field
 
 from ...domain import VALID_TOOLS, NeuralState, NeuralStimulus
+from ...training.checkpoint import Dynamics, load_parameters, save_parameters
 from ..functional_fly import ALL_MODES, MODE_TOOL_TABLE
 from ..protocol import BrainBackend
 from ..random_reservoir import _softmax, observation_features
@@ -29,7 +30,8 @@ class FullConnectomeBackend(BrainBackend):
     name = 'full_connectome'
     tier = 3
 
-    def __init__(self, seed: int | None = None, connectome_path: str | Path | None = None) -> None:
+    def __init__(self, seed: int | None = None, connectome_path: str | Path | None = None,
+                 checkpoint_path: str | Path | None = None) -> None:
         super().__init__(seed=seed)
         path = Path(connectome_path or os.environ.get('FLYCODE_CONNECTOME_PATH') or DEFAULT_CONNECTOME)
         self.graph = SparseConnectome.load(path)
@@ -40,6 +42,11 @@ class FullConnectomeBackend(BrainBackend):
         self._groups = (self.graph.neuron_ids % 64).astype(np.int32)
         self._group_counts = np.maximum(np.bincount(self._groups, minlength=64), 1)
         self._readout = rng.normal(0, .15, (len(ALL_MODES) + len(VALID_TOOLS), 64)).astype(np.float32)
+        self.dynamics = Dynamics()
+        self._learned_tools = False
+        if checkpoint_path is not None:
+            self._input, self._readout, self.dynamics, self._learned_tools = load_parameters(
+                Path(checkpoint_path), self.graph.fingerprint, n)
         self.reset()
 
     def reset(self) -> None:
@@ -53,10 +60,11 @@ class FullConnectomeBackend(BrainBackend):
         start = time.perf_counter()
         obs = stimulus.observation
         x = np.append(observation_features(stimulus), 1.).astype(np.float32)
-        drive = self._input @ x * stimulus.intensity
+        drive = self._input @ x * stimulus.intensity * self.dynamics.input_gain
+        leak = self.dynamics.leak
         for _ in range(3):
-            self._activity = (.7 * self._activity + .3 * np.tanh(
-                .9 * (self.graph.weights @ self._activity) + drive)).astype(np.float32)
+            self._activity = ((1 - leak) * self._activity + leak * np.tanh(
+                self.dynamics.recurrent_gain * (self.graph.weights @ self._activity) + drive)).astype(np.float32)
         pooled = np.bincount(self._groups, weights=self._activity, minlength=64) / self._group_counts
         output = np.tanh(self._readout @ pooled)
         # Hand-initialized workflow prior bootstraps the untrained boundary
@@ -68,7 +76,7 @@ class FullConnectomeBackend(BrainBackend):
         mode = ALL_MODES[int(np.argmax(probs))]
         tool_scores = output[len(ALL_MODES):]
         prior = MODE_TOOL_TABLE[mode]
-        bias = {tool: float(np.clip(prior.get(tool, 0.) + .25 * value, -1., 1.))
+        bias = {tool: float(value if self._learned_tools else np.clip(prior.get(tool, 0.) + .25 * value, -1., 1.))
                 for tool, value in zip(VALID_TOOLS, tool_scores)}
         self._steps += 1
         self.latency_ms = (time.perf_counter() - start) * 1000
@@ -90,6 +98,10 @@ class FullConnectomeBackend(BrainBackend):
 
     def activity(self) -> np.ndarray:
         return self._activity.copy()
+
+    def save_checkpoint(self, directory: Path, *, metadata: dict | None = None) -> None:
+        save_parameters(directory, self.graph.fingerprint, self._input, self._readout,
+                        self.dynamics, learned_tools=self._learned_tools, metadata=metadata)
 
     def close(self) -> None:
         self._activity = np.zeros(0, dtype=np.float32)
@@ -119,5 +131,5 @@ class FullConnectomeBackend(BrainBackend):
         return {**super().describe(), 'state_dim': len(self.graph.neuron_ids),
                 'telemetry_dim': 64, 'edges': self.graph.weights.nnz,
                 'memory_usage_mb': self.memory_usage_mb, 'source': self.graph.metadata,
-                'dynamics': '3 leaky tanh substeps; gain=.9, leak=.3',
-                'boundary_mapping': 'seeded input/readout with explicit workflow prior'}
+                'dynamics': self.dynamics.model_dump(),
+                'boundary_mapping': 'offline-trained tools' if self._learned_tools else 'seeded with workflow prior'}
