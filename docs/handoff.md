@@ -1,9 +1,20 @@
 # FlyCode handoff brief
 
-Authoritative roadmap: `docs/Plan.md` (§1–102). Operating rules: `AGENTS.md`.
+Authoritative roadmap: `docs/Plan.md` (§1–103). Operating rules: `AGENTS.md`.
 The baseline MVP covers Phase 4 (§78). Phase 5 (§79) now runs the same tasks
 with a verified, sparse biological graph. Hermes in the roadmap means FlyCode
 itself: connected agents are hosted here and orchestrated by the controller.
+
+## Proposed task tracker (2026-10-16)
+
+`docs/Plan.md` §103 incorporates `docs/specs/task-tracker.md` v1.0. Proposed
+Phases 26–29 cover task creation/backlog/board, atomic task requests and assignment,
+live agent→task visibility, handoff/recovery and verification-backed completion.
+TRK-01..11 map to TT-01..16. Reuse canonical WorkItem/AgentAttempt and the ORC
+store/dispatcher; do not implement a second queue or equate profile names with
+running instances. Multiple root tasks remain visible with one active workflow
+in the first version. This is specification-only work; no tracker runtime or
+new API was implemented.
 
 ## Proposed model selection and settings split (2026-10-16)
 

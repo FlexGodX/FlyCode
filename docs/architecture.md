@@ -76,3 +76,14 @@ for future compatible models. The same neural routing and safety gates apply.
 One model-selection button manages all model roles; a separate execution-settings
 button sits immediately to its right. This is specification-only work; the
 current runtime and UI have not been changed.
+
+## Proposed task tracker
+
+[Plan §103](Plan.md#103-таск-трекер-и-очередь-задач-агентов) and the normative
+[task-tracker specification](specs/task-tracker.md) add user-created tasks,
+an eligible-work queue, atomic agent assignment and live task/agent views.
+The tracker projects canonical orchestration WorkItem/Attempt records rather
+than owning a separate scheduler or mutable status queue. Completion consumes
+the current verification verdict; lease recovery prevents duplicate writers.
+Proposed Phases 26–29 specify delivery and acceptance. This is documentation
+only; the current application has no implemented tracker or agent claim API.
