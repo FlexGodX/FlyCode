@@ -471,6 +471,57 @@ completion with25 integrator tools; the hidden combined regression never applies
 Negative baseline, explicit failures/limits, identity and wheel hash:
 `docs/validation/2026-10-16-multi-writer-conflicts.md`. Step4 and Task6 remain open.
 
+Executable resolution slice (Step4):
+
+1. Add a full-path RED in `test_result_delivery.py`: owner revises and enqueues
+   the conflict's exact draft; a real worker reads both pinned target files,
+   derives their sum from tool observations, publishes a new patch and receives
+   fresh independent review. A new integrator must verify the original authors,
+   stopped integrator, resolver and new integrator, then complete their tasks
+   without rewriting the old interrupted/failed attempts.
+2. `Artifacts` supplies host-authorized bounded UTF-8 reads via existing
+   `read_file` with explicit `artifact_id` and project-relative `path`. Extend
+   `WorkerRequest`, `worker`, `runtime`, `environment`, `tools` and `cortex` for
+   one host RPC/debit and a required pinned input catalogue in model context.
+   Reject absent/wrong pins, foreign input, path/symlink escape, binary/oversized
+   input, stale ownership and replay. Do not silently fall back to local reads
+   or omit required inputs when the model context is too small.
+3. `Integration.begin_resolution` derives authority from the registered draft
+   and its owner-approved assignment. After filesystem checks outside SQL,
+   atomically retain admitted resolution attempts and release only independently
+   stopped original authors as interrupted. Keep original contracts/semantic
+   pins, reviews and spending. New integration derives resolved conflict IDs
+   from the selected fresh artifact; models cannot supply this lineage.
+4. Extend integration guard/current/verification/completion to validate every
+   historical pin and fulfill every original requirement using fresh merged
+   and source verdicts. Apply only the new patch. Test input/criteria tamper,
+   revoked permission, stale attempt, missing review and source changes, plus
+   stop/retry without refund. Freeze implementation before full pytest, package,
+   real graph/model checks; publish with honest Plan/handoff/README RU/EN.
+   A resolved root reopen must retain the prior installed source and exact
+   artifact/contract/oracle pins, advance only the root semantic generation by
+   one and obtain a fresh resolver review plus all original check sets. Restore
+   only exact prior-result blocked conflict reviews in the successful final SQL
+   transaction; recheck their current immutable-target evidence outside SQL.
+   Preserve historical attempts and invalidate the previous result. Place fresh
+   review tasks under the resolver when the root's historical child capacity is
+   already occupied.
+5. Real-model feedback must exercise the host extension in the actual system
+   prompt. Add a typed `CortexContext.artifact_reads` capability, set only from
+   approved host inputs, and document optional `artifact_id` in the real prompt.
+   Compact optional old ordinary facts/lessons/logs until the request fits; keep
+   every pinned artifact observation, workspace read, failure diagnostic and
+   required catalogue intact, record the
+   compaction and reject if required data still cannot fit. Test the HTTP prompt,
+   unchanged input objects and no-HTTP rejection. Preserve failed live/full runs;
+   final full tests use an isolated configured `FLYCODE_ARTIFACT_ROOT`, while
+   explicit catalogue fixtures still exercise real artifact discovery.
+
+The implementation and frozen-source checks for this slice are recorded in
+`docs/validation/2026-10-16-pinned-resolution.md`. Full collection:786 passed,
+8 opt-in skips,794 exact IDs once;23 new scenarios pass from the extracted wheel.
+Task6 and the aggregate delivery goal remain open.
+
 **Files:** create `src/flycode/orchestration/{workspaces,integration}.py`, verification oracle/sandbox adapters; tests actual two-writer conflicts/integration/verification.
 
 **Interfaces:** isolated snapshot per writer, immutable patch hash, reviewer approval exact bytes, single integrator, current `VerificationVerdict` completion gate.

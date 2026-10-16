@@ -328,7 +328,7 @@ class ToolCall(QueueModel):
     ended_at: float | None = None
     error_class: str | None = Field(default=None, max_length=200)
     late: bool = False
-    execution_profile: Literal['registered-pytest-v1'] | None = None
+    execution_profile: Literal['registered-pytest-v1', 'artifact-read-v1'] | None = None
     process: ProcessRef | None = None
 
 
@@ -371,7 +371,7 @@ class WorkerConfig(QueueModel):
 
 class WorkerRequest(QueueModel):
     sequence: int = Field(ge=1)
-    operation: Literal['ready', 'candidates', 'activity', 'message', 'message_tool', 'result', 'error']
+    operation: Literal['ready', 'candidates', 'activity', 'message', 'message_tool', 'artifact_tool', 'result', 'error']
     payload: dict[str, Any] = Field(default_factory=dict)
 
 

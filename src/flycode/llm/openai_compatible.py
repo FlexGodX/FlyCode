@@ -60,6 +60,13 @@ class OpenAICompatibleLLM:
         n = context.n_candidates or DEFAULT_CANDIDATE_COUNT
         tools = context.candidate_tools or list(VALID_TOOLS)
         system = SYSTEM_PROMPT.format(n_candidates=n, tools=", ".join(tools))
+        if context.artifact_reads:
+            system += ("\nHost tool extension: read_file accepts path and optional artifact_id."
+                       " Use the exact listed artifact_id to read that pinned immutable target;"
+                       " path alone reads the workspace. Inspect each required version before editing."
+                       " Pinned versions may differ from the workspace. Read the workspace separately"
+                       " to obtain its exact edit_file.old_text."
+                       " Reuse successful artifact observations from working memory.")
         user = render_user_prompt(
             task=context.task,
             behavior_mode=context.behavior_mode,

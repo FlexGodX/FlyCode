@@ -25,6 +25,7 @@ class CortexContext(BaseModel):
     episodic_notes: list[str] = Field(default_factory=list)
     fly_policy_bias: dict[str, float] = Field(default_factory=dict)
     candidate_tools: list[str] = Field(default_factory=list)
+    artifact_reads: bool = False
     n_candidates: int = 4
     neural_state: NeuralState | None = None
     control_mode: str = "bias_control"

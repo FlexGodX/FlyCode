@@ -100,5 +100,7 @@ class IntegrationRecord(QueueModel):
     conflict_paths: tuple[str, ...] = ()
     resolution_task_id: str | None = None
     resolution_blocker: str | None = None
+    resolution_attempts: tuple[str, ...] = ()
+    resolved_conflicts: tuple[str, ...] = ()
     error: str | None = None
     created_at: float

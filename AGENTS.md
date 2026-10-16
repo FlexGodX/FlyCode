@@ -176,7 +176,7 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Treat Hermes in this project’s plan as FlyCode itself: the host for connected agents orchestrated by the fly controller. Do not request a separate Hermes repository.
 - Verify helper reuse through observable delegation; passing numeric examples alone does not establish that an existing helper was used.
 - Locate helper definitions and read signatures, Pydantic fields and ownership checks before using project APIs in integration code.
-- Before reading any new source/test path, locate it with `rg --files`, including conventional-looking module names; never infer a filename from a concept.
+- Before reading or searching a new source/test file, locate its exact path with `rg --files`; finish discovery before issuing reads/searches, and never put guessed filenames in the discovery batch.
 - Reap an owned process throughout group-absence polling; it may become waitable after the initial permission error.
 - Use globally unique test basenames: pytest's default import mode rejects duplicate names across test directories.
 - Do not edit `src/` while a full test suite or research benchmark is running: implementation fingerprints bind each measurement to unchanged bytes. Finish edits before the final run.
@@ -187,6 +187,7 @@ When the user corrects your approach, append a one-line rule here before ending 
 - After an accepted terminal worker result, control-channel closure alone is not owner cancellation; still confirm group absence and current ownership before publishing.
 - Compare persisted records containing environment package data as canonical JSON: native package tuples reload as JSON lists.
 - Hash only regular files when archiving test evidence; fixture directories can contain FIFOs and other special files.
+- When compacting model context, preserve pinned artifact observations, workspace file reads and tool failure diagnostics; dropping known file text or an edit error can make a real model repeat invalid edits.
 
 ## 12. How this file was built
 

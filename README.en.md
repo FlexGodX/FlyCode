@@ -137,15 +137,25 @@ independent supervisor and a durable whole-group stop receipt. After a crash,
 before rollback. Unknown external effects retain ownership until trusted
 reconciliation; group absence alone does not settle effects. Late writes through
 old descriptors survive; owner file replacement blocks rollback. This is an
-internal trusted-local foundation: conflict resolution and CLI/API/UI wiring
-remain open.
+internal trusted-local foundation: dispatcher and CLI/API/UI wiring remain open.
 
 Conflicting reviewed patches retain both immutable versions and create one
 resolution draft with pinned hashes and base. Owner criteria, permissions and
 budget are required before enqueue; replay after restart creates no duplicate
 task or model spending. Task capacity retains an explicit blocker. A failing
 merge of individually green patches is rejected before writing to the source
-folder. Executing resolution into a new patch and fresh review remains open.
+folder. An owner-approved resolver reads both pinned versions through host-routed
+`read_file` with an explicit artifact ID; each read charges one tool call. Reads
+require valid pins and paths and support UTF-8 files up to3,500 bytes; binary or
+larger inputs fail explicitly. Input provenance survives workspace edits. The
+model context retains pinned observations, workspace reads and failure diagnostics;
+optional old history is compacted, and required data that still cannot fit blocks
+inference before HTTP. The
+fresh patch requires independent review and merged/source checks for every
+original requirement. Historical failed/interrupted attempts remain unchanged.
+Reopening the resolved root requires a fresh review and all check sets again,
+retaining the original deadline and spending. Only unchanged contracts and exact
+prior-result bindings permit reuse of the original immutable-patch reviews.
 
 Addressed messages use the same SQLite database, with durable redelivery and
 atomic receipts/correlated answers. Workflow limits are200 deliveries,16KiB per

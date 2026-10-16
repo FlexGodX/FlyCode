@@ -2,6 +2,67 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Task6 pinned-input resolution — 2026-10-16
+
+The increment after `17a68d4` implements the formerly inert resolution draft.
+Owner approval/enqueue supplies its criteria, permissions and budget. The host
+validates both input patches, original reviews and contracts before releasing
+already stopped author assignments. Host-routed `read_file(artifact_id, path)`
+reads immutable targets, debits once and retains patch/file provenance. Ordinary
+reads remain workspace reads. Invalid selectors/pins/paths cannot fall back;
+binary and text over3,500 bytes fail explicitly. Actual model prompts describe
+both routes and the workspace text required by `edit_file.old_text`.
+
+Optional history can be compacted, preserving pinned observations, workspace
+reads and failure diagnostics. Required-input overflow blocks before HTTP;
+post-HTTP integrity changes reject candidates while retaining spend. A new
+resolution artifact needs fresh independent review and five original/current
+check sets on both candidate and installed source. Old author attempts remain
+interrupted and the old integrator failed. Compatible unchanged-contract root
+reopen obtains a fresh review and all five check sets again; exact prior-result
+bindings permit original review-task restoration only in the successful final
+transaction. Historical attempts, dirty binary bytes, spending and deadline stay.
+
+Frozen source:
+`81e9f038476ef78587e3165e1f8b842c0a9cc936c9e3d88a6cf93a2cddba2a83`.
+Full default:786 passed/8 skipped, all794 exact IDs covered once in1,217.92s.
+Extracted wheel:23 new scenarios passed in367.62s;5 actual FlyWire checks;
+relevant Ruff/mypy41 pass. All131 Python files and README metadata match the
+checkout; extracted CLI lists ten controllers. Evidence, failed measurements
+and real-model follow-up: [report](validation/2026-10-16-pinned-resolution.md).
+Archive: `~/.cache/flycode/validation/flycode-resolution-verified-3j8qzx7g`.
+
+Final real-Qwen resolution FAILED in341.82s:10 models/22 tools, no remaining
+reservations or uncertainty. Both authors passed independent reviews, but the
+resolver read the same input twice, failed an edit, then exited1 without a new
+artifact. The final HTTP response completed late and was audited, not accepted.
+No conclusive worker traceback was retained. The workflow's original deadline
+had elapsed at continuation, so do not retry it or reset its budget. First obtain
+bounded durable worker-failure diagnostics, then preserve this failed case when
+checking another resolver; no reliable real-model resolution claim is supported.
+
+Task6 and the full goal remain open. General changed-contract/new-writer reopen,
+standalone-review recovery and remaining stop/deadline/rerun cases are still due.
+Task5 needs one durable endpoint admission ledger shared by canonical calls,
+legacy single/dual execution and explicit probes; current legacy/probe admission
+does not share the canonical SQLite reservation. First RED: keep a canonical HTTP
+request open, attempt legacy primary/scorer/probe on another connection, assert
+no second HTTP begins, file tools remain responsive and cancelling a waiter does
+not debit. Retain uncertain ownership after restart until trusted acknowledgment.
+
+The dispatcher must use atomic candidate-specific remaining reservations and
+owner-approved durable execution bindings for worker/review/integration. Add
+confirmed-quiescent child waiting/checkpoint without resetting budgets, deadlines
+or attempts; then drive a real DAG through the dispatcher alone to current
+verified completion. Do not manually claim each stage as dispatcher acceptance.
+Canonical CLI/API/UI, bounded real-cache catalogue discovery, orchestration
+encoder/shadow/replay/admission and the full experimental/intervention matrix
+remain open. Historical296-run feedback results and rejected trained candidates
+are unchanged; engineering acceptance does not establish scientific promotion.
+
+The older sections below retain prior measurements and then-current next steps;
+use this section and §104 for the current boundary.
+
 ## Task6 reviewed multi-writer conflicts — 2026-10-16
 
 The increment after `084e114` retains an exact canonical conflict and one planned

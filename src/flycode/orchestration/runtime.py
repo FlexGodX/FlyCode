@@ -29,6 +29,7 @@ from ..verification.runner import _group_gone, _terminate
 from . import wire
 from .artifacts import Artifacts
 from .cortex import AttemptCortex
+from .integration import Integration
 from .messages import Messages
 from .store import Store, StoreError, changed
 from .tools import SUPPORTED, Tools
@@ -66,6 +67,7 @@ class Runtime:
             message_recipients = route.recipients
             Messages(self.store).recipients(scope, attempt, message_recipients)
         workspace = self.workspaces.prepare(scope, attempt_id, fence, source)
+        Integration(self.store, self.root).begin_resolution(scope, attempt_id, fence, workspace)
         directory = self.workspaces.root / workspace.id
         record = WorkerRecord(id=uuid4().hex, attempt_id=attempt_id, fence=fence, created_at=self.store.clock())
         with self.store.transaction():
@@ -161,7 +163,7 @@ class WorkerHandle:
                         raise StoreError('worker_ready')
                     connection.confirm_started(self.scope, self.record.attempt_id, self.record.fence)
                     cortex = AttemptCortex(connection, self.scope, self.record.attempt_id, self.record.fence, self.stopping.is_set,
-                        message_recipients=tuple(sorted(self.message_recipients)))
+                        message_recipients=tuple(sorted(self.message_recipients)), artifact_root=self.runtime.root)
                     self.record = changed(self.record, state='running')
                     with connection.transaction():
                         connection._owned(self.scope, self.record.attempt_id, self.record.fence, running=True)
@@ -176,6 +178,10 @@ class WorkerHandle:
                         connection._owned(self.scope, attempt.id, attempt.fence, running=True)
                         payload = {'candidates': [item.model_dump(mode='json') for item in candidates],
                             'model_calls': cortex.model_calls, 'routing': cortex.last_routing.model_dump(mode='json')}
+                    elif request.operation == 'artifact_tool':
+                        result = Artifacts(connection, self.runtime.root).read(self.scope, attempt.id, attempt.fence,
+                            ToolAction.model_validate(request.payload))
+                        payload = asdict(result)
                     elif request.operation == 'message_tool':
                         result = Messages(connection).execute(self.scope, attempt.id, attempt.fence,
                             root=self.directory / 'repository', action=ToolAction.model_validate(request.payload),

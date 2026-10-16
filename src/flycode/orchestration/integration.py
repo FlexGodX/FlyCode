@@ -43,16 +43,161 @@ class Integration:
                 (record.state, record.model_dump_json(), record.id))
         return record
 
-    def _reviewed(self, scope, record):
+    def _requirements(self, scope, record):
+        workflow = self.store.workflow(scope, record.workflow_id)
+        tasks = set(record.author_attempts) | {workflow.root_task_id, self.store._attempt(record.attempt_id).task_id}
+        for identity in record.resolved_conflicts:
+            tasks.update(self._requirements(scope, self.get(scope, identity)))
+        return tasks
+
+    def _lineage_basis(self, scope, record):
+        """Prove each explicit root reopen without rewriting the original conflict."""
+        root = self.store.workflow(scope, record.workflow_id).root_task_id
+        seen = {record.id}
+        while record.previous_result_id is not None:
+            previous = self.get(scope, record.previous_result_id)
+            if (previous.id in seen or previous.state != 'invalidated'
+                    or previous.workflow_id != record.workflow_id or previous.runtime_root != record.runtime_root
+                    or previous.source_root != record.source_root or previous.artifact_hashes != record.artifact_hashes
+                    or previous.resolved_conflicts != record.resolved_conflicts or record.reruns < previous.reruns
+                    or record.semantic_revisions.get(root) != previous.semantic_revisions.get(root, -2) + 1):
+                raise StoreError('resolution_scope')
+            for identity in previous.contracts.keys() & record.contracts.keys():
+                if (record.contracts[identity] != previous.contracts[identity]
+                        or (identity != root and record.semantic_revisions.get(identity) != previous.semantic_revisions.get(identity))):
+                    raise StoreError('contract_changed')
+            for identity in previous.approval_hashes.keys() & record.approval_hashes.keys():
+                if record.approval_hashes[identity] != previous.approval_hashes[identity]:
+                    raise StoreError('approval_changed')
+            seen.add(previous.id)
+            record = previous
+        return record
+
+    def _conflict_reviews(self, scope, record):
+        reviews = {}
+        for identity in record.resolved_conflicts:
+            conflict = self.get(scope, identity)
+            for review_id in conflict.review_ids:
+                review = self.reviews.get(scope, review_id)
+                reviews[self.store._attempt(review.reviewer_attempt_id).task_id] = review
+            reviews.update(self._conflict_reviews(scope, conflict))
+        return reviews
+
+    def _restorable_reviews(self, scope, record):
+        if record.previous_result_id is None:
+            return {}
+        previous = self.get(scope, record.previous_result_id)
+        restored = {}
+        for identity, review in self._conflict_reviews(scope, record).items():
+            task = self.store.task(scope, identity)
+            attempt = self.store._attempt(review.reviewer_attempt_id)
+            if (required_task(task) and task.kind == 'review' and task.state == 'blocked'
+                    and task.blocked_reason == 'result_invalidated' and task.result_id == previous.id
+                    and task.current_attempt_id is None and task.fence == attempt.fence + 1
+                    and not task.paused and task.permissions is not None and task.permissions.approved
+                    and attempt.state == 'succeeded' and attempt.stop_confirmed
+                    and task.semantic_revision == attempt.semantic_revision == previous.semantic_revisions.get(identity)
+                    and task.contract_hash == review.reviewer_contract_hash == previous.contracts.get(identity)
+                    and record.contracts.get(identity) == task.contract_hash
+                    and record.semantic_revisions.get(identity) == task.semantic_revision):
+                restored[identity] = review
+        return restored
+
+    def _resolution_guard(self, scope, conflict, *, deep=False, context=None):
+        store = self.store
+        if conflict.state != 'conflict' or conflict.runtime_root != str(self.root):
+            raise StoreError('resolution_scope')
+        for identity, expected in conflict.contracts.items():
+            task = store.task(scope, identity)
+            semantic = conflict.semantic_revisions.get(identity)
+            if context is not None and identity == store.workflow(scope, conflict.workflow_id).root_task_id:
+                basis = self._lineage_basis(scope, context)
+                if basis.contracts.get(identity) != expected or basis.semantic_revisions.get(identity) != semantic:
+                    raise StoreError('contract_changed')
+                semantic = context.semantic_revisions.get(identity)
+            if (not required_task(task) or task.contract_hash != expected
+                    or task.semantic_revision != semantic):
+                raise StoreError('contract_changed')
+            if task.paused or task.permissions is None or not task.permissions.approved:
+                raise StoreError('completion_blocked')
+        for task_id, identity in conflict.author_attempts.items():
+            task, author = store.task(scope, task_id), store._attempt(identity)
+            awaiting = (not conflict.resolution_attempts and author.state == 'awaiting_review'
+                and task.current_attempt_id == author.id and task.fence == author.fence + 1)
+            released = (author.state == 'interrupted' and task.current_attempt_id is None and task.fence == author.fence + 2)
+            if not author.stop_confirmed or not (awaiting or released):
+                raise StoreError('fence')
+        integrator = store._attempt(conflict.attempt_id)
+        task = store.task(scope, integrator.task_id)
+        if (integrator.state != 'failed' or not integrator.stop_confirmed or task.current_attempt_id is not None
+                or task.fence != integrator.fence + 1):
+            raise StoreError('fence')
+        if deep:
+            self._reviewed(scope, conflict, context=context)
+            for identity, approval in conflict.approval_hashes.items():
+                self.engine.oracles.resolve(approval, store.task(scope, identity).acceptance)
+
+    def _lineage_guard(self, scope, record, *, deep=False, context=None):
+        context = record if context is None else context
+        artifacts = [self.artifacts._record(scope, identity) for identity in record.artifact_hashes]
+        for identity in record.resolved_conflicts:
+            conflict = self.get(scope, identity)
+            selected = [item for item in artifacts if item.task_id == conflict.resolution_task_id]
+            if (conflict.workflow_id != record.workflow_id or conflict.source_root != record.source_root
+                    or len(selected) != 1 or selected[0].attempt_id not in conflict.resolution_attempts
+                    or selected[0].base.subject_hash != conflict.source_before.subject_hash):
+                raise StoreError('resolution_scope')
+            self._resolution_guard(scope, conflict, deep=deep, context=context)
+            self._lineage_guard(scope, conflict, deep=deep, context=context)
+
+    def begin_resolution(self, scope, attempt_id, fence, workspace):
+        store = self.store
+        attempt, task, workflow = store._owned(scope, attempt_id, fence)
+        conflict = next((self.get(scope, row['id']) for row in store.db.execute(
+            "SELECT id FROM integrations WHERE workflow_id=? AND state='conflict'", (workflow.id,))
+            if self.get(scope, row['id']).resolution_task_id == task.id), None)
+        if conflict is None:
+            return None
+        if (task.kind != 'implementation' or attempt.profile_snapshot.role != 'developer'
+                or task.input_artifacts != conflict.artifact_hashes
+                or task.base_snapshot_hash != conflict.source_before.subject_hash
+                or workspace.source_root != conflict.source_root
+                or workspace.snapshot.subject_hash != conflict.source_before.subject_hash
+                or task.permissions is None or not task.permissions.approved or 'read_file' not in task.permissions.tools
+                or not covers(task.permissions.write_scopes, conflict.conflict_paths)):
+            raise StoreError('resolution_scope')
+        self._resolution_guard(scope, conflict, deep=True)
+        self._lineage_guard(scope, conflict, deep=True)
+        with store.transaction():
+            attempt, task, workflow = store._owned(scope, attempt_id, fence)
+            if task.paused or workflow.state != 'running' or store._counter('queue_paused'):
+                raise StoreError('paused')
+            conflict = self.get(scope, conflict.id)
+            self._resolution_guard(scope, conflict)
+            self._lineage_guard(scope, conflict)
+            if attempt.id in conflict.resolution_attempts:
+                return conflict
+            for identity in conflict.author_attempts:
+                original = store.task(scope, identity)
+                original = store._stop(original, outcome='blocked')
+                store._save_task(changed(original, state='blocked', blocked_reason='resolution_pending',
+                    revision=original.revision + 1, updated_at=store.clock()))
+            conflict = changed(conflict, resolution_attempts=(*conflict.resolution_attempts, attempt.id))
+            store.db.execute('UPDATE integrations SET data=? WHERE id=?', (conflict.model_dump_json(), conflict.id))
+            store._event(scope, workflow, 'resolution_started', task=task, attempt=attempt, integration_id=conflict.id)
+            return conflict
+
+    def _reviewed(self, scope, record, *, context=None):
         for identity, expected in record.artifact_hashes.items():
             if self.artifacts.get(scope, identity).patch_hash != expected:
                 raise StoreError('artifact_integrity')
         reviewed = set()
+        restoring = self._restorable_reviews(scope, context) if context is not None else {}
         for identity in record.review_ids:
             review = self.reviews.get(scope, identity)
             reviewer = self.store._attempt(review.reviewer_attempt_id)
             task = self.store.task(scope, reviewer.task_id)
-            if (review.status != 'approved' or task.state != 'succeeded'
+            if (review.status != 'approved' or (task.state != 'succeeded' and restoring.get(task.id) != review)
                     or reviewer.state != 'succeeded' or not reviewer.stop_confirmed
                     or reviewer.semantic_revision != task.semantic_revision
                     or review.reviewer_contract_hash != task.contract_hash
@@ -98,7 +243,8 @@ class Integration:
             if not self._installed(scope, record):
                 return False
             self._reviewed(scope, record)
-            expected = set(record.author_attempts) | {workflow.root_task_id, self.store._attempt(record.attempt_id).task_id}
+            self._lineage_guard(scope, record, deep=True)
+            expected = self._requirements(scope, record)
             if set(record.applied_verdicts) != expected or set(record.approval_hashes) != expected:
                 return False
             for task_id, verdict in record.applied_verdicts.items():
@@ -231,6 +377,7 @@ class Integration:
                     or original.fence != author.fence + 1 or author.state != 'awaiting_review'
                     or not author.stop_confirmed):
                 raise StoreError('fence')
+        self._lineage_guard(scope, record, deep=deep)
         if deep:
             self._reviewed(scope, record)
         return attempt, task, workflow
@@ -240,7 +387,7 @@ class Integration:
         artifacts = [self.artifacts.get(scope, identity) for identity in record.artifact_hashes]
         by_task = {artifact.task_id: artifact for artifact in artifacts}
         workflow = self.store.workflow(scope, record.workflow_id)
-        tasks = set(by_task) | {workflow.root_task_id, self.store._attempt(record.attempt_id).task_id}
+        tasks = self._requirements(scope, record)
         results = {}
         if set(approvals) != tasks:
             raise StoreError('approval_scope')
@@ -317,13 +464,16 @@ class Integration:
         elif any(artifact.base.subject_hash != before.subject_hash for artifact in artifacts):
             raise StoreError('integration_conflict', 'The captured source base changed')
         author_attempts = {artifact.task_id: artifact.attempt_id for artifact in artifacts}
+        resolved = tuple(self.get(scope, row['id']) for row in store.db.execute(
+            "SELECT id FROM integrations WHERE workflow_id=? AND state='conflict' ORDER BY rowid", (workflow.id,))
+            if any(item.task_id == self.get(scope, row['id']).resolution_task_id
+                and item.attempt_id in self.get(scope, row['id']).resolution_attempts for item in artifacts))
+        resolved_tasks = set().union(*(self._requirements(scope, item) for item in resolved))
         tasks = [item for item in store.tasks(scope, workflow.id) if required_task(item)]
         root_task = store.task(scope, workflow.root_task_id)
         if root_task.id not in author_attempts and root_task.current_attempt_id is not None:
             raise StoreError('incomplete_workflow', 'An unselected root assignment cannot be completed as an aggregate')
-        if any(item.state != 'succeeded' and item.id not in {*author_attempts, task.id, workflow.root_task_id} for item in tasks):
-            raise StoreError('incomplete_workflow')
-        if set(approval_hashes) != set(author_attempts) | {workflow.root_task_id, task.id}:
+        if set(approval_hashes) != set(author_attempts) | {workflow.root_task_id, task.id} | resolved_tasks:
             raise StoreError('approval_scope')
         changes, conflicts = {}, set()
         for artifact in artifacts:
@@ -340,7 +490,12 @@ class Integration:
             semantic_revisions={item.id: item.semantic_revision for item in tasks}, approval_hashes=approval_hashes, reruns=reruns,
             author_attempts=author_attempts, changes=() if previous_result is not None or conflicts else tuple(changes[path] for path in sorted(changes)),
             conflict_paths=tuple(sorted(conflicts)),
+            resolved_conflicts=tuple(item.id for item in resolved),
             created_at=store.clock())
+        restoring = self._restorable_reviews(scope, record)
+        if any(item.state != 'succeeded'
+                and item.id not in {*author_attempts, task.id, workflow.root_task_id, *resolved_tasks, *restoring} for item in tasks):
+            raise StoreError('incomplete_workflow')
         self._guard(scope, record, deep=True)
         if conflicts:
             for identity, approval in approval_hashes.items():
@@ -451,6 +606,12 @@ class Integration:
                     raise StoreError('verification_changed')
             with store.transaction():
                 attempt, task, workflow = self._guard(scope, record)
+                for identity, review in self._restorable_reviews(scope, record).items():
+                    original = store.task(scope, identity)
+                    store._save_task(changed(original, state='succeeded', revision=original.revision + 1,
+                        updated_at=store.clock()))
+                    store._event(scope, workflow, 'verified_review_revalidated', task=original, integration_id=record.id,
+                        review_id=review.id, evidence_id=review.verdict.evidence_id)
                 for task_id, author_id in record.author_attempts.items():
                     original = store.task(scope, task_id)
                     if record.previous_result_id is None:
@@ -461,6 +622,16 @@ class Integration:
                         store._event(scope, workflow, 'verified_task_revalidated', task=original,
                             integration_id=record.id, evidence_id=record.applied_verdicts[task_id].evidence_id)
                 _succeed(store, scope, attempt, task, workflow, evidence_id=record.applied_verdicts[task.id].evidence_id)
+                resolved_tasks = self._requirements(scope, record) if record.resolved_conflicts else set()
+                for identity in resolved_tasks - set(record.author_attempts) - {task.id}:
+                    original = store.task(scope, identity)
+                    if original.state != 'succeeded':
+                        if original.current_attempt_id is not None:
+                            raise StoreError('fence')
+                        store._save_task(changed(original, state='succeeded', revision=original.revision + 1,
+                            updated_at=store.clock()))
+                        store._event(scope, workflow, 'verified_task_resolved', task=original, integration_id=record.id,
+                            resolved_conflicts=record.resolved_conflicts, evidence_id=record.applied_verdicts[identity].evidence_id)
                 root_task = store.task(scope, workflow.root_task_id)
                 if root_task.state != 'succeeded' and root_task.id not in record.author_attempts:
                     store._save_task(changed(root_task, state='succeeded', revision=root_task.revision + 1, updated_at=store.clock()))

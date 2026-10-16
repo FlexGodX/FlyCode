@@ -9,11 +9,12 @@ from uuid import uuid4
 from ..domain.orchestration import WorkerRecord
 from ..domain.results import FileChange, FileVersion, PatchArtifact
 from ..domain.verification import SubjectRef
+from ..tools.filesystem import ToolResult
 from ..verification.acceptance import input_identity
 from ..verification.evidence import atomic_json
 from ..verification.snapshot import capture, input_files
 from .store import Store, StoreError, changed, covers
-from .tools import _path
+from .tools import Tools, _path, authorize
 from .workspaces import Workspaces
 
 
@@ -22,6 +23,65 @@ class Artifacts:
         self.store, self.root = store, Path(root).resolve()
         self.workspaces = Workspaces(store, self.root / 'workspaces')
         self.directory = self.root / 'artifacts'
+
+    def inputs(self, scope, attempt_id, fence) -> list[PatchArtifact]:
+        _, task, _ = self.store._owned(scope, attempt_id, fence, running=True)
+        records = []
+        for identity, expected in task.input_artifacts.items():
+            record = self.get(scope, identity)
+            if record.workflow_id != task.workflow_id or record.project_id != task.project_id or record.patch_hash != expected:
+                raise StoreError('artifact_scope', 'Input does not match its approved pin')
+            records.append(record)
+        return records
+
+    def read(self, scope, attempt_id, fence, action) -> ToolResult:
+        store, tools = self.store, Tools(self.store)
+        _, task, workflow = store._owned(scope, attempt_id, fence, running=True)
+        try:
+            identity = action.arguments.get('artifact_id')
+            if (action.tool != 'read_file' or not isinstance(identity, str) or identity not in task.input_artifacts):
+                raise StoreError('artifact_scope')
+            artifact = next(item for item in self.inputs(scope, attempt_id, fence) if item.id == identity)
+            root = self.directory / identity / 'target'
+            action = authorize(root, action, task.permissions, workflow.deadline_at - store.clock())
+            path = action.arguments.get('path')
+            if path not in artifact.target.files:
+                raise StoreError('artifact_path', 'The pinned target has no such file')
+        except StoreError as error:
+            return ToolResult(success=False, error_message=error.code, payload={'blocked': error.code})
+        try:
+            call, action = tools._begin(scope, attempt_id, fence, action, execution_profile='artifact-read-v1')
+        except StoreError as error:
+            if error.code != 'request_replay':
+                raise
+            return ToolResult(success=False, error_message=error.code, payload={'blocked': error.code})
+        try:
+            with (root / path).open('rb') as stream:
+                data = stream.read(3501)
+            if len(data) > 3500 or b'\0' in data:
+                raise StoreError('artifact_content', 'Input needs a supported bounded text reader')
+            if hashlib.sha256(data).hexdigest() != artifact.target.files[path]:
+                raise StoreError('artifact_integrity')
+            content = data.decode('utf-8')
+            self.get(scope, identity)
+            result = ToolResult(success=True, payload={'artifact_id': identity, 'patch_hash': artifact.patch_hash,
+                'path': path, 'sha256': artifact.target.files[path], 'content': content})
+        except (OSError, UnicodeError, StoreError) as error:
+            reason = error.code if isinstance(error, StoreError) else 'artifact_content'
+            result = ToolResult(success=False, error_message=reason, payload={'blocked': reason})
+        except BaseException as error:
+            tools.finish(scope, call.id, status='uncertain', error_class=type(error).__name__)
+            raise
+        completed = tools.finish(scope, call.id, status='completed' if result.success else 'failed',
+            error_class=None if result.success else result.error_message)
+        if completed.late:
+            raise StoreError('fence', 'Late input read retained for audit only')
+        if result.success:
+            with store.transaction():
+                attempt, task, workflow = store._owned(scope, attempt_id, fence, running=True)
+                store._event(scope, workflow, 'artifact_read', task=task, attempt=attempt, call_id=call.id,
+                    artifact_id=identity, patch_hash=artifact.patch_hash, path=path, sha256=artifact.target.files[path])
+        return result
 
     def _record(self, scope, identity) -> PatchArtifact:
         record = self.store._load('artifacts', identity, PatchArtifact)

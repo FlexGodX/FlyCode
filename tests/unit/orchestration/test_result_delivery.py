@@ -42,14 +42,14 @@ def checks():
                                   ('regression', 'target'), ('integration', 'regression')]]
 
 
-def reviewer(owned, artifacts, *, tools=24):
+def reviewer(owned, artifacts, *, tools=24, parent_id=None):
     store, owner, host, workflow, author, attempt, _ = owned
     permission = ExecutionPermission(approved=True, read_scopes=('.',), tools=('run_tests',))
     profile = store.register_profile(owner, AgentProfileDraft(role='reviewer',
         model_ref=attempt.profile_snapshot.model_ref, instructions='Verify the exact approved artifact.',
         project_ids=(author.project_id,), permissions=permission, context_limit=8192))
     task = store.create_task(owner, workflow.id, TaskDraft(title='Verify repair', kind='review',
-        objective='Independently verify the exact repair with the approved oracle.', parent_id=author.id,
+        objective='Independently verify the exact repair with the approved oracle.', parent_id=parent_id or author.id,
         acceptance=author.acceptance, permissions=permission, budget=BudgetAmount(tool_calls=tools),
         input_artifacts={artifact.id: artifact.patch_hash for artifact in artifacts}), key='review-task-' + str(len(store.tasks(owner, workflow.id))))
     task = store.command(owner, task.id, TaskCommand(operation='enqueue', expected_revision=task.revision,
@@ -104,12 +104,14 @@ def multi_writer(owned, model_server, tmp_path, request):
 
     store, owner, host, workflow, task, author, source = owned
     mode = getattr(request, 'param', 'overlap')
-    overlap = mode == 'overlap'
+    overlap = mode in {'overlap', 'large'}
     comparison = '== 1' if mode == 'independent' else '>= 1'
     expression = 'runpy.run_path("src/example.py")["answer"] > 0' if overlap else (
         f'runpy.run_path("src/example.py")["answer"] + runpy.run_path("src/other.py")["answer"] {comparison}')
     (source / 'tests/test_example.py').write_text(f'import runpy\ndef test_example():\n    assert {expression}\n')
     (source / 'src/other.py').write_text('answer = 0\n')
+    if mode == 'large':
+        (source / 'src/large.txt').write_text('x' * 3501)
     (source / 'user-dirty.bin').write_bytes(b'\x00\xff user bytes\r\n')
     oracle = tmp_path / 'owner-oracle'
     shutil.copytree(source / 'tests', oracle / 'tests')
@@ -279,10 +281,12 @@ def test_conflict_retains_both_inputs_when_resolution_child_limit_is_reached(own
     store, owner, host, workflow, _, _, source = owned
     runtime, artifacts, reviews, integrator, approvals = multi_writer
     for _ in range(4):
+        store.heartbeat(host, integrator.id, integrator.fence)
         checker = reviewer(owned, artifacts[:1], tools=4)
         review = Reviews(store, runtime.root).run(host, checker.id, checker.fence, artifacts[0].id,
             approval_hash=approvals[artifacts[0].task_id])
         assert review.status == 'approved'
+        store.heartbeat(host, integrator.id, integrator.fence)
     before = store.budget(owner, workflow.id)
     service = Integration(store, runtime.root)
     record = service.run(host, integrator.id, integrator.fence, tuple(item.id for item in artifacts),
@@ -362,6 +366,382 @@ def test_two_host_connections_cannot_duplicate_a_conflict_or_its_draft(owned, mu
     assert store.budget(owner, workflow.id).spent == before[1]
     assert store.budget(owner, workflow.id).reserved == BudgetAmount()
     assert run().state == 'conflict'
+
+
+@pytest.fixture
+def pending_resolution(owned, multi_writer, request):
+    from flycode.orchestration.integration import Integration
+
+    store, owner, host, _, root, first, _ = owned
+    runtime, artifacts, reviews, stopped_integrator, approvals = multi_writer
+    service = Integration(store, runtime.root)
+    conflict = service.run(host, stopped_integrator.id, stopped_integrator.fence,
+        tuple(item.id for item in artifacts), tuple(item.id for item in reviews), approval_hashes=approvals)
+    draft = store.task(owner, conflict.resolution_task_id)
+    permission = root.permissions.model_dump()
+    scenario = getattr(request, 'param', None)
+    if scenario == 'no_read':
+        permission['tools'] = [tool for tool in permission['tools'] if tool != 'read_file']
+    if scenario == 'no_write':
+        permission['write_scopes'] = []
+    if scenario == 'no_scope':
+        permission['read_scopes'] = ['tests']
+    changes = {'input_artifacts': {**draft.input_artifacts, artifacts[0].id: '0' * 64}} if scenario == 'wrong_pin' else (
+        {'base_snapshot_hash': '0' * 64} if scenario == 'wrong_base' else {})
+    draft = store.command(owner, draft.id, TaskCommand(operation='revise', expected_revision=draft.revision,
+        idempotency_key='approve-resolution', changes={'objective':
+            'Read both pinned versions of src/example.py. Set answer to the sum of their answer values. '
+            'Preserve owner tests and user files; verify the repair.',
+            'acceptance': root.acceptance.model_dump(), 'permissions': permission,
+            'budget': BudgetAmount(model_calls=8, tool_calls=12).model_dump(), **changes}))
+    ready = store.command(owner, draft.id, TaskCommand(operation='enqueue', expected_revision=draft.revision,
+        idempotency_key='enqueue-resolution'))
+    instance = store.register_instance(host, first.profile_snapshot.id)
+    claimed = store.claim(host, ClaimRequest(instance_id=instance.id, expected_instance_revision=instance.revision,
+        task_id=ready.id, expected_task_revision=ready.revision, reserve=ready.budget, idempotency_key='claim-resolution'))
+    assert claimed.attempt is not None, claimed.reasons
+    resolver = store.confirm_started(host, claimed.attempt.id, claimed.attempt.fence)
+    return runtime, artifacts, conflict, resolver, stopped_integrator, approvals
+
+
+@pytest.fixture
+def resolved_delivery(owned, pending_resolution, model_server):
+    import re
+
+    from flycode.orchestration.artifacts import Artifacts
+    from flycode.orchestration.integration import Integration
+    from flycode.orchestration.review import Reviews
+    from flycode.orchestration.tools import Tools
+
+    store, owner, host, workflow, root, _, source = owned
+    runtime, artifacts, conflict, resolver, stopped_integrator, approvals = pending_resolution
+    service = Integration(store, runtime.root)
+    observed = {}
+
+    def response(request):
+        prompt = request['messages'][-1]['content']
+        for artifact in artifacts:
+            result = re.search(r'\[artifact:' + artifact.id + r' [^\]]+\].*?answer\s*=\s*(\d+)', prompt, re.DOTALL)
+            if result:
+                observed[artifact.id] = int(result.group(1))
+        missing = next((item for item in artifacts if item.id not in observed), None)
+        if missing is not None:
+            candidate = {'tool': 'read_file', 'arguments': {'artifact_id': missing.id, 'path': 'src/example.py'}}
+        else:
+            candidate = {'tool': 'edit_file', 'arguments': {'path': 'src/example.py',
+                'old_text': 'answer = 0', 'new_text': 'answer = ' + str(sum(observed.values()))}}
+        return model_server.completion(json.dumps({'candidates': [candidate]}))
+
+    model_server.respond = response
+    before = store.budget(owner, workflow.id)
+    deadline = store.workflow(owner, workflow.id).deadline_at
+    handle = runtime.launch(host, resolver.id, resolver.fence, source, brain='heuristic_fsm')
+    try:
+        assert handle.finished.wait(25), handle.error
+        assert handle.error is None
+        assert handle.process_stopped.is_set()
+    finally:
+        handle.close()
+    assert observed == {artifacts[0].id: 1, artifacts[1].id: 2}
+    published = Artifacts(store, runtime.root).for_attempt(owner, resolver.id)
+    assert (runtime.root / 'artifacts' / published.id / 'target/src/example.py').read_text() == 'answer = 3\n'
+    reads = [call for call in Tools(store).calls(owner, workflow.id)
+        if call.attempt_id == resolver.id and call.execution_profile == 'artifact-read-v1']
+    assert len(reads) == 2 and all(call.status == 'completed' for call in reads)
+    assert all(store._attempt(item.attempt_id).state == 'interrupted' for item in artifacts)
+    history = [store._attempt(item.attempt_id) for item in artifacts] + [store._attempt(stopped_integrator.id)]
+    checker = reviewer(owned, [published], tools=4)
+    approval = approvals[root.id]
+    review = Reviews(store, runtime.root).run(host, checker.id, checker.fence, published.id, approval_hash=approval)
+    assert review.status == 'approved'
+    integrator = reviewer(owned, [published], tools=50)
+    required = {root.id, artifacts[1].task_id, stopped_integrator.task_id, resolver.task_id, integrator.task_id}
+    result = service.run(host, integrator.id, integrator.fence, (published.id,), (review.id,),
+        approval_hashes={identity: approval for identity in required})
+    assert result.state == 'completed' and service.current(owner, result.id)
+    assert result.resolved_conflicts == (conflict.id,)
+    assert set(result.artifact_hashes) == {published.id}
+    assert set(result.applied_verdicts) == required
+    assert all(store.task(owner, identity).state == 'succeeded' for identity in required)
+    assert history == [store._attempt(item.attempt_id) for item in artifacts] + [store._attempt(stopped_integrator.id)]
+    assert store.budget(owner, workflow.id).spent.model_calls > before.spent.model_calls
+    assert store.budget(owner, workflow.id).reserved == BudgetAmount()
+    assert (source / 'src/example.py').read_text() == 'answer = 3\n'
+    assert (source / 'user-dirty.bin').read_bytes() == b'\x00\xff user bytes\r\n'
+    assert store.workflow(owner, workflow.id).deadline_at == deadline
+    current = store.task(owner, root.id)
+    store.command(owner, current.id, TaskCommand(operation='set_metadata', expected_revision=current.revision,
+        idempotency_key='resolved-title', changes={'title': 'Resolved and verified'}))
+    assert service.current(owner, result.id)
+    return runtime, artifacts, conflict, published, result, approval, history
+
+
+def test_resolution_worker_uses_both_versions_and_fulfills_original_requirements(resolved_delivery):
+    assert resolved_delivery[4].state == 'completed'
+
+
+def test_resolved_root_reopen_requires_fresh_checks_and_preserves_history(owned, resolved_delivery):
+    from flycode.orchestration.integration import Integration
+    from flycode.orchestration.review import Reviews
+
+    store, owner, host, workflow, root, _, source = owned
+    runtime, artifacts, conflict, published, previous, approval, history = resolved_delivery
+    service = Integration(store, runtime.root)
+    before = store.budget(owner, workflow.id)
+    deadline = store.workflow(owner, workflow.id).deadline_at
+    current = store.task(owner, root.id)
+    opened = store.command(owner, root.id, TaskCommand(operation='reopen', expected_revision=current.revision,
+        idempotency_key='reopen-resolved-root'))
+    store.command(owner, root.id, TaskCommand(operation='enqueue', expected_revision=opened.revision,
+        idempotency_key='enqueue-resolved-root'))
+    assert store.start_next(owner, key='restart-resolved-root').id == workflow.id
+    checker = reviewer(owned, [published], tools=4, parent_id=published.task_id)
+    review = Reviews(store, runtime.root).run(host, checker.id, checker.fence, published.id, approval_hash=approval)
+    assert review.status == 'approved' and review.id not in previous.review_ids
+    integrator = reviewer(owned, [published], tools=40, parent_id=published.task_id)
+    required = set(previous.applied_verdicts) - {store._attempt(previous.attempt_id).task_id} | {integrator.task_id}
+    old_review = service.reviews.get(owner, conflict.review_ids[0])
+    manifest = service.engine.data_dir / old_review.verdict.evidence_id / 'manifest.json'
+    retained = manifest.read_bytes()
+    snapshot = store.budget(owner, workflow.id), store.tasks(owner, workflow.id)
+    try:
+        manifest.write_bytes(b'changed original review evidence')
+        with pytest.raises(ValueError):
+            service.run(host, integrator.id, integrator.fence, (published.id,), (review.id,),
+                approval_hashes={identity: approval for identity in required}, previous_result_id=previous.id)
+        assert (store.budget(owner, workflow.id), store.tasks(owner, workflow.id)) == snapshot
+        assert store.db.execute('SELECT COUNT(*) FROM integrations WHERE attempt_id=?', (integrator.id,)).fetchone()[0] == 0
+    finally:
+        manifest.write_bytes(retained)
+    renewed = service.run(host, integrator.id, integrator.fence, (published.id,), (review.id,),
+        approval_hashes={identity: approval for identity in required}, previous_result_id=previous.id)
+    assert renewed.state == 'completed' and service.current(owner, renewed.id)
+    assert not service.current(owner, previous.id) and service.get(owner, previous.id).state == 'invalidated'
+    assert renewed.resolved_conflicts == (conflict.id,) and set(renewed.applied_verdicts) == required
+    assert renewed.semantic_revisions[root.id] == previous.semantic_revisions[root.id] + 1
+    assert all(store.task(owner, identity).result_id == renewed.id for identity in renewed.contracts)
+    assert history == [store._attempt(item.attempt_id) for item in artifacts] + [store._attempt(conflict.attempt_id)]
+    assert store.budget(owner, workflow.id).spent.tool_calls == before.spent.tool_calls + 44
+    assert store.budget(owner, workflow.id).reserved == BudgetAmount()
+    assert store.workflow(owner, workflow.id).deadline_at == deadline
+    assert (source / 'src/example.py').read_text() == 'answer = 3\n'
+    assert (source / 'user-dirty.bin').read_bytes() == b'\x00\xff user bytes\r\n'
+
+
+def test_completed_resolution_requires_current_original_patch_and_review(owned, resolved_delivery):
+    from flycode.orchestration.integration import Integration
+
+    store, owner, _, workflow, _, _, _ = owned
+    runtime, artifacts, conflict, _, result, _, _ = resolved_delivery
+    service = Integration(store, runtime.root)
+    review = service.reviews.get(owner, conflict.review_ids[0])
+    paths = [service.artifacts.directory / artifacts[0].id / 'target/src/example.py',
+        service.engine.data_dir / review.verdict.evidence_id / 'manifest.json']
+    before = store.budget(owner, workflow.id), store.attempts(owner, workflow.id)
+    for path in paths:
+        retained = path.read_bytes()
+        try:
+            path.write_bytes(b'changed original input')
+            assert not service.current(owner, result.id)
+        finally:
+            path.write_bytes(retained)
+        assert service.current(owner, result.id)
+    assert (store.budget(owner, workflow.id), store.attempts(owner, workflow.id)) == before
+
+
+@pytest.mark.parametrize('pending_resolution', ['wrong_pin', 'wrong_base', 'no_read', 'no_write'], indirect=True)
+def test_resolution_rejects_changed_pins_and_missing_permissions_before_worker(owned, pending_resolution):
+    from flycode.orchestration.integration import Integration
+    from flycode.orchestration.store import StoreError
+
+    store, owner, host, workflow, _, _, source = owned
+    runtime, artifacts, conflict, resolver, _, _ = pending_resolution
+    before = store.budget(owner, workflow.id), [store._attempt(item.attempt_id) for item in artifacts]
+    with pytest.raises(StoreError):
+        runtime.launch(host, resolver.id, resolver.fence, source, brain='heuristic_fsm')
+    assert (store.budget(owner, workflow.id), [store._attempt(item.attempt_id) for item in artifacts]) == before
+    assert not Integration(store, runtime.root).get(owner, conflict.id).resolution_attempts
+    assert not store.db.execute('SELECT 1 FROM workers WHERE attempt_id=?', (resolver.id,)).fetchone()
+
+
+@pytest.mark.parametrize('arguments', [
+    {'artifact_id': None, 'path': 'src/example.py'},
+    {'artifact_id': '', 'path': 'src/example.py'},
+    {'artifact_id': '0' * 32, 'path': 'src/example.py'},
+    {'path': '../baseline/src/example.py'},
+    {'path': '/etc/passwd'},
+    {'path': '.env'},
+    {'path': 'src/example.py', 'stage': 'baseline'},
+    {'path': 'src/example.py', 'root': '/'},
+])
+def test_pinned_read_rejects_unapproved_selectors_and_paths_without_spending(owned, pending_resolution, arguments):
+    from flycode.domain import ToolAction
+    from flycode.orchestration.artifacts import Artifacts
+
+    store, owner, host, workflow, _, _, source = owned
+    runtime, artifacts, _, resolver, _, _ = pending_resolution
+    before = store.budget(owner, workflow.id)
+    result = Artifacts(store, runtime.root).read(host, resolver.id, resolver.fence,
+        ToolAction(id='denied-input', tool='read_file', arguments={'artifact_id': artifacts[0].id, **arguments}))
+    assert not result.success and 'content' not in result.payload and not result.stdout
+    assert store.budget(owner, workflow.id) == before
+    assert (source / 'src/example.py').read_text() == 'answer = 0\n'
+
+
+@pytest.mark.parametrize('pending_resolution', ['no_scope'], indirect=True)
+def test_pinned_read_enforces_owner_read_scopes(owned, pending_resolution):
+    from flycode.domain import ToolAction
+    from flycode.orchestration.artifacts import Artifacts
+
+    store, owner, host, workflow, _, _, _ = owned
+    runtime, artifacts, _, resolver, _, _ = pending_resolution
+    before = store.budget(owner, workflow.id)
+    result = Artifacts(store, runtime.root).read(host, resolver.id, resolver.fence,
+        ToolAction(id='outside-input-scope', tool='read_file', arguments={'artifact_id': artifacts[0].id, 'path': 'src/example.py'}))
+    assert not result.success and result.error_message == 'permission' and 'content' not in result.payload
+    assert store.budget(owner, workflow.id) == before
+
+
+async def test_pinned_reads_debit_once_reject_replay_and_survive_local_edit_in_memory(owned, pending_resolution):
+    from flycode.agent import _update_working_memory
+    from flycode.domain import TaskSpec, ToolAction
+    from flycode.memory.working import WorkingMemory
+    from flycode.orchestration.artifacts import Artifacts
+    from flycode.orchestration.environment import AttemptEnvironment
+
+    store, owner, host, workflow, _, _, source = owned
+    runtime, artifacts, _, resolver, _, _ = pending_resolution
+    service = Artifacts(store, runtime.root)
+    runtime.workspaces.prepare(host, resolver.id, resolver.fence, source)
+    repository = runtime.workspaces.repository(owner, resolver.id)
+    env = AttemptEnvironment(repository, store, host, resolver.id, resolver.fence,
+        artifact_executor=lambda action: service.read(host, resolver.id, resolver.fence, action))
+    await env.reset(TaskSpec(id=resolver.task_id, task='Read both pinned inputs and edit the copy.'))
+    memory = WorkingMemory()
+    before = store.budget(owner, workflow.id).spent.tool_calls
+    local = ToolAction(id='local-read', tool='read_file', arguments={'path': 'src/example.py'})
+    _update_working_memory(memory, local, await env.step(local))
+    for index, artifact in enumerate(artifacts):
+        action = ToolAction(id='input-' + str(index), tool='read_file', arguments={'artifact_id': artifact.id, 'path': 'src/example.py'})
+        transition = await env.step(action)
+        assert transition.success and transition.payload['content'] == f'answer = {index + 1}\n'
+        _update_working_memory(memory, action, transition)
+    assert store.budget(owner, workflow.id).spent.tool_calls == before + 3
+    replay = service.read(host, resolver.id, resolver.fence, action)
+    assert not replay.success and replay.error_message == 'request_replay'
+    assert store.budget(owner, workflow.id).spent.tool_calls == before + 3
+    edit = ToolAction(id='local-edit', tool='edit_file', arguments={'path': 'src/example.py', 'old_text': '0', 'new_text': '3'})
+    _update_working_memory(memory, edit, await env.step(edit))
+    assert not any(fact.startswith('read_file(src/example.py):') for fact in memory.facts)
+    assert all(any(artifact.id in fact and f'answer = {index + 1}' in fact for fact in memory.facts)
+        for index, artifact in enumerate(artifacts))
+    assert (repository / 'src/example.py').read_text() == 'answer = 3\n'
+    assert (source / 'src/example.py').read_text() == 'answer = 0\n'
+
+
+@pytest.mark.parametrize('multi_writer', ['large'], indirect=True)
+def test_immutable_binary_and_oversized_inputs_fail_explicitly_without_clipping(owned, pending_resolution):
+    from flycode.domain import ToolAction
+    from flycode.orchestration.artifacts import Artifacts
+    from flycode.orchestration.tools import Tools
+
+    store, owner, host, workflow, _, _, _ = owned
+    runtime, artifacts, _, resolver, _, _ = pending_resolution
+    before = store.budget(owner, workflow.id).spent.tool_calls
+    for path in ('user-dirty.bin', 'src/large.txt'):
+        result = Artifacts(store, runtime.root).read(host, resolver.id, resolver.fence,
+            ToolAction(id='unsupported-' + path, tool='read_file', arguments={'artifact_id': artifacts[0].id, 'path': path}))
+        assert not result.success and result.error_message == 'artifact_content' and 'content' not in result.payload
+    assert store.budget(owner, workflow.id).spent.tool_calls == before + 2
+    assert all(call.status == 'failed' for call in Tools(store).calls(owner, workflow.id) if call.attempt_id == resolver.id)
+
+
+@pytest.mark.parametrize('change', ['criteria', 'permission'])
+def test_resolution_cannot_release_original_authors_after_owner_contract_change(owned, pending_resolution, change):
+    from flycode.orchestration.integration import Integration
+    from flycode.orchestration.store import StoreError
+
+    store, owner, host, workflow, _, _, source = owned
+    runtime, artifacts, conflict, resolver, _, _ = pending_resolution
+    original = store.task(owner, artifacts[1].task_id)
+    if change == 'criteria':
+        released = store.command(owner, original.id, TaskCommand(operation='release_assignment',
+            expected_revision=original.revision, idempotency_key='release-for-new-criteria'))
+        store.command(owner, released.id, TaskCommand(operation='revise', expected_revision=released.revision,
+            idempotency_key='new-original-criteria', changes={'acceptance': {**released.acceptance.model_dump(), 'version': 2}}))
+    else:
+        store.command(owner, original.id, TaskCommand(operation='cancel', expected_revision=original.revision,
+            idempotency_key='revoke-original-permission'))
+    before = store.budget(owner, workflow.id), [store._attempt(item.attempt_id) for item in artifacts]
+    with pytest.raises(StoreError):
+        runtime.launch(host, resolver.id, resolver.fence, source, brain='heuristic_fsm')
+    assert (store.budget(owner, workflow.id), [store._attempt(item.attempt_id) for item in artifacts]) == before
+    assert not Integration(store, runtime.root).get(owner, conflict.id).resolution_attempts
+    assert not store.db.execute('SELECT 1 FROM workers WHERE attempt_id=?', (resolver.id,)).fetchone()
+
+
+@pytest.mark.parametrize('condition', ['context_budget', 'input_changed_during_http'])
+def test_required_input_context_cannot_be_dropped_or_used_after_tampering(owned, pending_resolution, model_server, condition):
+    from flycode.domain import Observation
+    from flycode.llm.protocol import CortexContext
+    from flycode.orchestration.cortex import AttemptCortex
+    from flycode.orchestration.store import StoreError
+
+    store, owner, host, workflow, _, _, source = owned
+    runtime, artifacts, _, resolver, _, _ = pending_resolution
+    context = CortexContext(task='Read both immutable inputs.', behavior_mode='explore',
+        observation=Observation(task='Resolve the patch conflict.'),
+        working_memory=['[artifact:' + artifacts[0].id + ' patch=' + artifacts[0].patch_hash + '] ' + 'x' * 100000]
+            if condition == 'context_budget' else [])
+    cortex = AttemptCortex(store, host, resolver.id, resolver.fence, artifact_root=runtime.root)
+    before = store.budget(owner, workflow.id).spent.model_calls, len(model_server.requests)
+    if condition == 'context_budget':
+        with pytest.raises(StoreError, match='artifact_context_budget'):
+            cortex.generate_candidates(context)
+        assert (store.budget(owner, workflow.id).spent.model_calls, len(model_server.requests)) == before
+        assert any(event.kind == 'artifact_context_blocked' for event in store.events(owner, workflow.id))
+    else:
+        def changed(request):
+            (runtime.root / 'artifacts' / artifacts[0].id / 'target/src/example.py').write_text('answer = 99\n')
+            return model_server.completion(json.dumps({'candidates': [
+                {'tool': 'edit_file', 'arguments': {'path': 'src/example.py', 'old_text': '0', 'new_text': '99'}}]}))
+        model_server.respond = changed
+        assert cortex.generate_candidates(context) == []
+        assert cortex.last_routing.error == 'artifact_context_stale'
+        assert store.budget(owner, workflow.id).spent.model_calls == before[0] + 1
+    assert (source / 'src/example.py').read_text() == 'answer = 0\n'
+
+
+def test_pinned_tool_contract_and_observations_survive_optional_context_compaction(owned, pending_resolution, model_server):
+    from flycode.domain import Observation
+    from flycode.llm.protocol import CortexContext
+    from flycode.orchestration.cortex import AttemptCortex
+
+    store, owner, host, workflow, _, _, _ = owned
+    runtime, artifacts, _, resolver, _, _ = pending_resolution
+    facts = [f'[artifact:{item.id} patch={item.patch_hash} file=known] read_file(src/example.py):\nanswer = {index + 1}\n'
+        for index, item in enumerate(artifacts)]
+    workspace = 'read_file(src/example.py):\nanswer = 0\n'
+    failure = 'edit_file(src/example.py): FAILED: old_text not found'
+    context = CortexContext(task='Resolve both inputs.', behavior_mode='diagnose',
+        observation=Observation(task='Resolve both inputs.', recent_logs=['old test output ' * 3000],
+            tests={'status': 'failed', 'failed': 1}),
+        working_memory=['old test output ' * 3000, workspace, failure, *facts], episodic_notes=['old lesson ' * 3000])
+    model_server.respond = lambda request: model_server.completion(json.dumps({'candidates': [
+        {'tool': 'read_file', 'arguments': {'artifact_id': artifacts[0].id, 'path': 'src/example.py'}}]}))
+    cortex = AttemptCortex(store, host, resolver.id, resolver.fence, artifact_root=runtime.root)
+    before = store.budget(owner, workflow.id).spent.model_calls
+    assert cortex.generate_candidates(context)[0].arguments['artifact_id'] == artifacts[0].id
+    request = model_server.requests[-1]
+    assert 'artifact_id' in request['messages'][0]['content']
+    assert all(fact in request['messages'][-1]['content'] for fact in facts)
+    assert workspace in request['messages'][-1]['content'] and failure in request['messages'][-1]['content']
+    assert 'edit_file.old_text' in request['messages'][0]['content']
+    assert '"failed":1' in request['messages'][-1]['content']
+    assert store.budget(owner, workflow.id).spent.model_calls == before + 1
+    assert any(event.kind == 'artifact_context_compacted' for event in store.events(owner, workflow.id))
+    assert context.working_memory == ['old test output ' * 3000, workspace, failure, *facts]
+    assert len(context.observation.recent_logs[0]) > 10000
 
 
 def test_completed_result_is_current_across_metadata_archive_and_replay(owned, delivery, completed):

@@ -348,7 +348,13 @@ def _update_working_memory(memory: WorkingMemory, action: ToolAction, transition
     if action.tool == "read_file":
         content = transition.payload.get("content", "")[:MAX_WORKING_MEMORY_CHARS]
         path = action.arguments.get("path", "?")
-        memory.add(f"read_file({path}):\n{content}")
+        if 'artifact_id' in action.arguments:
+            identity = action.arguments['artifact_id']
+            label = f"[artifact:{identity} patch={transition.payload.get('patch_hash')} file={transition.payload.get('sha256')}]"
+            memory.add(f"{label} read_file({path}):\n{content}" if transition.success else
+                f"[artifact:{identity}] read_file({path}) failed: {transition.error_message}")
+        else:
+            memory.add(f"read_file({path}):\n{content}")
     elif action.tool == "run_tests":
         memory.add(f"run_tests stdout:\n{transition.stdout[-MAX_WORKING_MEMORY_CHARS:]}")
     elif action.tool in ("edit_file", "create_file"):

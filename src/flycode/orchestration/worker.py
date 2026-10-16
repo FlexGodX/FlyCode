@@ -85,8 +85,10 @@ def main():
             connection = Store(Path(config.database))
             def send_message(action):
                 return ToolResult(**request('message_tool', action.model_dump(mode='json')))
+            def read_artifact(action):
+                return ToolResult(**request('artifact_tool', action.model_dump(mode='json')))
             environment = AttemptEnvironment(Path(config.repository), connection, config.scope, config.attempt_id, config.fence,
-                message_executor=send_message)
+                message_executor=send_message, artifact_executor=read_artifact)
             result = asyncio.run(run_agent(environment, brain, RemoteCortex(), config.task,
                 run_id=config.attempt_id, on_event=activity, should_stop=finished.is_set))
             request('result', result.model_dump(mode='json'))

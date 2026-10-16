@@ -3,6 +3,7 @@
 import hashlib
 import json
 import math
+import re
 import stat
 from pathlib import Path
 from uuid import uuid4
@@ -23,7 +24,7 @@ from .store import Store, StoreError, changed, covers
 SUPPORTED = {'read_file', 'list_files', 'search', 'edit_file', 'create_file', 'run_tests', 'send_message'}
 SKIP = {'.git', '.venv', '__pycache__', 'node_modules'}
 ARGUMENTS = {
-    'read_file': {'path'}, 'list_files': {'path'}, 'search': {'path', 'pattern'},
+    'read_file': {'path', 'artifact_id'}, 'list_files': {'path'}, 'search': {'path', 'pattern'},
     'create_file': {'path', 'content'}, 'edit_file': {'path', 'content', 'old_text', 'new_text'},
     'run_tests': {'target', 'timeout', 'service'},
 }
@@ -65,6 +66,9 @@ def authorize(root: Path, action: ToolAction, permission: ExecutionPermission, r
         return action.model_copy(update={'arguments': draft.model_dump(mode='json', exclude={'idempotency_key'})})
     if set(args) - ARGUMENTS[action.tool]:
         raise StoreError('permission', 'Unsupported tool arguments')
+    if 'artifact_id' in args and (not isinstance(args['artifact_id'], str)
+            or re.fullmatch('[0-9a-f]{32}', args['artifact_id']) is None):
+        raise StoreError('artifact_scope', 'Expected a server-owned artifact ID')
     if action.tool == 'run_tests':
         if args.get('service') or permission.read_scopes != ('.',):
             raise StoreError('permission', 'Local pytest requires full project read permission')
@@ -111,6 +115,8 @@ class Tools:
         store = self.store
         if store.db.in_transaction:
             raise RuntimeError('Tool authorization cannot run in a SQLite transaction')
+        if action.tool == 'read_file' and 'artifact_id' in action.arguments:
+            raise StoreError('artifact_route', 'Pinned input reads require the owning artifact service')
         _, task, workflow = store._owned(scope, attempt_id, fence, running=True)
         action = authorize(root, action, task.permissions, workflow.deadline_at - store.clock())
         return self._begin(scope, attempt_id, fence, action)
