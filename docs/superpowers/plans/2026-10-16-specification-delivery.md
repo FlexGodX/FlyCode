@@ -46,7 +46,8 @@ single-Qwen repair не был принят из-за короткого timeout
 английские запросы, immutable biological graph, две сохранённые попытки обучения.
 Toy-family completion 14/20→20/20, но single-Qwen held-out 2/2→0/2; trained
 checkpoints не активированы. Этот ограниченный standalone эксперимент не закрывает
-Task7, orchestration admission или §§90–99. Следующая поставка здесь остаётся Task4.
+Task7, orchestration admission или §§90–99. Основа Task4 опубликована; текущая
+поставка продолжает Task5, затем review/integration и остальные этапы.
 
 Trusted-local pytest engine/CLI опубликованы в `5d16b5a`; Task3a реализует
 owner-approved критерии, oracle bytes и составной план. Общий runtime completion
@@ -173,7 +174,7 @@ Ruff/mypy pass; extracted wheel persists/reopens the queue and runs CLI `brains`
 
 ### Task 5: Исполнение, сообщения и ресурсы (16/28)
 
-**Files:** create `src/flycode/orchestration/{runtime,messages,resources}.py`; modify web app/run adapter; tests integration workflow execution and recovery.
+**Files:** create `src/flycode/orchestration/{runtime,messages,resources,cortex,environment,tools}.py`; modify web app/run adapter; tests integration workflow execution and recovery.
 
 **Interfaces:** `Dispatcher` consumes committed attempts; authenticated worker identity owns fence; shared resource ledger and message envelope with causal IDs.
 
@@ -218,6 +219,29 @@ changed-file Ruff/mypy pass. Extracted wheel:13 transport checks and CLI `brains
 passed outside the checkout. These adapter checks do not close Task5 execution.
 
 **Runtime implementation constraints:**
+
+**Task5 tool-effect increment:** `AttemptEnvironment` gates the actual environment
+step, including controller-local pytest actions. `Tools` commits a debit, call,
+event and outbox before the effect, outside any surrounding SQLite transaction;
+only one tool runs per attempt across connections. Schema3 adds `tool_calls` and
+upgrades schema1/2 without resetting assignments or spending. File guards enforce
+normalized read/write scopes, reject protected names (also case variants), links,
+special files, unknown arguments and pytest option/path/service injection. Timeout
+is bounded by the workflow deadline. Stop is local control and remains available
+without another model/tool debit. Ordinary failed results consume their call;
+exceptions/pytest timeout/restart retain uncertainty until trusted host confirmation.
+Late acknowledgement is audit only and cannot restore the old fence.
+
+The adapter requires full project read permission until scoped observations are
+implemented. Git/service tools are unsupported; this is a trusted local adapter,
+not a hostile-code sandbox or an owned-process supervisor. The caller still owns
+workspace creation and process lifetime. A real `run_agent` read now accounts for
+both model and tool in the common store. Projects with more than200 files no
+longer crash observation construction; tool listing retains the full result.
+Verification: full default collection558 passed/8 skipped; latest40 source
+tool/resource cases and57 extracted-wheel cases include the final case-variant
+test added after full-suite collection. Ruff/mypy and extracted CLI pass.
+The process-supervisor/messages/stop-proof checklist remains open.
 
 **Task5 cortex/capacity increment:** `AttemptCortex` now runs the existing
 `LMStudioCortex` protocol through the canonical request ledger. Objective,

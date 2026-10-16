@@ -24,6 +24,19 @@ async def test_reset_is_reproducible(repo):
     assert obs1.task == obs2.task
 
 
+async def test_large_project_observation_is_bounded_without_hiding_tool_listing(repo):
+    repo.mkdir()
+    for index in range(205):
+        (repo / f'file_{index:03}.py').write_text('pass\n')
+    env = SoftwareEnvironment(repo)
+    observation = await env.reset(TaskSpec(id='large', task='Inspect this project'))
+    assert len(observation.file_tree) == 200
+    assert observation.file_tree[0] == 'file_000.py'
+    transition = await env.step(ToolAction(id='listing', tool='list_files'))
+    assert len(transition.payload['files']) == 205
+    assert len(transition.current.file_tree) == 200
+
+
 async def test_run_tests_reports_initial_failure(repo):
     env = SoftwareEnvironment(repo)
     task = TaskSpec(id="t1", task="fix add()", fixture="toy_arithmetic_bug")

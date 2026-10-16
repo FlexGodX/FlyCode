@@ -8,6 +8,7 @@ the aggregated, truncated view the rest of the system reasons about.
 from pathlib import Path
 
 from ..domain import Observation
+from ..domain.observation import MAX_FILES
 from ..tools.filesystem import list_files
 from ..tools.git import read_git_state
 
@@ -50,7 +51,7 @@ def observe(
         task_id=task_id,
         step_number=step_number,
         git_state=git_state,
-        file_tree=file_tree,
+        file_tree=file_tree[:MAX_FILES],
         modified_files=modified_files or git_state.get("modified", []),
         created_files=created_files or [],
         deleted_files=deleted_files or [],

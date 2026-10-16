@@ -28,6 +28,7 @@ from ..domain.orchestration import (
     QueueEvent,
     TaskCommand,
     TaskDraft,
+    ToolCall,
     WorkflowBudget,
     WorkflowDraft,
     WorkflowSpec,
@@ -64,7 +65,7 @@ class Store:
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=FULL')
         version = self.db.execute('PRAGMA user_version').fetchone()[0]
-        if version not in (0, 1, 2):
+        if version not in (0, 1, 2, 3):
             self.db.close()
             raise StoreError('schema_version', str(version))
         self.db.executescript('''
@@ -106,9 +107,14 @@ class Store:
                 endpoint_ref TEXT NOT NULL, state TEXT NOT NULL, data TEXT NOT NULL);
             CREATE UNIQUE INDEX IF NOT EXISTS active_endpoint ON model_calls(endpoint_ref)
                 WHERE state IN ('running','uncertain');
+            CREATE TABLE IF NOT EXISTS tool_calls (
+                id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL REFERENCES attempts(id),
+                state TEXT NOT NULL, data TEXT NOT NULL);
+            CREATE UNIQUE INDEX IF NOT EXISTS active_tool ON tool_calls(attempt_id)
+                WHERE state IN ('running','uncertain');
             CREATE TABLE IF NOT EXISTS counters (name TEXT PRIMARY KEY, value INTEGER NOT NULL);
             INSERT OR IGNORE INTO counters VALUES ('task_number',0),('root_starts',0),('queue_paused',0);
-            PRAGMA user_version=2;
+            PRAGMA user_version=3;
         ''')
 
     def close(self):
@@ -742,6 +748,10 @@ class Store:
             call = changed(ModelCall.model_validate_json(row['data']), status='uncertain', late=True)
             self.db.execute('UPDATE model_calls SET state=?,data=? WHERE id=?', ('uncertain', call.model_dump_json(), call.id))
             self._event(scope, workflow, 'model_uncertain', task=task, attempt=attempt, call=call.model_dump(mode='json'), reason=reason)
+        for row in self.db.execute("SELECT data FROM tool_calls WHERE attempt_id=? AND state='running'", (attempt.id,)):
+            call = changed(ToolCall.model_validate_json(row['data']), status='uncertain', late=True)
+            self.db.execute('UPDATE tool_calls SET state=?,data=? WHERE id=?', ('uncertain', call.model_dump_json(), call.id))
+            self._event(scope, workflow, 'tool_uncertain', task=task, attempt=attempt, call=call.model_dump(mode='json'), reason=reason)
         instance = self._instance(attempt.instance_id)
         self._save_instance(changed(instance, state='reconciling', revision=instance.revision + 1))
         self._event(scope, workflow, 'attempt_reconciling', task=task, attempt=attempt, reason=reason)
@@ -793,6 +803,9 @@ class Store:
             if self.db.execute("SELECT 1 FROM model_calls WHERE attempt_id=? AND state IN ('running','uncertain')",
                                (attempt_id,)).fetchone():
                 raise StoreError('resource_busy', 'Confirm the model transport outcome before releasing ownership')
+            if self.db.execute("SELECT 1 FROM tool_calls WHERE attempt_id=? AND state IN ('running','uncertain')",
+                               (attempt_id,)).fetchone():
+                raise StoreError('resource_busy', 'Confirm the tool outcome before releasing ownership')
             uncertain = self.db.execute('SELECT uncertain FROM reservations WHERE attempt_id=?', (attempt_id,)).fetchone()[0]
             if uncertain and not expenditure_confirmed:
                 raise StoreError('uncertain', 'Reconcile unknown spending before releasing the reservation')

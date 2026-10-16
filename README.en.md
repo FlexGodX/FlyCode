@@ -107,7 +107,11 @@ acceptance criteria and model budget. Admission pins the actual loaded LM Studio
 instance and its context capacity; configuration changes require another probe.
 A conservative request-size bound rejects oversized input before HTTP, but does
 not replace an exact tokenizer. One read step in a project copy is checked;
-supervision, tool-argument enforcement and verified completion remain unfinished.
+supervision and verified completion remain unfinished. `AttemptEnvironment` checks
+permissions and paths, charges before each tool and records its actual outcome.
+Replay never repeats an effect; unknown outcomes retain attempt ownership. It
+currently requires full project read access and supports local file tools/pytest.
+This guards a trusted copy; it is not a sandbox for hostile code.
 
 ## First run without an API key
 

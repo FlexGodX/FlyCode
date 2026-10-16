@@ -2,6 +2,47 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Task5 canonical tool effects — 2026-10-16
+
+`AttemptEnvironment` gates the actual `SoftwareEnvironment.step` before counters
+or effects, including locally selected pytest. `Tools` atomically records one
+debit/call/event/outbox; schema3 upgrades schema1/2 and retains assignments and
+spending. One active/uncertain tool per attempt is enforced across connections.
+Duplicate action IDs cannot replay an effect. Arguments are represented by a
+hash; contents/stdout are not added to canonical tool events. Normal failed
+results consume budget, while exceptions and pytest timeout retain uncertainty.
+Recovery/lease fencing marks open calls uncertain. Unknown calls block ownership
+release even after spending acknowledgement; late trusted host acknowledgement
+is audit only and never restores the old fence. Stop is local control and needs
+no extra model/tool debit.
+
+File guards enforce normalized read/write scopes, reject protected case variants,
+symlinks/hardlinks/special files and unknown arguments. Local pytest rejects option/
+path escape/service injection and clamps timeout to the workflow deadline.
+This adapter requires exactly `read_scopes=('.',)` until filtered observations
+exist; local file tools/pytest are supported, Git/service tools are blocked.
+It is for a trusted host-supplied copy, not a hostile-code sandbox. Arbitrary test
+code still has normal host privileges. Owned worker supervision, child-process
+confirmation, automatic private-copy lifecycle, messages and review/completion
+remain open. Do not acknowledge unknown tool outcome based only on worker text.
+
+The actual `run_agent` copied-project smoke now records both a model request and
+one file read in the common store. A separate real pytest test exhausts the tool
+budget and confirms reset cannot refund it; local Stop still works. Projects
+above200 files now truncate the observation instead of failing validation; the
+explicit list tool still returns all files. The first full-suite attempt exposed
+a duplicate test basename; it was renamed to `test_attempt_tools.py`, without
+changing pytest's import mode.
+
+Verification: full default collection558 passed/8 skipped in260.21s; its collection
+predates the final case-variant test, which passed in the latest40 tool/resource
+cases (21.49s) and in the extracted-wheel57 cases (22.05s). The broader initial
+queue/environment/agent integration set126 passed in51.04s before that last case.
+Changed-file Ruff and mypy5 source files pass. Extracted CLI `brains` passes.
+Wheel SHA256: `e9c84b85951804e1dc4800e8254e62dade8e1c560cf90ea4b8519ff5a761ace8`.
+No fresh live-model, biological-graph or browser acceptance is inferred. Task5
+remains open; the previous cortex/capacity increment is published in `a334154`.
+
 ## Task5 canonical cortex and loaded capacity — 2026-10-16
 
 `AttemptCortex` binds the existing `run_agent`/`LMStudioCortex` to canonical

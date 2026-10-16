@@ -378,9 +378,10 @@ async def test_attempt_cortex_drives_actual_run_agent_on_copied_project(active, 
     from flycode.agent import run_agent
     from flycode.brain import make_brain
     from flycode.domain import TaskSpec
-    from flycode.environment import SoftwareEnvironment
     from flycode.orchestration.cortex import AttemptCortex
+    from flycode.orchestration.environment import AttemptEnvironment
     from flycode.orchestration.resources import Resources
+    from flycode.orchestration.tools import Tools
     from flycode.verification.snapshot import capture
 
     store, owner, runtime, _, workflow, attempts, _ = active
@@ -394,7 +395,7 @@ async def test_attempt_cortex_drives_actual_run_agent_on_copied_project(active, 
     brain = make_brain('heuristic_fsm', seed=1)
     brain.set_learning_mode(False)
     try:
-        result = await run_agent(SoftwareEnvironment(copied), brain,
+        result = await run_agent(AttemptEnvironment(copied, store, runtime, attempts[0].id, attempts[0].fence), brain,
             AttemptCortex(store, runtime, attempts[0].id, attempts[0].fence),
             TaskSpec(id=attempts[0].task_id, task='Inspect the parser.', max_steps=1, max_tool_calls=1),
             run_id=attempts[0].id, on_event=lambda kind, data: events.append((kind, data)))
@@ -406,6 +407,10 @@ async def test_attempt_cortex_drives_actual_run_agent_on_copied_project(active, 
     assert call.attempt_id == attempts[0].id and call.instance_id == attempts[0].instance_id
     assert call.status == 'completed' and call.usage.total_tokens == 11
     assert store.budget(owner, workflow.id).spent.model_calls == 1
+    assert store.budget(owner, workflow.id).spent.tool_calls == 1
+    tool = Tools(store).calls(owner, workflow.id)[0]
+    assert tool.status == 'completed' and tool.tool == 'read_file'
+    assert tool.attempt_id == attempts[0].id and tool.instance_id == attempts[0].instance_id
     assert (original / 'sample.py').read_text() == 'VALUE = 1\n'
     assert (original / 'untracked.txt').read_text() == 'Keep this file.\n'
 

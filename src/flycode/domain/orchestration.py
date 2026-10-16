@@ -308,3 +308,19 @@ class ModelCall(QueueModel):
 class ModelAdmission(QueueModel):
     call: ModelCall
     fresh: bool
+
+
+class ToolCall(QueueModel):
+    id: str
+    workflow_id: str
+    task_id: str
+    attempt_id: str
+    instance_id: str
+    fence: int = Field(ge=1)
+    tool: str
+    argument_hash: str
+    status: Literal['running', 'completed', 'failed', 'uncertain'] = 'running'
+    started_at: float
+    ended_at: float | None = None
+    error_class: str | None = Field(default=None, max_length=200)
+    late: bool = False
