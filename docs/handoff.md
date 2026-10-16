@@ -2,6 +2,42 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Worker diagnostics / snapshot configuration — 2026-10-17
+
+The increment after `97cd64e` continuously drains worker stderr, retaining at
+most65,536 bytes outside the subject and publishing only bounded diagnostic
+metadata. Registered pytest now uses captured root configuration, explicit root
+and conftest cutoff; ancestor files cannot change registered IDs. Malformed
+captured configuration remains a real failure. Full measurement:804 passed/
+8 skipped, all812 exact cases once in1,128.04s. Extracted wheel85 passed,
+actual FlyWire5 passed, relevant Ruff/mypy41 passed; all131 Python files and
+README metadata match. Frozen implementation:
+`21a7005501b5413ffe22591073b7571971cae6f15ad9be65bc6ba56bc2f04ad2`.
+The [report](validation/2026-10-17-worker-diagnostics.md) preserves all REDs,
+the earlier harness/configuration failure and actual-model failures.
+
+Real English Qwen conflict resolution still FAILED:15 model calls/28 tools,
+460.09s. Same-workflow retry also failed at `artifact_context_budget` after
+109.69s, cumulative18 calls/32 tools. Size-only instrumentation found the
+611-byte objective duplicated and one38-byte protected workspace fact copied
+three times. Preserve all unique reads, pinned provenance and failure facts when
+addressing this redundancy. Do not infer that compaction will fix model behavior.
+No artifact/completion was published. The incomplete workflow is now cancelled,
+all attempts terminal, reservations zero and uncertainty false; spending,
+history, original source0 and dirty binary bytes remain. Do not reset/retry it.
+Archive: `~/.cache/flycode/validation/flycode-worker-verified-oo2vngei`.
+
+Shared endpoint-admission work is isolated, uncommitted and not part of this
+measurement: `/private/tmp/flycode-endpoint-admission-9_1j3txu` (base97cd64e).
+It includes an untracked `orchestration/transport.py`; preserve it when moving
+the checked diff. Targeted real-HTTP RED/GREEN cases cover canonical versus
+legacy/probe serialization, unknown ownership, schema9 migration/rollback,
+configured URI identity and API409 capacity. Finish its scoped checks and
+publication separately. All remaining Task5–8 requirements below remain open;
+no scientific promotion or complete specification delivery is claimed.
+
+Older sections retain historical boundaries and measurements.
+
 ## Task6 pinned-input resolution — 2026-10-16
 
 The increment after `17a68d4` implements the formerly inert resolution draft.

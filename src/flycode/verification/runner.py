@@ -1,5 +1,7 @@
 """Registered pytest argv, owned process cancellation and bounded structured output."""
 
+import configparser
+import importlib
 import json
 import os
 import signal
@@ -116,6 +118,31 @@ def _junit_id(node_id: str) -> str:
     return '.'.join([module, *parts[1:-1]]) + '::' + name
 
 
+def _pytest_config(sandbox: Path, output: Path) -> Path:
+    for name in ('pytest.toml', '.pytest.toml', 'pytest.ini', '.pytest.ini', 'pyproject.toml', 'tox.ini', 'setup.cfg'):
+        path = sandbox / name
+        if not path.is_file():
+            continue
+        if name in {'pytest.toml', '.pytest.toml', 'pytest.ini', '.pytest.ini'}:
+            return path
+        try:
+            if name == 'pyproject.toml':
+                toml = importlib.import_module('tomllib' if sys.version_info >= (3, 11) else 'tomli')
+                section = toml.loads(path.read_text()).get('tool', {}).get('pytest', {})
+                if not isinstance(section, dict) or section:
+                    return path
+            else:
+                parser = configparser.ConfigParser(interpolation=None)
+                parser.read_string(path.read_text())
+                if parser.has_section('pytest') or (name == 'setup.cfg' and parser.has_section('tool:pytest')):
+                    return path
+        except (ValueError, configparser.Error, ImportError, AttributeError):
+            return path  # Let the actual registered pytest report an invalid captured configuration.
+    path = output / 'pytest.ini'
+    path.write_text('[pytest]\n')
+    return path
+
+
 def run_pytest(sandbox: Path, output: Path, timeout: float, number: int,
                should_stop: Callable[[], bool], *, targets: Sequence[str] = (),
                on_state: Callable[[str], None] = lambda state: None,
@@ -129,6 +156,7 @@ def run_pytest(sandbox: Path, output: Path, timeout: float, number: int,
     report = output / 'junit.xml'
     observer = output / 'cases.jsonl'
     argv = [sys.executable, '-m', 'pytest', '-q', '-p', 'pytest_observer',
+            '-c', str(_pytest_config(sandbox, output)), '--rootdir', str(sandbox), '--confcutdir', str(sandbox),
             '-o', 'xfail_strict=true', f'--junitxml={report}', f'--basetemp={output / "tmp"}']
     argv.extend(['--', *targets])
     environment = {name: os.environ[name] for name in ('PATH', 'LANG', 'LC_ALL', 'SYSTEMROOT') if name in os.environ}

@@ -180,6 +180,7 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Reap an owned process throughout group-absence polling; it may become waitable after the initial permission error.
 - Use globally unique test basenames: pytest's default import mode rejects duplicate names across test directories.
 - Do not edit `src/` while a full test suite or research benchmark is running: implementation fingerprints bind each measurement to unchanged bytes. Finish edits before the final run.
+- Keep validation helpers out of pytest discovery: never name an archive helper `setup.py`, and never add configuration files above active test sandboxes.
 - Model UI projects as one local folder with multiple independent chats; also allow chats without a project, and do not require Git.
 - For UI-only tasks, run interface/browser tests only unless the user requests broader testing.
 - Folder selection must offer a native system dialog; do not require users to type local paths.

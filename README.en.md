@@ -138,6 +138,8 @@ before rollback. Unknown external effects retain ownership until trusted
 reconciliation; group absence alone does not settle effects. Late writes through
 old descriptors survive; owner file replacement blocks rollback. This is an
 internal trusted-local foundation: dispatcher and CLI/API/UI wiring remain open.
+Worker stderr is retained outside the repository copy with a64KiB bound; events
+carry its path, hash, size and truncation status without the error text.
 
 Conflicting reviewed patches retain both immutable versions and create one
 resolution draft with pinned hashes and base. Owner criteria, permissions and
@@ -628,6 +630,8 @@ skipped/xfail, flaky results, timeout and incomplete evidence cannot pass.
 `--reruns 1` retains both attempts; a passing retry never erases a failure.
 Evidence includes snapshot/plan, checksum manifest, verdict, JUnit and observed
 cases. Changed bytes, executable modes, environment or runtime invalidate approval.
+Test roots and configuration are bound to the snapshot; ancestor configuration
+and conftest files cannot change the registered collection or case identities.
 For a selected Git subfolder, snapshot bytes and inventory stay within that
 folder; sibling file names are not included.
 

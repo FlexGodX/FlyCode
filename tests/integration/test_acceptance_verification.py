@@ -76,6 +76,21 @@ def test_real_baseline_negative_target_regression_and_integration(tmp_path):
     assert all('lease' not in attempt for attempt in attempts)
 
 
+@pytest.mark.parametrize(('name', 'contents'), [
+    ('setup.py', '# External archive helper, not part of any subject.\n'),
+    ('pyproject.toml', '[tool.pytest.ini_options]\naddopts = "-k no_registered_test"\n'),
+    ('conftest.py', 'raise RuntimeError("external conftest must not execute")\n'),
+])
+def test_registered_case_ids_and_config_are_isolated_from_evidence_ancestors(tmp_path, name, contents):
+    engine, plan, roots = prepared(tmp_path)
+    (tmp_path / name).write_text(contents)
+    result = engine.verify_plan(plan, roots)
+    assert result.status == 'passed', result.reasons
+    assert {case.id for case in result.cases} == {
+        'test_oracle.py::test_existing', 'test_oracle.py::test_behavior'}
+    assert engine.current(result, roots['integration'], contract=plan.acceptance)
+
+
 @pytest.mark.parametrize('tamper', ['remove_check', 'criteria', 'profile', 'oracle_bytes', 'subject'])
 def test_tampering_is_rejected_before_subprocess(tmp_path, monkeypatch, tamper):
     engine, plan, roots = prepared(tmp_path)

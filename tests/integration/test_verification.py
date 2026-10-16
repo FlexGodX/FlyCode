@@ -41,6 +41,48 @@ def test_real_pytest_outcomes_do_not_confuse_execution_with_success(tmp_path, co
     assert (root / 'test_example.py').read_text() == code
 
 
+@pytest.mark.parametrize(('name', 'configuration'), [
+    ('pytest.ini', '[pytest]\nmarkers = captured_marker: supplied by snapshot\n'),
+    ('.pytest.ini', '[pytest]\nmarkers = captured_marker: supplied by snapshot\n'),
+    ('pyproject.toml', '[tool.pytest.ini_options]\nmarkers = ["captured_marker: supplied by snapshot"]\n'),
+    ('tox.ini', '[pytest]\nmarkers = captured_marker: supplied by snapshot\n'),
+    ('setup.cfg', '[tool:pytest]\nmarkers = captured_marker: supplied by snapshot\n'),
+    ('pytest.toml', '[pytest]\nmarkers = ["captured_marker: supplied by snapshot"]\n'),
+    ('.pytest.toml', '[pytest]\nmarkers = ["captured_marker: supplied by snapshot"]\n'),
+])
+def test_verification_uses_captured_configuration_instead_of_parent_options(tmp_path, name, configuration):
+    from flycode.verification import VerificationEngine
+
+    if name.endswith('pytest.toml') and int(pytest.__version__.split('.')[0]) < 9:
+        pytest.skip('Native TOML configuration needs pytest9')
+    root = project(tmp_path, 'def test_config(pytestconfig):\n'
+        '    assert "captured_marker: supplied by snapshot" in pytestconfig.getini("markers")\n')
+    (root / name).write_text(configuration)
+    if name == 'setup.cfg':
+        (root / 'pyproject.toml').write_text('[project]\nname = "example"\nversion = "0.1.0"\n')
+    (tmp_path / 'pytest.ini').write_text('[pytest]\naddopts = -k no_registered_test\n')
+    engine = VerificationEngine(tmp_path / 'evidence')
+    result = engine.verify(root)
+    assert result.status == 'passed', result.reasons
+    assert [case.id for case in result.cases] == ['test_example.py::test_config']
+    assert engine.current(result, root)
+
+
+@pytest.mark.parametrize(('name', 'configuration'), [
+    ('pyproject.toml', '[tool.pytest.ini_options\n'),
+    ('pytest.ini', '[pytest\n'),
+    ('pyproject.toml', '[tool]\npytest = []\n'),
+    ('pyproject.toml', '[tool]\npytest = ""\n'),
+])
+def test_malformed_captured_configuration_cannot_be_silently_ignored(tmp_path, name, configuration):
+    from flycode.verification import VerificationEngine
+
+    root = project(tmp_path, 'def test_ok(): assert True')
+    (root / name).write_text(configuration)
+    result = VerificationEngine(tmp_path / 'evidence').verify(root)
+    assert result.status == 'inconclusive' and result.required_coverage == 0
+
+
 def test_empty_collection_and_unsupported_hostile_sandbox_never_pass(tmp_path):
     from flycode.verification import VerificationEngine
 

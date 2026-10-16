@@ -326,6 +326,96 @@ def test_missing_real_graph_is_a_startup_failure_without_fake_start_or_inference
 
 
 @pytest.mark.parametrize('owned', [{'assigned': True}], indirect=True)
+@pytest.mark.parametrize('output_size', [96, 262144])
+def test_worker_failure_retains_bounded_stderr_without_start_or_spend(owned, tmp_path, monkeypatch, output_size):
+    import hashlib
+
+    from flycode.orchestration import runtime as module
+    from flycode.orchestration.store import Store
+
+    store, owner, host, workflow, _, attempt, source = owned
+    popen = module.subprocess.Popen
+    marker = b'Traceback: injected startup failure\nInjectedWorkerFailure: diagnostic marker\n'
+    # Fault injection keeps the real process, initial wire handshake and host custody.
+    script = ('import os,socket,sys\nfrom flycode.orchestration import wire\n'
+        'wire.receive(socket.socket(fileno=int(sys.argv[1])))\n'
+        f'data={marker!r}+b"x"*{output_size}\n'
+        'while data:\n    data=data[os.write(2,data):]\n'
+        'os._exit(1)\n')
+    def failed_worker(argv, *args, **kwargs):
+        if 'flycode.orchestration.worker' in argv:
+            argv = [argv[0], '-c', script, *argv[-2:]]
+        return popen(argv, *args, **kwargs)
+    monkeypatch.setattr(module.subprocess, 'Popen', failed_worker)
+    runtime = module.Runtime(store, tmp_path / 'runtime')
+    handle = runtime.launch(host, attempt.id, attempt.fence, source, brain='heuristic_fsm')
+    try:
+        assert handle.finished.wait(10), handle.error
+        assert handle.process_stopped.is_set()
+        record = runtime.worker(owner, attempt.id)
+        assert record.stop_confirmed and record.result_hash is None
+        assert store._attempt(attempt.id).state == 'failed'
+        assert store.workflow(owner, workflow.id).started_at is None
+        assert store.budget(owner, workflow.id).spent.model_calls == 0
+        assert store.budget(owner, workflow.id).spent.tool_calls == 0
+        assert (source / 'src/example.py').read_text() == 'answer = 0\n'
+        connection = Store(store.path)
+        try:
+            stopped = next(event for event in connection.events(owner, workflow.id) if event.kind == 'worker_stopped')
+        finally:
+            connection.close()
+        diagnostic = stopped.data['stderr']
+        retained = (handle.directory / diagnostic['path']).read_bytes()
+        assert retained.startswith(marker) and len(retained) <= 65536
+        assert diagnostic['observed_bytes'] == len(marker) + output_size
+        assert diagnostic['retained_bytes'] == len(retained)
+        assert diagnostic['truncated'] == (output_size == 262144)
+        assert diagnostic['sha256'] == hashlib.sha256(retained).hexdigest()
+        assert 'diagnostic marker' not in stopped.model_dump_json()
+    finally:
+        handle.close()
+
+
+@pytest.mark.parametrize('owned', [{'assigned': True}], indirect=True)
+def test_stop_remains_responsive_while_worker_floods_stderr(owned, tmp_path, monkeypatch):
+    from flycode.orchestration import runtime as module
+
+    store, owner, host, workflow, task, attempt, source = owned
+    popen = module.subprocess.Popen
+    script = ('import os,socket,sys,time\nfrom flycode.orchestration import wire\n'
+        'wire.receive(socket.socket(fileno=int(sys.argv[1])))\n'
+        'while True:\n    os.write(2,b"diagnostic overflow\\n"*512)\n    time.sleep(.001)\n')
+    def noisy_worker(argv, *args, **kwargs):
+        if 'flycode.orchestration.worker' in argv:
+            argv = [argv[0], '-c', script, *argv[-2:]]
+        return popen(argv, *args, **kwargs)
+    monkeypatch.setattr(module.subprocess, 'Popen', noisy_worker)
+    runtime = module.Runtime(store, tmp_path / 'runtime')
+    handle = runtime.launch(host, attempt.id, attempt.fence, source, brain='heuristic_fsm')
+    try:
+        output = handle.directory / 'worker-stderr.log'
+        deadline = time.monotonic() + 5
+        while not output.exists() or output.stat().st_size < 65536:
+            assert time.monotonic() < deadline
+            time.sleep(.01)
+        current = store.task(owner, task.id)
+        started = time.monotonic()
+        store.command(owner, task.id, TaskCommand(operation='cancel', expected_revision=current.revision,
+            idempotency_key='stop-noisy-worker'))
+        assert time.monotonic() - started < .5
+        assert handle.process_stopped.wait(3) and handle.finished.wait(3)
+        assert output.stat().st_size == 65536
+        event = next(e for e in store.events(owner, workflow.id) if e.kind == 'worker_stopped')
+        assert event.data['stderr']['truncated'] and event.data['stderr']['observed_bytes'] > 65536
+        assert store.task(owner, task.id).state == 'cancelled'
+        assert store.budget(owner, workflow.id).reserved.model_calls == 0
+        assert store.budget(owner, workflow.id).spent.model_calls == 0
+        assert (source / 'src/example.py').read_text() == 'answer = 0\n'
+    finally:
+        handle.close()
+
+
+@pytest.mark.parametrize('owned', [{'assigned': True}], indirect=True)
 def test_failed_process_launch_releases_only_the_proven_unstarted_attempt(owned, tmp_path, monkeypatch):
     from flycode.orchestration import runtime as module
 
@@ -344,7 +434,7 @@ def test_failed_process_launch_releases_only_the_proven_unstarted_attempt(owned,
 
 
 @pytest.mark.parametrize('owned', [{'assigned': True}], indirect=True)
-@pytest.mark.parametrize('failure', ['socket', 'home', 'rpc_thread', 'supervisor_thread'])
+@pytest.mark.parametrize('failure', ['socket', 'home', 'stderr_thread', 'rpc_thread', 'supervisor_thread'])
 def test_partial_launch_failure_closes_resources_without_start_or_spend(owned, tmp_path, monkeypatch, failure):
     from flycode.orchestration import runtime as module
     from flycode.verification.runner import _group_gone
@@ -365,9 +455,9 @@ def test_partial_launch_failure_closes_resources_without_start_or_spend(owned, t
         return mkdir(path, *args, **kwargs)
     def start_thread(thread):
         target = getattr(thread, '_target', None)
-        if thread.name == {'rpc_thread': 'flycode-worker-rpc',
+        if thread.name == {'stderr_thread': 'flycode-worker-stderr', 'rpc_thread': 'flycode-worker-rpc',
                            'supervisor_thread': 'flycode-worker-supervisor'}.get(failure) or (
-            getattr(target, '__name__', None) == {'rpc_thread': '_serve',
+            getattr(target, '__name__', None) == {'stderr_thread': '_capture_stderr', 'rpc_thread': '_serve',
                                                 'supervisor_thread': '_supervise'}.get(failure)):
             raise RuntimeError('injected thread creation failure')
         return start(thread)

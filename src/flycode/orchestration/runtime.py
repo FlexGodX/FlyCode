@@ -84,6 +84,7 @@ class WorkerHandle:
     def __init__(self, runtime: Runtime, scope, record, directory, config):
         self.runtime, self.scope, self.record, self.directory = runtime, scope, record, directory
         self.finished, self.process_stopped, self.stopping, self.rpc_done = Event(), Event(), Event(), Event()
+        self.stderr_done, self.stderr_metadata = Event(), None
         self.result, self.error = None, None
         self.message_recipients = frozenset(config.message_recipients)
         self.launch_ready, self.launch_failed = Event(), False
@@ -102,10 +103,11 @@ class WorkerHandle:
             self.process = subprocess.Popen([sys.executable, '-m', 'flycode.orchestration.worker',
                 str(child_rpc.fileno()), str(child_control.fileno())], cwd=directory, env=environment,
                 pass_fds=(child_rpc.fileno(), child_control.fileno()), start_new_session=True,
-                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
             self.record = changed(record, pid=self.process.pid)
             runtime.store.db.execute('UPDATE workers SET data=? WHERE id=?', (self.record.model_dump_json(), record.id))
             wire.send(self.rpc, config.model_dump(mode='json'))
+            Thread(target=self._await_launch, args=(self._capture_stderr,), name='flycode-worker-stderr', daemon=True).start()
             Thread(target=self._await_launch, args=(self._serve,), name='flycode-worker-rpc', daemon=True).start()
             Thread(target=self._await_launch, args=(self._supervise,), name='flycode-worker-supervisor', daemon=True).start()
         except BaseException as error:
@@ -119,6 +121,8 @@ class WorkerHandle:
                     stopped = _group_gone(self.process.pid)
                 except (OSError, subprocess.SubprocessError):
                     stopped = False
+                if self.process.stderr is not None:
+                    self.process.stderr.close()
             self.record = changed(self.record, state='exited' if stopped else 'uncertain',
                 stop_confirmed=stopped, stopped_at=runtime.store.clock() if stopped else None,
                 exit_code=self.process.returncode if hasattr(self, 'process') else None, error=type(error).__name__)
@@ -145,6 +149,27 @@ class WorkerHandle:
     def _connection(self):
         original = self.runtime.store
         return Store(original.path, catalogue=original.catalogue, clock=original.clock)
+
+    def _capture_stderr(self):
+        observed, retained, digest = 0, 0, hashlib.sha256()
+        try:
+            with (self.directory / 'worker-stderr.log').open('xb') as output:
+                while chunk := os.read(self.process.stderr.fileno(), 4096):
+                    observed += len(chunk)
+                    bounded = chunk[:max(0, 65536 - retained)]
+                    output.write(bounded)
+                    output.flush()
+                    digest.update(bounded)
+                    retained += len(bounded)
+                os.fsync(output.fileno())
+            self.stderr_metadata = {'path': 'worker-stderr.log', 'sha256': digest.hexdigest(),
+                'observed_bytes': observed, 'retained_bytes': retained, 'truncated': observed > retained}
+        except OSError as error:
+            self.stderr_metadata = {'error_class': type(error).__name__}
+            self.error = type(error).__name__ + ':stderr_capture'
+        finally:
+            self.process.stderr.close()
+            self.stderr_done.set()
 
     def _serve(self):
         connection = None
@@ -278,6 +303,8 @@ class WorkerHandle:
                 if self.process_stopped.is_set() and self.rpc_done.is_set():
                     break
                 time.sleep(.05)
+            if not self.stderr_done.wait(2):
+                self.stderr_metadata = {'error_class': 'StderrCaptureIncomplete'}
             attempt = connection._attempt(self.record.attempt_id)
             task, workflow = connection.task(self.scope, attempt.task_id), connection.workflow(self.scope, attempt.workflow_id)
             if task.fence != attempt.fence or attempt.state != 'running' or workflow.state != 'running':
@@ -303,7 +330,8 @@ class WorkerHandle:
             with connection.transaction():
                 connection.db.execute('UPDATE workers SET data=? WHERE id=?', (self.record.model_dump_json(), self.record.id))
                 connection._event(self.scope, workflow, 'worker_stopped', task=task, attempt=attempt,
-                    worker_id=self.record.id, exit_code=self.process.returncode, result_hash=self.result)
+                    worker_id=self.record.id, exit_code=self.process.returncode, result_hash=self.result,
+                    stderr=self.stderr_metadata)
             if publish:
                 try:
                     Artifacts(connection, self.runtime.root).publish(self.scope, attempt.id, attempt.fence)

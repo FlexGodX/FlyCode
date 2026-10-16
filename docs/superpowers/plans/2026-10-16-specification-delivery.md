@@ -90,6 +90,30 @@ owner-approved критерии, oracle bytes и составной план. О
 - [x] Verify subprocess tests using `sys.executable`, inspect raw evidence/hash; add verification package to policy identity.
 - [x] Commit verified foundation; unsupported runners/isolation remain blocked, not simulated.
 
+**Snapshot configuration boundary:** the worker-diagnostics full run retained
+57 failing/error cases after an archive helper named `setup.py` changed pytest's
+ancestor discovery. Its baseline/target checks ran, but observed IDs gained the
+archive/sandbox prefix and no longer matched the owner's required IDs. Preserve
+that run; do not rename case IDs or weaken acceptance to match the archive.
+
+Add actual `verify_plan` REDs in `test_acceptance_verification.py` for an external
+parent `setup.py`, a parent pyproject selecting no registered tests, and a parent
+conftest that raises. All must retain the same exact two oracle case IDs and pass
+the registered plan. In `verification/runner.py`, select configuration only from
+the captured sandbox root; retain supported captured pytest configuration and
+use an empty evidence-side config when none is present. Register explicit args:
+
+```python
+['-c', str(config), '--rootdir', str(sandbox), '--confcutdir', str(sandbox)]
+```
+
+Keep generated policy files outside subject bytes. Add preservation checks for
+captured ini/TOML/tox/setup configuration, including a package-only pyproject
+beside a real setup.cfg; malformed captured config must remain inconclusive.
+Verify the full acceptance/retry set, then freeze a new identity before repeating
+the complete collection and downstream package/graph/model checks. Archive helper
+scripts must not introduce pytest configuration names above active sandboxes.
+
 ### Task 3a: Доверенный контракт приёмки и составной план (оставшаяся фаза 21)
 
 **Files:** create `src/flycode/verification/plan.py`, `src/flycode/verification/oracle.py`, `tests/unit/verification/test_plan.py`; modify `domain/verification.py`, `verification/engine.py`, `verification/verdict.py`, `tests/integration/test_verification.py`.
@@ -184,6 +208,27 @@ Ruff/mypy pass; extracted wheel persists/reopens the queue and runs CLI `brains`
 - [ ] GREEN: event-driven workers, heartbeat10s/lease30s, transaction outbox/inbox, shared budgets4instances/64tasks/3attempts/60model/120tools/30min and verification reserve20%.
 - [ ] Verify pause/cancel/retry do not reset budget; no new assignments after stop; user-owned resources untouched.
 - [ ] Commit and expose tracker API/activity from same event stream.
+
+**Task5 worker-failure feedback:** the retained real-model resolution after
+`97cd64e` has an exited1 worker with no artifact and no conclusive traceback.
+Before another model case, add a real process fault test in
+`tests/unit/orchestration/test_runtime_process.py`: consume the initial worker
+configuration, emit an identifiable traceback to stderr and exit1 before Ready.
+Assert host-side diagnostics retain that marker, the source and model/tool spend
+stay unchanged, no successful artifact is published and restart retains the
+diagnostic metadata. Repeat with stderr larger than a pipe buffer: output must
+drain without blocking while at most65,536 bytes are stored, with explicit
+truncation and the actual observed size. These injected failures test diagnostics;
+they do not establish the cause of the earlier unobserved exit.
+
+Use a continuously drained stderr pipe in `orchestration/runtime.py`; direct file
+redirection has no output bound. Save bounded bytes and their hash outside the
+repository copy, then bind only path/hash/size/truncation metadata to the canonical
+`worker_stopped` event. Start capture alongside the existing RPC/supervisor and
+close its pipe on partial-launch failure. Keep process custody, stop confirmation,
+fencing and completion authority unchanged. Run the targeted process tests before
+the next complete frozen-source verification; retain the RED and large-output
+checks with the existing failed model case.
 
 **Task5 lease foundation:** `Store.heartbeat` renews only current unexpired
 ownership by 30s. `Store.expire` revokes expired attempts into reconciling,
