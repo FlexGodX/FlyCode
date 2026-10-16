@@ -18,9 +18,10 @@ from .store import Store, StoreError
 
 class AttemptCortex:
     def __init__(self, store: Store, scope, attempt_id: str, fence: int,
-                 should_stop: Callable[[], bool] = lambda: False):
+                 should_stop: Callable[[], bool] = lambda: False, *, message_recipients=()):
         self.store, self.scope, self.attempt_id, self.fence = store, scope, attempt_id, fence
         self.should_stop = should_stop
+        self.message_recipients = tuple(message_recipients)
         attempt, _, workflow = store._owned(scope, attempt_id, fence, running=True)
         profile = attempt.profile_snapshot
         if not store._binding_current(profile) or profile.loaded_instance_id is None:
@@ -67,16 +68,40 @@ class AttemptCortex:
             raise StoreError('incomplete')
         text = (f'{attempt.profile_snapshot.instructions}\n\nObjective:\n{task.objective}\n\n'
                 f'Acceptance contract:\n{task.acceptance.model_dump_json()}')
+        base_text = text
+        tools = list(task.permissions.tools)
+        if 'send_message' in tools:
+            if not self.message_recipients:
+                tools.remove('send_message')
+            else:
+                text += ('\n\nHost-approved send_message recipients: ' + json.dumps(self.message_recipients)
+                    + '\nArguments: recipients (1..3 listed IDs), content, optional causation_id, ttl_seconds (0..300),'
+                    ' artifacts ([{id,sha256}] from approved inputs only). Content has kind and its typed fields:'
+                    ' task_request/objective; question/question; answer/answer; progress/summary (optional step);'
+                    ' artifact_ready/summary (requires artifacts); review_result/recommendation+summary'
+                    ' (approve|changes_requested|inconclusive); handoff/summary; cancel/reason.'
+                    ' Answers address the question sender and set causation_id to its message_id.'
+                    ' The host supplies sender, ownership and idempotency. Sending does not wait for an answer'
+                    ' or change task status, permissions, cancellation or review approval.')
         observation = context.observation.model_copy(update={'task': task.objective, 'task_id': task.id})
-        return context.model_copy(update={'task': text, 'observation': observation,
-            'candidate_tools': list(dict.fromkeys([*task.permissions.tools, 'stop']))})
+        result = context.model_copy(update={'task': text, 'observation': observation,
+            'candidate_tools': list(dict.fromkeys([*tools, 'stop']))})
+        if 'send_message' in tools and not self.core.reasoner.context_fits(result):
+            result = result.model_copy(update={'task': base_text,
+                'candidate_tools': [tool for tool in result.candidate_tools if tool != 'send_message']})
+            with self.store.transaction():
+                attempt, task, workflow = self.store._owned(self.scope, self.attempt_id, self.fence, running=True)
+                self.store._event(self.scope, workflow, 'message_tool_context_deferred', task=task, attempt=attempt)
+        return result
 
     def generate_candidates(self, context: CortexContext):
         if self.store.db.in_transaction:
             raise RuntimeError('Model transport cannot run in a SQLite transaction')
         context = self._context(context)
         bus = Messages(self.store)
-        pending = bus.pending(self.scope, self.attempt_id, self.fence)
+        pending = sorted([*bus.pending(self.scope, self.attempt_id, self.fence),
+            *bus.remembered(self.scope, self.attempt_id, self.fence)],
+            key=lambda message: message.content.kind == 'progress')
         included: list[str] = []
         excerpts: list[str] = []
         omitted = []
@@ -109,9 +134,10 @@ class AttemptCortex:
             context = with_messages(excerpts)
         before = self.core.reasoner.request_count
         candidates = self.core.generate_candidates(context)
-        if self.core.reasoner.request_count > before and not self.core.last_routing.error:
-            for identity in included:
-                bus.acknowledge(self.scope, self.attempt_id, self.fence, identity)
+        if (self.core.reasoner.request_count > before and not self.core.last_routing.error
+                and included and not bus.accept_context(self.scope, self.attempt_id, self.fence, included)):
+            self.core.last_routing.error = 'message_context_stale'
+            return []
         return [item.model_copy(update={'id': uuid4().hex}) for item in candidates]
 
     def consolidate(self, context: CortexContext, transcript: list[str]) -> str:

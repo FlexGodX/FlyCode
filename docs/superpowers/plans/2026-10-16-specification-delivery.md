@@ -255,9 +255,10 @@ and real two-worker HTTP/context delivery checks.
   and extract the wheel, repeat message/process checks outside the checkout,
   update handoff/Plan/README RU/EN, then commit and push the verified increment.
 
-Working limits of this slice: worker routes currently emit real controller
+Working limits at checkpoint5889867: worker routes emit real controller
 progress; all eight kinds are available through the typed host/RPC contract,
-but model-selected message tools and child-wait dispatch still need connection.
+but model-selected message tools and child-wait dispatch still needed connection.
+The model-selected communication slice below connects the former.
 Artifact references are approved task-input hashes, not a generated-artifact
 registry or review gate. Late answers bind both original participants' attempts;
 question broadcasts tolerate an unavailable first peer. Context preflight reuses
@@ -273,6 +274,51 @@ outside the checkout, as did CLI `brains`. Relevant Ruff/mypy pass. Handoff
 records failures, final timings and wheel fingerprint; Task5 remains open.
 
 **Runtime implementation constraints:**
+
+**Model-selected communication slice:** extend canonical permission validation
+with `send_message`, leaving the legacy tool catalogue unchanged. `tools.py`
+validates the existing closed `MessageDraft` arguments with a host-derived
+action idempotency key. `Messages.execute` admits/debits the selected tool before
+publishing, checks host-approved routes, and records its actual outcome. The
+worker forwards this action over its inherited RPC; `AttemptEnvironment` uses
+the existing observation/transition bookkeeping through a narrow tool-dispatch
+override. `AttemptCortex` exposes the tool and bounded argument guidance only
+when both permission and explicit host routes exist. Recipients and causation
+come from labeled envelopes, never inferred task authority.
+
+- [x] RED→GREEN: actual question publication spends one tool, records start/end,
+  rejects replay, and leaves project bytes/status unchanged.
+- [x] RED→GREEN: unapproved tools/routes, malformed or forged server fields,
+  budget exhaustion, stale fences and cancelled attempts cannot publish.
+- [x] RED→GREEN: broker rejection after admission records a failed tool without
+  cancelling unrelated execution or refunding spending.
+- [x] RED→GREEN: two real workers select question/answer from actual HTTP
+  candidates, preserve original causal IDs, and retain source bytes.
+- [x] RED→GREEN: substantive messages precede controller progress in the bounded
+  prompt; accepted questions/answers survive a later decision without a second
+  receipt. Closed questions, expired/revoked data and losing answers stay out.
+  Communication guidance that cannot fit emits `message_tool_context_deferred`
+  and leaves the otherwise valid primary request available without that tool.
+- [x] RED→GREEN: blocked actual HTTP plus sender revocation/TTL expiry invalidates
+  candidates influenced by either pending or already received data. Post-inference
+  `Messages.accept_context` atomically rechecks dependencies and records consumed
+  deliveries. Historical receipts cannot bypass current authority. Invalidated
+  decisions emit metadata and `message_context_stale`, retaining actual model
+  spending rather than returning an executable candidate.
+- [x] Verify the full suite, relevant Ruff/mypy and extracted-wheel execution;
+  retain accurate README/handoff/Plan status before the checked commit/push.
+
+Verification of this slice:84 message checks pass, including four blocked-HTTP
+invalidation cases; final full suite673 passed/8 skipped in381.62s on unchanged
+source. All225 orchestration/local-cortex/process-cleanup cases passed on the
+extracted release wheel outside the checkout in126.35s, and extracted CLI
+`brains` passed. Relevant Ruff/mypy14 source files pass. A prior full run's
+research identity failure is retained in handoff: source changed during that
+measurement, and its guard correctly rejected stale evidence. The final run
+preserves the guard and source bytes. One live Qwen primary probe timed out;
+there was no subsequent task inference, fallback or live communication claim.
+This connects selected communication, not child-wait dispatch, shared legacy/
+probe admission, review/integration/completion or orchestration admission.
 
 **Task5 owned-process increment:** `Runtime.launch` consumes the current committed
 attempt, fixes an independent workspace and reserves one worker session per

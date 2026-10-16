@@ -127,8 +127,14 @@ envelope, up to3 explicit recipients,5minute TTL and4 forwarding hops. Late
 answers cannot move into a replacement attempt. Explicitly approved worker routes
 send actual activity to a peer's bounded model context with source/revision.
 Insufficient context defers messages without stopping a valid baseline request.
-Messages grant no permissions or task completion. Model-selected communication
-and the messaging UI remain unfinished.
+Messages grant no permissions or task completion. With `send_message` permission
+and explicit host routes, the model can select a typed message action. RPC checks
+recipients and debits the shared tool budget before publication; replay after a
+host identity change cannot debit again. Questions and accepted answers remain
+available for later decisions within their original lifetime and permissions;
+activity notifications yield context space to substantive messages. The messaging
+UI and child-wait dispatcher remain unfinished. Message lifetime and authority are
+checked again after model inference; invalidated decisions cannot execute.
 
 ## First run without an API key
 

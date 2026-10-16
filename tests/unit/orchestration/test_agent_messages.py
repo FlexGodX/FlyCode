@@ -14,6 +14,17 @@ from flycode.domain.orchestration import (
 )
 from flycode.orchestration.store import Store, StoreError
 
+MESSAGE_TOOLS = ('read_file', 'list_files', 'search', 'edit_file', 'create_file', 'run_tests', 'send_message')
+
+
+def test_canonical_communication_permission_can_register_a_read_only_researcher():
+    from flycode.domain.orchestration import AgentProfileDraft, ExecutionPermission
+
+    permission = ExecutionPermission(approved=True, tools=('send_message',), read_scopes=('.',))
+    profile = AgentProfileDraft(role='researcher', model_ref='registered-primary', instructions='Inspect the boundary.',
+        project_ids=('project',), permissions=permission, context_limit=8192)
+    assert profile.permissions.tools == ('send_message',) and not profile.permissions.write_scopes
+
 
 def add_peer(store, owner, host, workflow, first, **changes):
     task = store.task(owner, first.task_id)
@@ -763,3 +774,426 @@ def test_late_answer_keeps_obsolete_recipient_contract_links_only_for_audit(peer
     receipt = bus.acknowledge(host, third.id, third.fence, answer.id)
     assert receipt.outcome == 'audit' and receipt.reason == 'stale_recipient'
     assert store.db.execute('SELECT answer_id FROM message_questions').fetchone()[0] is None
+
+
+@pytest.mark.parametrize('owned', [{'tools': MESSAGE_TOOLS}], indirect=True)
+def test_selected_message_tool_debits_before_publication_and_cannot_replay(peers):
+    from flycode.domain import ToolAction
+    from flycode.orchestration.messages import Messages
+    from flycode.orchestration.tools import Tools
+
+    store, owner, host, workflow, first, second, source, _ = peers
+    action = ToolAction(id='selected-question', tool='send_message', arguments={
+        'recipients': [second.instance_id], 'content': {'kind': 'question', 'question': 'Which boundary needs a test?'}})
+    bus = Messages(store)
+    result = bus.execute(host, first.id, first.fence, root=source, action=action, routes=(second.instance_id,))
+    assert result.success
+    sent, = bus.journal(owner, workflow.id)
+    assert result.payload == {'message_ids': [sent.id]}
+    assert sent.content.kind == 'question' and sent.sender_id == first.instance_id
+    assert sent.idempotency_key == 'tool:selected-question'
+    assert store.budget(owner, workflow.id).spent.tool_calls == 1
+    call, = Tools(store).calls(owner, workflow.id)
+    assert call.tool == 'send_message' and call.status == 'completed'
+    events = store.events(owner, workflow.id)
+    assert [item.kind for item in events if item.kind in {'tool_start', 'message_sent', 'tool_end'}] == [
+        'tool_start', 'message_sent', 'tool_end']
+    assert not bus.execute(host, first.id, first.fence, root=source, action=action,
+        routes=(second.instance_id,)).success
+    assert len(bus.journal(owner, workflow.id)) == 1
+    assert store.budget(owner, workflow.id).spent.tool_calls == 1
+    assert store.task(owner, first.task_id).state == 'running'
+    assert (source / 'src/example.py').read_text() == 'answer = 0\n'
+
+
+@pytest.mark.parametrize('owned', [{'tools': MESSAGE_TOOLS}], indirect=True)
+@pytest.mark.parametrize('routes', [False, True])
+def test_actual_model_schema_exposes_communication_only_with_host_routes(peers, model_server, routes):
+    from flycode.domain import Observation
+    from flycode.llm.protocol import CortexContext
+    from flycode.orchestration.cortex import AttemptCortex
+
+    store, _, host, _, first, second, _, _ = peers
+    cortex = AttemptCortex(store, host, first.id, first.fence,
+        message_recipients=(second.instance_id,) if routes else ())
+    cortex.generate_candidates(CortexContext(task='Inspect.', behavior_mode='explore', observation=Observation(task='Inspect.')))
+    request = model_server.requests[-1]
+    tools = request['response_format']['json_schema']['schema']['properties']['candidates']['items']['properties']['tool']['enum']
+    assert ('send_message' in tools) == routes
+    prompt = request['messages'][-1]['content']
+    assert (second.instance_id in prompt) == routes
+    if routes:
+        assert 'causation_id' in prompt and 'question' in prompt and 'answer' in prompt
+
+
+def test_addressed_question_is_not_starved_by_earlier_controller_progress(peers, model_server):
+    from flycode.domain import Observation
+    from flycode.llm.protocol import CortexContext
+    from flycode.orchestration.cortex import AttemptCortex
+    from flycode.orchestration.messages import Messages
+
+    store, _, host, _, first, second, _, _ = peers
+    bus = Messages(store)
+    progress, = bus.send(host, first.id, first.fence, draft(second, key='progress', text='Controller entered explore at step 1.'))
+    question, = bus.send(host, first.id, first.fence, draft(second, key='question', kind='question',
+        text='Which boundary should receive a regression test?'))
+    AttemptCortex(store, host, second.id, second.fence).generate_candidates(CortexContext(
+        task='Inspect.', behavior_mode='explore', observation=Observation(task='Inspect.')))
+    prompt = model_server.requests[-1]['messages'][-1]['content']
+    assert 'Which boundary should receive a regression test?' in prompt
+    assert question.id in prompt and bus.pending(host, second.id, second.fence) == [progress]
+
+
+def test_received_question_remains_available_for_a_later_model_decision(peers, model_server):
+    from flycode.domain import Observation
+    from flycode.llm.protocol import CortexContext
+    from flycode.orchestration.cortex import AttemptCortex
+    from flycode.orchestration.messages import Messages
+
+    store, owner, host, workflow, first, second, _, _ = peers
+    bus = Messages(store)
+    question, = bus.send(host, first.id, first.fence, draft(second, kind='question', text='Which empty boundary should we verify?'))
+    context = CortexContext(task='Inspect.', behavior_mode='explore', observation=Observation(task='Inspect.'))
+    cortex = AttemptCortex(store, host, second.id, second.fence)
+    assert cortex.generate_candidates(context)
+    assert not bus.pending(host, second.id, second.fence)
+    assert cortex.generate_candidates(context)
+    prompt = model_server.requests[-1]['messages'][-1]['content']
+    assert 'Which empty boundary should we verify?' in prompt and question.id in prompt
+    assert sum(item.kind == 'message_received' for item in store.events(owner, workflow.id)) == 1
+
+
+def test_remembered_context_keeps_only_accepted_winning_answer_and_closes_question(peers):
+    from flycode.orchestration.messages import Messages
+
+    store, _, host, _, first, second, _, _ = peers
+    bus = Messages(store)
+    question, = bus.send(host, first.id, first.fence, draft(second, kind='question'))
+    bus.acknowledge(host, second.id, second.fence, question.id)
+    assert bus.remembered(host, second.id, second.fence) == [question]
+    winner, = bus.send(host, second.id, second.fence, draft(first, key='winner', kind='answer', causation_id=question.id))
+    other, = bus.send(host, second.id, second.fence, draft(first, key='other', kind='answer', causation_id=question.id))
+    assert bus.acknowledge(host, first.id, first.fence, winner.id).outcome == 'received'
+    assert bus.acknowledge(host, first.id, first.fence, other.id).outcome == 'audit'
+    assert bus.remembered(host, first.id, first.fence) == [winner]
+    assert not bus.remembered(host, second.id, second.fence)
+
+
+@pytest.mark.parametrize('condition', ['expired', 'revoked_sender', 'revoked_recipient'])
+def test_remembered_context_cannot_reintroduce_expired_or_revoked_messages(peers, condition):
+    from flycode.orchestration.messages import Messages
+
+    store, owner, host, _, first, second, _, now = peers
+    bus = Messages(store)
+    question, = bus.send(host, second.id, second.fence, draft(first, kind='question', ttl_seconds=1))
+    bus.acknowledge(host, first.id, first.fence, question.id)
+    if condition == 'expired':
+        now[0] += 2
+    else:
+        task = store.task(owner, second.task_id if condition == 'revoked_sender' else first.task_id)
+        store.command(owner, task.id, TaskCommand(operation='pause', expected_revision=task.revision,
+            idempotency_key='revoke-remembered'))
+    if condition == 'revoked_recipient':
+        with pytest.raises(StoreError, match='fence'):
+            bus.remembered(host, first.id, first.fence)
+    else:
+        assert not bus.remembered(host, first.id, first.fence)
+
+
+@pytest.mark.parametrize('received', [False, True])
+@pytest.mark.parametrize('condition', ['expired', 'revoked_sender'])
+def test_context_invalidated_during_actual_http_cannot_publish_candidates(peers, model_server, received, condition):
+    from threading import Event
+
+    from flycode.domain import Observation
+    from flycode.llm.protocol import CortexContext
+    from flycode.orchestration.cortex import AttemptCortex
+    from flycode.orchestration.messages import Messages
+
+    store, owner, host, workflow, first, second, _, now = peers
+    bus = Messages(store)
+    question, = bus.send(host, second.id, second.fence, draft(first, kind='question', ttl_seconds=1,
+        text='Inspect the empty boundary before editing.'))
+    if received:
+        bus.acknowledge(host, first.id, first.fence, question.id)
+    entered, release = Event(), Event()
+    def response(request):
+        assert question.id in request['messages'][-1]['content']
+        assert 'Inspect the empty boundary before editing.' in request['messages'][-1]['content']
+        entered.set()
+        assert release.wait(5)
+        return model_server.completion('{"candidates":[{"tool":"read_file","arguments":{"path":"src/example.py"}}]}')
+    model_server.respond = response
+    def infer():
+        connection = Store(store.path, catalogue=store.catalogue, clock=store.clock)
+        try:
+            cortex = AttemptCortex(connection, host, first.id, first.fence)
+            candidates = cortex.generate_candidates(CortexContext(task='Inspect.', behavior_mode='explore',
+                observation=Observation(task='Inspect.')))
+            return candidates, cortex.last_routing.error
+        finally:
+            connection.close()
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(infer)
+        try:
+            assert entered.wait(5)
+            if condition == 'expired':
+                now[0] += 2
+            else:
+                task = store.task(owner, second.task_id)
+                store.command(owner, task.id, TaskCommand(operation='pause', expected_revision=task.revision,
+                    idempotency_key='revoke-during-http'))
+        finally:
+            release.set()
+        candidates, error = future.result(timeout=5)
+    assert candidates == [] and error == 'message_context_stale'
+    assert store.budget(owner, workflow.id).spent.model_calls == 1
+    assert store._attempt(first.id).state == 'running'
+    assert any(item.kind == 'message_context_invalidated' for item in store.events(owner, workflow.id))
+
+
+@pytest.mark.parametrize('owned', [{'tools': MESSAGE_TOOLS}], indirect=True)
+def test_communication_guidance_cannot_overflow_an_otherwise_valid_request(peers, model_server):
+    import json
+
+    from flycode.domain import Observation
+    from flycode.llm.protocol import CortexContext
+    from flycode.orchestration.cortex import AttemptCortex
+
+    store, owner, host, workflow, first, second, _, _ = peers
+    context = CortexContext(task='Inspect.', behavior_mode='explore', observation=Observation(task='Inspect.'), working_memory=[''])
+    assert AttemptCortex(store, host, first.id, first.fence).generate_candidates(context)
+    request = model_server.requests[-1]
+    padding = 8192 - request['max_tokens'] - len(json.dumps(request['messages'], ensure_ascii=False).encode()) - 100
+    assert padding > 0
+    context = context.model_copy(update={'working_memory': ['X' * padding]})
+    before = len(model_server.requests)
+    candidates = AttemptCortex(store, host, first.id, first.fence,
+        message_recipients=(second.instance_id,)).generate_candidates(context)
+    assert candidates and len(model_server.requests) == before + 1
+    tools = model_server.requests[-1]['response_format']['json_schema']['schema']['properties']['candidates']['items']['properties']['tool']['enum']
+    assert 'send_message' not in tools and 'read_file' in tools
+    assert store.budget(owner, workflow.id).spent.model_calls == 2
+    assert any(item.kind == 'message_tool_context_deferred' for item in store.events(owner, workflow.id))
+
+
+@pytest.mark.parametrize('owned', [{'tools': MESSAGE_TOOLS}], indirect=True)
+async def test_message_execution_uses_normal_observation_without_double_spending(peers):
+    from flycode.domain import TaskSpec, ToolAction
+    from flycode.orchestration.environment import AttemptEnvironment
+    from flycode.orchestration.messages import Messages
+    from flycode.orchestration.tools import Tools
+
+    store, owner, host, workflow, first, second, source, _ = peers
+    def execute(action):
+        return Messages(store).execute(host, first.id, first.fence, root=source, action=action, routes=(second.instance_id,))
+    environment = AttemptEnvironment(source, store, host, first.id, first.fence, message_executor=execute)
+    before = await environment.reset(TaskSpec(id=first.task_id, task='Inspect.'))
+    result = await environment.step(ToolAction(id='one-message', tool='send_message', arguments={
+        'recipients': [second.instance_id], 'content': {'kind': 'progress', 'summary': 'Inspection is underway.'}}))
+    assert result.success and result.current.step_number == before.step_number + 1
+    assert result.current.tool_calls_used == 1 and result.tool_call_index == 1
+    assert result.current.tests_status == before.tests_status and result.current.recent_errors == before.recent_errors
+    assert len(Tools(store).calls(owner, workflow.id)) == 1
+    assert store.budget(owner, workflow.id).spent.tool_calls == 1
+    assert not environment.is_done()
+
+
+@pytest.mark.parametrize('owned', [{'tools': MESSAGE_TOOLS}], indirect=True)
+def test_two_workers_select_question_and_answer_through_real_http_and_rpc(peers, tmp_path, model_server):
+    import json
+    import time
+
+    from flycode.orchestration.messages import Messages
+    from flycode.orchestration.runtime import Runtime
+    from flycode.orchestration.tools import Tools
+
+    store, owner, host, workflow, first, _, source, _ = peers
+    permission = store.task(owner, first.task_id).permissions.model_copy(update={
+        'write_scopes': (), 'tools': ('read_file', 'send_message')})
+    second = add_peer(store, owner, host, workflow, first, permissions=permission)
+    (source / 'tests/test_example.py').write_text(
+        'import time\nfrom pathlib import Path\n'
+        'def test_example():\n'
+        '    Path("test-started").touch()\n'
+        '    deadline = time.monotonic() + 20\n'
+        '    while not Path("release-test").exists():\n'
+        '        assert time.monotonic() < deadline\n'
+        '        time.sleep(.02)\n')
+    original = (source / 'tests/test_example.py').read_bytes()
+    question_id = [None]
+    requests = {'first': 0, 'second': 0}
+    def response(request):
+        tools = request['response_format']['json_schema']['schema']['properties']['candidates']['items']['properties']['tool']['enum']
+        if 'run_tests' in tools:
+            requests['first'] += 1
+            candidate = {'tool': 'send_message', 'arguments': {'recipients': [second.instance_id],
+                'content': {'kind': 'question', 'question': 'Which boundary should receive a regression test?'}}} if requests['first'] == 1 else {'tool': 'run_tests'}
+        else:
+            requests['second'] += 1
+            if requests['second'] == 1:
+                prompt = request['messages'][-1]['content']
+                assert question_id[0] in prompt
+                assert 'Which boundary should receive a regression test?' in prompt
+                envelope, = [json.loads(line) for line in prompt.splitlines()
+                    if line.startswith('{"message_id"') and json.loads(line)['content']['kind'] == 'question']
+                assert envelope['sender_id'] == first.instance_id
+            candidate = {'tool': 'send_message', 'arguments': {'recipients': [first.instance_id],
+                'causation_id': envelope['message_id'], 'content': {'kind': 'answer', 'answer': 'Test the empty-input boundary.'}}} if requests['second'] == 1 else {
+                    'tool': 'read_file', 'arguments': {'path': 'src/example.py'}}
+        return model_server.completion(json.dumps({'candidates': [candidate]}))
+    model_server.respond = response
+    runtime = Runtime(store, tmp_path / 'runtime')
+    sender = runtime.launch(host, first.id, first.fence, source, brain='heuristic_fsm', message_recipients=(second.instance_id,))
+    receiver = None
+    copy = runtime.workspaces.repository(owner, first.id)
+    try:
+        deadline = time.monotonic() + 12
+        while not (copy / 'test-started').exists():
+            assert time.monotonic() < deadline, sender.error
+            time.sleep(.02)
+        question, = [item for item in Messages(store).journal(owner, workflow.id) if item.content.kind == 'question']
+        question_id[0] = question.id
+        receiver = runtime.launch(host, second.id, second.fence, source, brain='heuristic_fsm', message_recipients=(first.instance_id,))
+        deadline = time.monotonic() + 10
+        while not any(item.content.kind == 'answer' for item in Messages(store).journal(owner, workflow.id)):
+            assert time.monotonic() < deadline, receiver.error
+            time.sleep(.02)
+        answer, = [item for item in Messages(store).journal(owner, workflow.id) if item.content.kind == 'answer']
+        assert answer.causation_id == question.id and answer.correlation_id == question.correlation_id
+        assert answer.recipient_attempt_id == first.id and answer.attempt_id == second.id
+        assert answer.content.answer == 'Test the empty-input boundary.'
+        calls = [item for item in Tools(store).calls(owner, workflow.id) if item.tool == 'send_message']
+        assert len(calls) == 2 and all(item.status == 'completed' for item in calls)
+        assert sender.process.poll() is None
+        (copy / 'release-test').touch()
+        assert sender.finished.wait(12) and receiver.finished.wait(12)
+        assert sender.error is None and receiver.error is None
+        assert (source / 'tests/test_example.py').read_bytes() == original
+        assert not (source / 'test-started').exists()
+        assert store.task(owner, first.task_id).state != 'succeeded'
+    finally:
+        (copy / 'release-test').touch()
+        sender.close()
+        assert sender.finished.wait(10)
+        if receiver is not None:
+            receiver.close()
+            assert receiver.finished.wait(10)
+
+
+@pytest.mark.parametrize('owned', [{'tools': MESSAGE_TOOLS}], indirect=True)
+@pytest.mark.parametrize('change,code', [
+    ({'sender_id': 'forged'}, 'invalid_message'),
+    ({'idempotency_key': 'model-owned'}, 'permission'),
+    ({'content': {'kind': 'question', 'question': 'Inspect?', 'permissions': {'approved': True}}}, 'invalid_message'),
+    ({'content': {'kind': 'unknown', 'summary': 'Inspect.'}}, 'invalid_message'),
+    ({'recipients': []}, 'invalid_message'),
+    ({'ttl_seconds': 301}, 'invalid_message'),
+    ({'recipients': ['unapproved-instance']}, 'message_route'),
+])
+def test_model_arguments_cannot_forge_host_fields_or_expand_routes(peers, change, code):
+    from flycode.domain import ToolAction
+    from flycode.orchestration.messages import Messages
+    from flycode.orchestration.tools import Tools
+
+    store, owner, host, workflow, first, second, source, _ = peers
+    arguments = {'recipients': [second.instance_id], 'content': {'kind': 'question', 'question': 'Inspect?'}}
+    arguments.update(change)
+    result = Messages(store).execute(host, first.id, first.fence, root=source,
+        action=ToolAction(id='invalid', tool='send_message', arguments=arguments), routes=(second.instance_id,))
+    assert not result.success and result.error_message == code
+    assert not Messages(store).journal(owner, workflow.id) and not Tools(store).calls(owner, workflow.id)
+    assert store.budget(owner, workflow.id).spent.tool_calls == 0
+
+
+def test_route_alone_cannot_grant_communication_permission(peers):
+    from flycode.domain import ToolAction
+    from flycode.orchestration.messages import Messages
+
+    store, owner, host, workflow, first, second, source, _ = peers
+    result = Messages(store).execute(host, first.id, first.fence, root=source,
+        action=ToolAction(id='no-permission', tool='send_message', arguments={'recipients': [second.instance_id],
+            'content': {'kind': 'progress', 'summary': 'Inspecting.'}}), routes=(second.instance_id,))
+    assert not result.success and result.error_message == 'permission'
+    assert not Messages(store).journal(owner, workflow.id)
+    assert store.budget(owner, workflow.id).spent.tool_calls == 0
+
+
+@pytest.mark.parametrize('owned', [{'tools': MESSAGE_TOOLS}], indirect=True)
+def test_broker_rejection_is_a_spent_failed_tool_and_does_not_cancel_agent(peers):
+    from flycode.domain import ToolAction
+    from flycode.orchestration.messages import Messages
+    from flycode.orchestration.tools import Tools
+
+    store, owner, host, workflow, first, second, source, _ = peers
+    result = Messages(store).execute(host, first.id, first.fence, root=source,
+        action=ToolAction(id='missing-question', tool='send_message', arguments={'recipients': [second.instance_id],
+            'content': {'kind': 'answer', 'answer': 'An answer without a question.'}}), routes=(second.instance_id,))
+    assert not result.success and result.error_message == 'causation'
+    call, = Tools(store).calls(owner, workflow.id)
+    assert call.status == 'failed' and call.error_class == 'causation'
+    assert store.budget(owner, workflow.id).spent.tool_calls == 1
+    assert not Messages(store).journal(owner, workflow.id)
+    assert store._attempt(first.id).state == 'running'
+    following, _ = Tools(store).begin(host, first.id, first.fence, root=source,
+        action=ToolAction(id='next-inspection', tool='read_file', arguments={'path': 'src/example.py'}))
+    assert following.status == 'running'
+
+
+@pytest.mark.parametrize('owned', [{'tools': MESSAGE_TOOLS}], indirect=True)
+def test_message_tool_cannot_exceed_shared_tool_budget(peers):
+    from flycode.domain import ToolAction
+    from flycode.orchestration.messages import Messages
+
+    store, owner, host, workflow, first, second, source, _ = peers
+    bus = Messages(store)
+    for number in range(3):
+        assert bus.execute(host, first.id, first.fence, root=source, routes=(second.instance_id,),
+            action=ToolAction(id=f'message-{number}', tool='send_message', arguments={'recipients': [second.instance_id],
+                'content': {'kind': 'progress', 'summary': f'Inspection {number}.'}})).success
+    with pytest.raises(StoreError, match='budget_exhausted'):
+        bus.execute(host, first.id, first.fence, root=source, routes=(second.instance_id,),
+            action=ToolAction(id='message-4', tool='send_message', arguments={'recipients': [second.instance_id],
+                'content': {'kind': 'progress', 'summary': 'Unfunded inspection.'}}))
+    assert len(bus.journal(owner, workflow.id)) == 3
+    assert store.budget(owner, workflow.id).spent.tool_calls == 3
+
+
+@pytest.mark.parametrize('owned', [{'tools': MESSAGE_TOOLS}], indirect=True)
+def test_selected_message_replay_after_host_restart_does_not_debit_twice(peers):
+    from flycode.domain import ToolAction
+    from flycode.orchestration.messages import Messages
+    from flycode.orchestration.tools import Tools
+
+    store, owner, host, workflow, first, second, source, _ = peers
+    action = ToolAction(id='stable-action', tool='send_message', arguments={'recipients': [second.instance_id],
+        'content': {'kind': 'progress', 'summary': 'One durable inspection notification.'}})
+    assert Messages(store).execute(host, first.id, first.fence, root=source, action=action, routes=(second.instance_id,)).success
+    restarted = Store(store.path, catalogue=store.catalogue, clock=store.clock)
+    try:
+        new_host = host.model_copy(update={'actor_id': 'host-after-restart'})
+        result = Messages(restarted).execute(new_host, first.id, first.fence, root=source, action=action, routes=(second.instance_id,))
+        assert not result.success and result.error_message == 'request_replay'
+        assert len(Messages(restarted).journal(owner, workflow.id)) == 1
+        assert len(Tools(restarted).calls(owner, workflow.id)) == 1
+        assert restarted.budget(owner, workflow.id).spent.tool_calls == 1
+    finally:
+        restarted.close()
+
+
+@pytest.mark.parametrize('owned', [{'tools': MESSAGE_TOOLS}], indirect=True)
+@pytest.mark.parametrize('operation', ['pause', 'cancel'])
+def test_revoked_attempt_cannot_publish_selected_messages(peers, operation):
+    from flycode.domain import ToolAction
+    from flycode.orchestration.messages import Messages
+
+    store, owner, host, workflow, first, second, source, _ = peers
+    current = store.task(owner, first.task_id)
+    store.command(owner, current.id, TaskCommand(operation=operation, expected_revision=current.revision,
+        idempotency_key='revoke-sender'))
+    with pytest.raises(StoreError, match='fence|paused'):
+        Messages(store).execute(host, first.id, first.fence, root=source, routes=(second.instance_id,),
+            action=ToolAction(id='late-tool', tool='send_message', arguments={'recipients': [second.instance_id],
+                'content': {'kind': 'progress', 'summary': 'Late inspection.'}}))
+    assert not Messages(store).journal(owner, workflow.id)
+    assert store.budget(owner, workflow.id).spent.tool_calls == 0

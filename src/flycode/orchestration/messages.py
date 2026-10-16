@@ -6,12 +6,47 @@ from typing import cast
 from uuid import uuid4
 
 from ..domain.orchestration import AgentMessage, MessageDraft, MessageReceipt
+from ..tools.filesystem import ToolResult
 from .store import Store, StoreError, covers
+from .tools import Tools, authorize
 
 
 class Messages:
     def __init__(self, store: Store):
         self.store = store
+
+    def execute(self, scope, attempt_id, fence, *, root, action, routes) -> ToolResult:
+        """Execute one model-selected communication action on the owning host."""
+        store, tools = self.store, Tools(self.store)
+        _, task, workflow = store._owned(scope, attempt_id, fence, running=True)
+        if action.tool != 'send_message':
+            raise StoreError('unsupported_tool')
+        try:
+            action = authorize(root, action, task.permissions, workflow.deadline_at - store.clock())
+            draft = MessageDraft.model_validate({**action.arguments, 'idempotency_key': 'tool:' + action.id})
+            if not set(draft.recipients) <= set(routes):
+                raise StoreError('message_route')
+        except StoreError as error:
+            return ToolResult(success=False, error_message=error.code, payload={'blocked': error.code})
+        try:
+            call, action = tools.begin(scope, attempt_id, fence, root=root, action=action)
+        except StoreError as error:
+            if error.code != 'request_replay':
+                raise
+            return ToolResult(success=False, error_message=error.code, payload={'blocked': error.code})
+        try:
+            sent = self.send(scope, attempt_id, fence, draft)
+            result = ToolResult(success=True, payload={'message_ids': [item.id for item in sent]})
+        except StoreError as error:
+            result = ToolResult(success=False, error_message=error.code, payload={'blocked': error.code})
+        except BaseException as error:
+            tools.finish(scope, call.id, status='uncertain', error_class=type(error).__name__)
+            raise
+        completed = tools.finish(scope, call.id, status='completed' if result.success else 'failed',
+            error_class=None if result.success else result.error_message)
+        if completed.late:
+            raise StoreError('fence', 'Late communication result retained for audit only')
+        return result
 
     def _message(self, identity):
         return self.store._load('messages', identity, AgentMessage)
@@ -66,7 +101,7 @@ class Messages:
         return self.store.db.execute('SELECT * FROM message_questions WHERE workflow_id=? AND correlation_id=?',
             (message.workflow_id, message.correlation_id)).fetchone()
 
-    def _reason(self, scope, message):
+    def _reason(self, scope, message, *, received=False):
         if message.expires_at <= self.store.clock():
             return 'expired'
         sender, recipient = self.store._attempt(message.attempt_id), self.store._attempt(message.recipient_attempt_id)
@@ -87,11 +122,56 @@ class Messages:
                     or (parent.sender_id == recipient.instance_id and parent.attempt_id != recipient.id)
                     or (parent.recipient_id == recipient.instance_id and parent.recipient_attempt_id != recipient.id)):
                 return 'stale_parent'
-            if message.content.kind == 'answer':
+            if message.content.kind == 'answer' and not received:
                 question = self._question(message)
                 if question is None or question['batch_id'] != parent.batch_id or question['answer_id'] is not None:
                     return 'question_closed'
         return None
+
+    def remembered(self, scope, attempt_id, fence) -> list[AgentMessage]:
+        """Keep accepted substantive data available within its original live scope/TTL."""
+        self.store._owned(scope, attempt_id, fence, running=True)
+        rows = self.store.db.execute('''SELECT messages.data FROM messages JOIN message_inbox
+            ON message_id=messages.id WHERE recipient_attempt_id=? AND json_extract(message_inbox.data,'$.outcome')='received'
+            ORDER BY sequence''', (attempt_id,)).fetchall()
+        result = []
+        for row in rows:
+            message = AgentMessage.model_validate_json(row['data'])
+            if message.content.kind == 'progress' or self._reason(scope, message, received=True):
+                continue
+            if message.content.kind == 'question':
+                question = self._question(message)
+                if question is None or question['answer_id'] is not None or question['batch_id'] != message.batch_id:
+                    continue
+            result.append(message)
+        return result
+
+    def accept_context(self, scope, attempt_id, fence, identities) -> bool:
+        """Revalidate inference dependencies and acknowledge their actual consumption."""
+        store = self.store
+        with store.transaction():
+            attempt, task, workflow = store._owned(scope, attempt_id, fence, running=True)
+            invalid = []
+            for identity in identities:
+                message = self._message(identity)
+                if message.recipient_attempt_id != attempt_id or message.recipient_fence != fence:
+                    raise StoreError('recipient')
+                row = store.db.execute('SELECT data FROM message_inbox WHERE message_id=?', (identity,)).fetchone()
+                receipt = MessageReceipt.model_validate_json(row['data']) if row else None
+                reason = self._reason(scope, message, received=receipt is not None and receipt.outcome == 'received')
+                if receipt is not None and receipt.outcome == 'audit':
+                    reason = receipt.reason or 'audit'
+                if message.content.kind == 'question':
+                    question = self._question(message)
+                    if question is None or question['answer_id'] is not None or question['batch_id'] != message.batch_id:
+                        reason = reason or 'question_closed'
+                if receipt is None:
+                    self._receipt(scope, message, reason)
+                if reason:
+                    invalid.append({'message_id': identity, 'reason': reason})
+            if invalid:
+                store._event(scope, workflow, 'message_context_invalidated', task=task, attempt=attempt, messages=invalid)
+            return not invalid
 
     def _receipt(self, scope, message, reason):
         store = self.store

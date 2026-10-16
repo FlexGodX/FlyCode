@@ -1,16 +1,20 @@
 """Canonical local execution adapter; host code supplies its private workspace."""
 
+from collections.abc import Callable
 from pathlib import Path
 
 from ..domain import TaskSpec, ToolAction
 from ..environment import SoftwareEnvironment
+from ..tools.filesystem import ToolResult
 from .store import Store, StoreError
 from .tools import Tools
 
 
 class AttemptEnvironment(SoftwareEnvironment):
-    def __init__(self, root: Path, store: Store, scope, attempt_id: str, fence: int):
+    def __init__(self, root: Path, store: Store, scope, attempt_id: str, fence: int, *,
+                 message_executor: Callable[[ToolAction], ToolResult] | None = None):
         self.store, self.scope, self.attempt_id, self.fence = store, scope, attempt_id, fence
+        self.message_executor = message_executor
         _, task, _ = store._owned(scope, attempt_id, fence, running=True)
         if task.permissions is None or task.permissions.read_scopes != ('.',):
             raise StoreError('permission', 'Scoped observations are not implemented; full read permission is required')
@@ -29,6 +33,10 @@ class AttemptEnvironment(SoftwareEnvironment):
         if action.tool == 'stop':
             # Local control has no external effect and remains available after budget exhaustion.
             return await super().step(action)
+        if action.tool == 'send_message':
+            self.store._owned(self.scope, self.attempt_id, self.fence, running=True)
+            # The owning host admits and debits this action before publishing over RPC.
+            return await super().step(action)
         call, action = self.tools.begin(self.scope, self.attempt_id, self.fence, root=self.repo_root, action=action)
         try:
             result = await super().step(action)
@@ -42,3 +50,10 @@ class AttemptEnvironment(SoftwareEnvironment):
         if completed.late:
             raise StoreError('fence', 'Late tool result retained for audit only')
         return result
+
+    def _run_tool(self, action: ToolAction) -> ToolResult:
+        if action.tool == 'send_message':
+            if self.message_executor is None:
+                return ToolResult(success=False, error_message='message_route')
+            return self.message_executor(action)
+        return super()._run_tool(action)

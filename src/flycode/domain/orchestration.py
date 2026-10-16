@@ -64,7 +64,7 @@ class ExecutionPermission(QueueModel):
     @field_validator('tools')
     @classmethod
     def known_tools(cls, values):
-        if len(set(values)) != len(values) or any(value not in VALID_TOOLS for value in values):
+        if len(set(values)) != len(values) or any(value not in (*VALID_TOOLS, 'send_message') for value in values):
             raise ValueError('Unknown or duplicate tool permission')
         return values
 
@@ -366,7 +366,7 @@ class WorkerConfig(QueueModel):
 
 class WorkerRequest(QueueModel):
     sequence: int = Field(ge=1)
-    operation: Literal['ready', 'candidates', 'activity', 'message', 'result', 'error']
+    operation: Literal['ready', 'candidates', 'activity', 'message', 'message_tool', 'result', 'error']
     payload: dict[str, Any] = Field(default_factory=dict)
 
 

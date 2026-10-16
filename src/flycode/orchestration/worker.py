@@ -39,6 +39,7 @@ def main():
         from ..domain import CandidateAction
         from ..domain.orchestration import WorkerConfig, WorkerReply, WorkerRequest
         from ..llm.lmstudio import ModelRoutingTrace
+        from ..tools.filesystem import ToolResult
         from .environment import AttemptEnvironment
         from .store import Store
 
@@ -82,7 +83,10 @@ def main():
             brain.set_learning_mode(False)
             request('ready')
             connection = Store(Path(config.database))
-            environment = AttemptEnvironment(Path(config.repository), connection, config.scope, config.attempt_id, config.fence)
+            def send_message(action):
+                return ToolResult(**request('message_tool', action.model_dump(mode='json')))
+            environment = AttemptEnvironment(Path(config.repository), connection, config.scope, config.attempt_id, config.fence,
+                message_executor=send_message)
             result = asyncio.run(run_agent(environment, brain, RemoteCortex(), config.task,
                 run_id=config.attempt_id, on_event=activity, should_stop=finished.is_set))
             request('result', result.model_dump(mode='json'))

@@ -7,13 +7,14 @@ import sqlite3
 import subprocess
 import sys
 import time
+from dataclasses import asdict
 from pathlib import Path
 from threading import Event, Thread
 from uuid import uuid4
 
 from ..agent import RunResult
 from ..brain import BRAIN_REGISTRY
-from ..domain import VALID_TOOLS, TaskSpec
+from ..domain import VALID_TOOLS, TaskSpec, ToolAction
 from ..domain.orchestration import (
     MessageDraft,
     MessageProgress,
@@ -159,7 +160,8 @@ class WorkerHandle:
                     if cortex is not None:
                         raise StoreError('worker_ready')
                     connection.confirm_started(self.scope, self.record.attempt_id, self.record.fence)
-                    cortex = AttemptCortex(connection, self.scope, self.record.attempt_id, self.record.fence, self.stopping.is_set)
+                    cortex = AttemptCortex(connection, self.scope, self.record.attempt_id, self.record.fence, self.stopping.is_set,
+                        message_recipients=tuple(sorted(self.message_recipients)))
                     self.record = changed(self.record, state='running')
                     with connection.transaction():
                         connection._owned(self.scope, self.record.attempt_id, self.record.fence, running=True)
@@ -174,6 +176,11 @@ class WorkerHandle:
                         connection._owned(self.scope, attempt.id, attempt.fence, running=True)
                         payload = {'candidates': [item.model_dump(mode='json') for item in candidates],
                             'model_calls': cortex.model_calls, 'routing': cortex.last_routing.model_dump(mode='json')}
+                    elif request.operation == 'message_tool':
+                        result = Messages(connection).execute(self.scope, attempt.id, attempt.fence,
+                            root=self.directory / 'repository', action=ToolAction.model_validate(request.payload),
+                            routes=self.message_recipients)
+                        payload = asdict(result)
                     elif request.operation == 'message':
                         draft = MessageDraft.model_validate(request.payload)
                         if not set(draft.recipients) <= self.message_recipients:

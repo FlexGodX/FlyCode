@@ -2,6 +2,76 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Task5 model-selected communication — 2026-10-16
+
+The increment after `5889867` connects the existing typed broker to actual
+model-selected `send_message` actions. Canonical permissions accept this tool;
+legacy `VALID_TOOLS` and defaults remain unchanged. Both explicit host routes
+and task/profile permission are required. The primary request includes approved
+recipient IDs and argument guidance; a request that cannot fit that optional
+guidance emits `message_tool_context_deferred` and excludes the tool for that
+decision while preserving an otherwise valid baseline request.
+
+The child forwards a selected action over inherited RPC. `Messages.execute`
+checks its closed arguments/routes, derives idempotency from the host-issued
+action ID, and uses `Tools.begin` before publishing. A rejected broker operation
+records a spent failed tool; it does not cancel unrelated execution or refund
+spending. Stale ownership/budget gates still prevent effects. Replaying an
+attempt/action after the host actor changes cannot debit or publish again.
+`AttemptEnvironment` reuses normal observation/transition bookkeeping through
+a narrow dispatch override, without a second debit or a legacy global tool.
+
+Real two-worker HTTP-fixture execution selects a question and then an answer
+from the actual received question envelope, preserving causation/correlation
+and source bytes. The first version exposed only the question's omission-marker
+ID: controller progress had filled the context allowance. A stronger test
+requires the question text; substantive data now precedes progress in the same
+bounded context. A further RED case showed that acknowledging a question lost
+it before the next decision. `Messages.remembered` now retains accepted
+substantive data within its original TTL, participant fences and artifact/read
+permissions. Closed questions and losing answers are excluded. Repeated context
+does not create another receipt or close another question.
+
+Read-only exploration then identified a post-inference race: a sender could
+stop or a message expire while HTTP was blocked, and an existing historical
+receipt let the influenced candidates escape. Four actual blocked-HTTP RED
+cases reproduced pending/received × expiry/revoked sender. `accept_context`
+now rechecks included dependencies and acknowledges consumption atomically
+after HTTP. Invalidated candidates are discarded with `message_context_stale`
+and a metadata-only event; actual model spending remains recorded. Reinspection
+found no concrete bypass. No receipt is rewritten as current authority.
+
+All84 broker/context/tool/process message checks pass in44.79s. The earlier full
+collection664 passed/8 skipped in336.38s before the accepted-context additions.
+A second collection668 passed/8 skipped/1 failed in444.72s:
+`test_validation_binds_real_shadow_data_to_controller_task_and_model_scope`
+correctly rejected source changes made during the suite. Its retained report
+has `source_unchanged=false`, start fingerprint
+`43665ebf15aa131374998206d6299b7bdb7e4194cfa58ca13c60814dec1c1621`
+and final fingerprint
+`8dd8f3e84712f066b7919e30ad14f2a1096a09e0a15dad6c30c2ef9c14d7041c`.
+The guard was preserved; the final suite runs after all source edits finish.
+Relevant Ruff and mypy14 source files pass. The release wheel's Python sources
+and README were compared byte-for-byte with the checkout before extraction.
+All225 orchestration/local-cortex/process-cleanup checks passed outside the
+checkout in126.35s; extracted CLI `brains` lists all ten registered backends.
+Wheel SHA256:
+`e37387ec79279778cd911b214ceb38fdb5818b0a958f04ae32987efbdd07df07`.
+Final full default suite:673 passed/8 skipped in381.62s with unchanged
+implementation fingerprint
+`8dd8f3e84712f066b7919e30ad14f2a1096a09e0a15dad6c30c2ef9c14d7041c`.
+
+Live-model limitation: the already loaded `qwen/qwen3.5-9b` reported8192 context,
+but its one explicit primary compatibility probe returned `APITimeoutError`
+after30.11s. No task-generation request followed, no fallback/model load or blind
+retry was attempted, and no successful live-model communication is claimed.
+The negative report is retained at
+`~/.cache/flycode/experiments/2026-10-16-message-tools-live/run-4zpk9oqd/report.json`.
+HTTP-fixture/process checks do not establish biological or orchestration
+admission. Child-wait dispatch, shared legacy/probe endpoint admission,
+generated-artifact review/integration/completion and connected UI/API remain
+open; Task5 and the overall delivery goal are incomplete.
+
 ## Task5 addressed messages — 2026-10-16
 
 `Messages.send/pending/acknowledge/journal` use the common Store. Schema6 adds

@@ -10,10 +10,15 @@ from uuid import uuid4
 from pydantic import ValidationError
 
 from ..domain import ToolAction
-from ..domain.orchestration import BudgetAmount, ExecutionPermission, ToolCall
+from ..domain.orchestration import (
+    BudgetAmount,
+    ExecutionPermission,
+    MessageDraft,
+    ToolCall,
+)
 from .store import Store, StoreError, changed, covers
 
-SUPPORTED = {'read_file', 'list_files', 'search', 'edit_file', 'create_file', 'run_tests'}
+SUPPORTED = {'read_file', 'list_files', 'search', 'edit_file', 'create_file', 'run_tests', 'send_message'}
 SKIP = {'.git', '.venv', '__pycache__', 'node_modules'}
 ARGUMENTS = {
     'read_file': {'path'}, 'list_files': {'path'}, 'search': {'path', 'pattern'},
@@ -48,6 +53,14 @@ def authorize(root: Path, action: ToolAction, permission: ExecutionPermission, r
     if not permission.approved or action.tool not in permission.tools:
         raise StoreError('permission', 'Tool is not approved')
     args = dict(action.arguments)
+    if action.tool == 'send_message':
+        if 'idempotency_key' in args:
+            raise StoreError('permission', 'Message idempotency belongs to the host')
+        try:
+            draft = MessageDraft.model_validate({**args, 'idempotency_key': 'tool:' + action.id})
+        except (ValidationError, TypeError) as error:
+            raise StoreError('invalid_message', 'Expected closed message arguments') from error
+        return action.model_copy(update={'arguments': draft.model_dump(mode='json', exclude={'idempotency_key'})})
     if set(args) - ARGUMENTS[action.tool]:
         raise StoreError('permission', 'Unsupported tool arguments')
     if action.tool == 'run_tests':
@@ -101,9 +114,10 @@ class Tools:
         digest = hashlib.sha256(json.dumps(action.arguments, sort_keys=True, allow_nan=False).encode()).hexdigest()
         with store.transaction():
             attempt, task, workflow = store._owned(scope, attempt_id, fence, running=True)
-            found, _, request_hash = store._replay(scope, 'tool:' + attempt_id + ':' + action.id,
+            key = 'tool:' + attempt_id + ':' + action.id
+            found, _, request_hash = store._replay(scope, key,
                 {'tool': action.tool, 'arguments': digest, 'fence': fence})
-            if found:
+            if found or store.db.execute('SELECT 1 FROM commands WHERE key=?', (key,)).fetchone():
                 raise StoreError('request_replay', 'A recorded tool must not be executed again')
             if task.paused or workflow.state != 'running' or store._counter('queue_paused'):
                 raise StoreError('paused')
@@ -116,7 +130,7 @@ class Tools:
             store.db.execute('INSERT INTO tool_calls VALUES (?,?,?,?)',
                              (call.id, attempt_id, call.status, call.model_dump_json()))
             store._event(scope, workflow, 'tool_start', task=task, attempt=attempt, call=call.model_dump(mode='json'))
-            store._remember(scope, 'tool:' + attempt_id + ':' + action.id, task.project_id, request_hash, call)
+            store._remember(scope, key, task.project_id, request_hash, call)
         return call, action
 
     def finish(self, scope, identity, *, status: str, error_class: str | None = None) -> ToolCall:

@@ -32,7 +32,7 @@ def owned(tmp_path, model_server, request):
     owner = AccessScope(actor_id='owner', project_ids={'project'}, role='owner')
     host = AccessScope(actor_id='host', project_ids={'project'}, role='runtime')
     permissions = ExecutionPermission(approved=True, read_scopes=options.get('read_scopes', ('.',)), write_scopes=('src',),
-        tools=('read_file', 'list_files', 'search', 'edit_file', 'create_file', 'run_tests'))
+        tools=options.get('tools', ('read_file', 'list_files', 'search', 'edit_file', 'create_file', 'run_tests')))
     contract = AcceptanceContract(id='repair', version=1, criteria=[AcceptanceCriterion(
         id='result', check_ids=['regression'], expected_case_ids=['tests/test_example.py::test_example'])])
     draft = TaskDraft(title='Repair example', objective='Repair example without changing tests.',

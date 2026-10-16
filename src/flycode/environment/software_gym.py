@@ -111,7 +111,7 @@ class SoftwareEnvironment:
             result_success, stdout, stderr, error_message, payload = True, "", "", "", {}
             self._done = True
         else:
-            result = run_tool(action.tool, self.repo_root, **action.arguments)
+            result = self._run_tool(action)
             result_success, stdout, stderr = result.success, result.stdout, result.stderr
             error_message, payload = result.error_message, result.payload
             self._apply_side_effects(action, result_success, payload, error_message)
@@ -162,6 +162,9 @@ class SoftwareEnvironment:
 
     def is_done(self) -> bool:
         return self._done
+
+    def _run_tool(self, action: ToolAction):
+        return run_tool(action.tool, self.repo_root, **action.arguments)
 
     # ------------------------------------------------------------ bookkeeping
     def _apply_side_effects(
