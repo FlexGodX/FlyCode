@@ -558,6 +558,8 @@ skipped/xfail, flaky results, timeout and incomplete evidence cannot pass.
 `--reruns 1` retains both attempts; a passing retry never erases a failure.
 Evidence includes snapshot/plan, checksum manifest, verdict, JUnit and observed
 cases. Changed bytes, executable modes, environment or runtime invalidate approval.
+For a selected Git subfolder, snapshot bytes and inventory stay within that
+folder; sibling file names are not included.
 
 A trusted Python host can separately approve an `AcceptanceContract` and oracle
 bytes, build baseline/target/regression/integration subjects with `PlanBuilder`,

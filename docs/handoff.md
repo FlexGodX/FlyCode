@@ -2,6 +2,25 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Scoped snapshot inventory — 2026-10-16
+
+Fixed the confirmed shared `verification.snapshot.capture` subfolder defect:
+Git status now uses the selected folder pathspec and paths are normalized using
+Git's working-tree prefix. NUL-delimited rename pairs preserve whitespace and
+Unicode; moves across the project boundary retain only the selected side.
+Sibling paths and the trailing empty record are omitted. Tests cover modified/
+untracked files, internal rename, inbound/outbound moves and repository-root
+rename, while asserting source Git status and dirty/untracked bytes stay intact.
+This fixes the scoped inventory prerequisite; isolated writer lifecycle,
+patch/review/integration and verified completion remain open Task6 work.
+
+Verification: full default suite520 passed/8 skipped in243.41s; verification
+suite64 passed in16.53s. Changed-file Ruff/mypy pass. Five new real-Git cases
+also passed against the extracted wheel; SHA256:
+`2f4fc5713988aa36dbf85166f82acdee47e434ecc16120dc90a4c798b1c42489`.
+The earlier model-transport checkpoint is `41016ba`; no supervisor was started
+and no new live-model/research/UI acceptance is inferred from these checks.
+
 ## Task5 model transport — 2026-10-16
 
 `orchestration.resources.Resources` atomically admits a pinned profile's request,
@@ -30,10 +49,9 @@ Next runtime prerequisites: persistent model binding/capacity admission across
 worker processes; owned process supervision/heartbeat; per-tool argument guards;
 message delivery; isolated writer copies and actual completion/review. The shared
 snapshot API is `verification.snapshot.capture(root, destination, ref=SubjectRef)`.
-Exploration reproduced a real subfolder inventory leak: capture(repo/project)
-copies correct subtree bytes but Git status includes sibling paths. Fix shared
-capture with a project pathspec and project-relative NUL-delimited rename handling
-before using it for worker workspaces. `evidence.atomic_json` can retain raw
+Exploration reproduced a real subfolder inventory leak; the fix and checks are
+recorded above. Reuse the now-scoped shared capture for worker workspaces.
+`evidence.atomic_json` can retain raw
 RunResult, but its legacy observation success is not canonical verified completion.
 
 Verification: full default suite515 passed/8 skipped in238.99s; targeted

@@ -231,6 +231,12 @@ passed outside the checkout. These adapter checks do not close Task5 execution.
 4. The runtime must validate profile context against available model capacity
    and enforce tool/file arguments. Current structural context bounds and pinned
    protocol probes do not prove those properties.
+   [LM Studio's model listing](https://lmstudio.ai/docs/developer/rest/list)
+   exposes loaded-instance `config.context_length` separately from the model's
+   theoretical maximum. A read-only local GET returned Qwen8192 and Jev4096,
+   both below the reported262144 model maximum. Pin loaded configuration and
+   enforce input/output context; this metadata neither proves protocol compatibility
+   nor confirms an unknown inference has stopped. No model was loaded or invoked.
 5. Lease expiry revokes commit authority but cannot kill a process. Retain the
    ownership/reservation until owned process-group absence and unknown effects
    are reconciled. Never stop user-owned servers or infer death from an absent
@@ -253,6 +259,11 @@ lease timeout is not sufficient ownership/absence proof.
 
 - [ ] RED: user dirty/untracked files preserved; conflicting patches blocked; patch changes invalidate review; individually passing patches cannot finish failing integration.
   Include selected subfolders inside a larger Git repository: snapshot inventory must not expose foreign paths from the parent repository.
+  Shared capture scope is now fixed and checked against real Git dirty/untracked
+  files, NUL rename pairs and moves across the folder boundary. This does not
+  complete writer isolation or the rest of this acceptance item.
+  Verification: full suite520 passed/8 skipped; verification suite64 passed;
+  changed-file Ruff/mypy and all five cases on the extracted wheel pass.
 - [ ] RED: all rerun outcomes retained, flaky mandatory blocks pass, malformed/oversized report inconclusive; unsupported hostile sandbox blocked before subprocess.
 - [ ] GREEN: serialize integration, run required checks on integrated snapshot, persist partial artifacts and explicit blockers; versioned criteria immutable to model.
 - [ ] Verify semantic revision invalidates result, metadata revision preserves evidence, reopen/archive audit and review queue current assignee.

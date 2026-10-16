@@ -561,6 +561,8 @@ skipped/xfail, flaky, timeout и неполное evidence не дают усп�
 В папке evidence находятся snapshot/plan, manifest с хешами, вердикт, JUnit и
 наблюдённые cases. Изменение входных байтов, executable modes, среды или runtime
 инвалидирует прежнюю проверку. Тесты исполняются в отдельной копии.
+При выборе подпапки Git-репозитория снимок и его инвентарь ограничены этой
+подпапкой; имена соседних файлов не включаются.
 
 Доверенный Python-хост может отдельно утвердить `AcceptanceContract` и oracle bytes,
 собрать `PlanBuilder` для baseline/target/regression/integration и вызвать

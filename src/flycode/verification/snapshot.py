@@ -81,9 +81,32 @@ def capture(root: Path, destination: Path | None = None, *, ref: SubjectRef | No
         base_result = subprocess.run(['git', '-C', str(root), 'rev-parse', 'HEAD'],
                                      check=False, capture_output=True, timeout=5)
         base = base_result.stdout.decode().strip() if base_result.returncode == 0 else None
-        status = subprocess.run(['git', '--no-optional-locks', '-C', str(root), 'status', '--porcelain=v1', '-z', '--untracked-files=all'],
+        prefix_result = subprocess.run(['git', '-C', str(root), 'rev-parse', '--show-prefix'],
+                                       check=False, capture_output=True, timeout=5)
+        prefix = prefix_result.stdout.decode(errors='replace').removesuffix('\n')
+        status = subprocess.run(['git', '--no-optional-locks', '-C', str(root), 'status', '--porcelain=v1', '-z',
+                                 '--untracked-files=all', '--', '.'],
                                 check=False, capture_output=True, timeout=5)
-        inventory = status.stdout.decode(errors='replace').split('\0') if status.returncode == 0 else list(files)
+        inventory = []
+        if status.returncode == 0 and prefix_result.returncode == 0:
+            records = iter(status.stdout.decode(errors='replace').split('\0'))
+            for record in records:
+                if not record:
+                    continue
+                code, name = record[:2], record[3:]
+                origin = next(records) if 'R' in code or 'C' in code else None
+                if name.startswith(prefix):
+                    relative = name[len(prefix):]
+                    if origin is not None and not origin.startswith(prefix):
+                        inventory.append('A  ' + relative)
+                    else:
+                        inventory.append(code + ' ' + relative)
+                        if origin is not None:
+                            inventory.append(origin[len(prefix):])
+                elif origin is not None and origin.startswith(prefix):
+                    inventory.append('D  ' + origin[len(prefix):])
+        else:
+            inventory = list(files)
     except (OSError, subprocess.TimeoutExpired):
         base, inventory = None, list(files)
     hashes = {name: hashlib.sha256(data).hexdigest() for name, data in sorted(files.items())}
