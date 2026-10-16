@@ -3,7 +3,7 @@
 import pytest
 
 
-@pytest.mark.parametrize('package', ['verification', 'orchestration', 'tracker'])
+@pytest.mark.parametrize('package', ['verification', 'orchestration', 'tracker', 'training', 'telemetry'])
 def test_policy_fingerprint_changes_with_result_or_dispatch_implementation(tmp_path, monkeypatch, package):
     from flycode.research import identity
 

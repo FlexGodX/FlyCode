@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "task": "Diagnose and fix the defect described in the repository README. Inspect the existing code, reuse shared helpers when required, preserve valid behavior, do not modify tests, run the full test suite, and stop only after verifying the repair.",
+  "seeds": [0, 1, 2, 3, 4],
+  "train_fixtures": ["toy_arithmetic_bug", "toy_import_bug"],
+  "heldout_fixtures": ["search_helper_bug", "boundary_regression_bug"],
+  "controls": ["bias", "hard"],
+  "baselines": ["heuristic_fsm", "random_reservoir", "generic_rnn", "functional", "full"],
+  "evaluation_cortex": "tournament",
+  "teacher_cortex": "heuristic",
+  "teacher_brain": "functional",
+  "max_steps": 25,
+  "max_tool_calls": 30,
+  "ridge": 0.00001,
+  "graph": "~/.cache/flycode/flywire-783/prepared",
+  "live": {
+    "cortex": "lmstudio",
+    "model": "qwen/qwen3.5-9b",
+    "decision_model": null,
+    "base_url": "http://127.0.0.1:1234/v1",
+    "request_timeout": 120,
+    "max_model_calls": 8,
+    "max_steps": 12,
+    "max_tool_calls": 12,
+    "seeds": [0],
+    "controls": ["bias"],
+    "wall_limit_seconds": 1800
+  },
+  "promotion": "Candidate only: require higher held-out success or equal success with >=10% fewer mean tool calls, no new regressions/unsafe execution. No production or research admission.",
+  "limitations": [
+    "Four existing synthetic fixture families, not unseen real repositories.",
+    "Held-out is relative to this training run; prior project development has seen these fixtures.",
+    "Equal seeds and tool budgets do not match neural parameters, latency or training compute.",
+    "No pure LLM-only baseline: all variants use an explicit controller.",
+    "Local LLM validation uses one seed, and model weight revision may be unavailable."
+  ]
+}
