@@ -186,6 +186,7 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Read `model_end.error` and request timestamps before reporting a model timeout; polling duration and event counts alone do not prove failure.
 - After an accepted terminal worker result, control-channel closure alone is not owner cancellation; still confirm group absence and current ownership before publishing.
 - Compare persisted records containing environment package data as canonical JSON: native package tuples reload as JSON lists.
+- Hash only regular files when archiving test evidence; fixture directories can contain FIFOs and other special files.
 
 ## 12. How this file was built
 
