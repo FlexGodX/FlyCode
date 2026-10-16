@@ -8,7 +8,8 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .action import MUTATING_TOOLS, VALID_TOOLS
-from .verification import AcceptanceContract
+from .task import TaskSpec
+from .verification import AcceptanceContract, SubjectSnapshot
 
 TaskState = Literal['planned', 'ready', 'assigned', 'running', 'awaiting_review', 'succeeded',
                     'blocked', 'retry_wait', 'failed', 'cancelled']
@@ -324,3 +325,51 @@ class ToolCall(QueueModel):
     ended_at: float | None = None
     error_class: str | None = Field(default=None, max_length=200)
     late: bool = False
+
+
+class WorkspaceRecord(QueueModel):
+    id: str
+    attempt_id: str
+    fence: int = Field(ge=1)
+    contract_hash: str
+    source_root: str
+    snapshot: SubjectSnapshot
+    checkout_revision: str
+    created_at: float
+
+
+class WorkerRecord(QueueModel):
+    id: str
+    attempt_id: str
+    fence: int = Field(ge=1)
+    state: Literal['starting', 'running', 'exited', 'uncertain'] = 'starting'
+    pid: int | None = Field(default=None, gt=0)
+    created_at: float
+    stopped_at: float | None = None
+    stop_confirmed: bool = False
+    exit_code: int | None = None
+    result_hash: str | None = None
+    error: str | None = None
+
+
+class WorkerConfig(QueueModel):
+    database: str
+    repository: str
+    scope: AccessScope
+    attempt_id: str
+    fence: int
+    task: TaskSpec
+    brain: str
+    seed: int
+
+
+class WorkerRequest(QueueModel):
+    sequence: int = Field(ge=1)
+    operation: Literal['ready', 'candidates', 'activity', 'result', 'error']
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class WorkerReply(QueueModel):
+    sequence: int = Field(ge=1)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    error: str | None = None

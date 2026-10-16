@@ -441,3 +441,15 @@ def test_attempt_cortex_rejects_sql_transaction_before_native_metadata_or_infere
     with store.transaction(), pytest.raises(RuntimeError, match='transaction'):
         cortex.generate_candidates(context)
     assert len(model_server.get_requests) == reads and len(model_server.requests) == calls
+
+
+def test_canonical_candidate_ids_are_unique_across_generations(active):
+    from flycode.domain import Observation
+    from flycode.llm.protocol import CortexContext
+    from flycode.orchestration.cortex import AttemptCortex
+
+    store, _, runtime, _, _, attempts, _ = active
+    cortex = AttemptCortex(store, runtime, attempts[0].id, attempts[0].fence)
+    context = CortexContext(task='Inspect parser.', behavior_mode='explore', observation=Observation(task='inspect'))
+    first, second = cortex.generate_candidates(context), cortex.generate_candidates(context)
+    assert first[0].id != second[0].id

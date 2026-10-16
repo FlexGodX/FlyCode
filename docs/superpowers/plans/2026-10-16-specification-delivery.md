@@ -220,6 +220,51 @@ passed outside the checkout. These adapter checks do not close Task5 execution.
 
 **Runtime implementation constraints:**
 
+**Task5 owned-process increment:** `Runtime.launch` consumes the current committed
+attempt, fixes an independent workspace and reserves one worker session per
+attempt. Schema5 adds workspace/worker records and upgrades earlier versions.
+The child runs the real `run_agent`, a frozen brain and `AttemptEnvironment` with
+its own scoped Store connection. Provider clients/credentials stay in the parent:
+an independent RPC thread owns `AttemptCortex`, while a separate supervisor
+connection renews heartbeat every10s, sweeps lease30s/deadlines and observes Stop.
+Local inherited sockets use bounded4MiB JSON frames and monotonically checked
+request sequences. The child control watchdog starts before heavy imports and
+terminates its own group on control EOF/timeout, independently from blocked RPC.
+
+Workers start in their own POSIX session, in a private directory with a minimal
+environment and private HOME. IPC descriptors are non-inheritable for tools.
+A launch barrier admits no work until both parent threads exist. Partial socket,
+home, spawn and thread failures close allocated resources and settle only proven
+unstarted work. Actual readiness precedes `confirm_started`; missing graph/startup
+errors cannot manufacture a start or inference. Supervisor database-open failure
+stops the group while retaining durable ownership; client cleanup cannot strand
+the supervisor. `worker_stopped` requires owned process-
+group absence, including descendants. Recovery marks sessions uncertain and
+never relaunches a recorded attempt or signals a recovered numeric PID. Late HTTP
+is audited; endpoint ownership outlives worker death until the actual request ends.
+Unknown pytest effects stay uncertain even after group death. Raw normal results
+remain reconciling with `review_artifact_pending`; no completion gate is bypassed.
+
+`Workspaces.prepare` delegates to shared snapshot capture outside SQL, preserving
+source bytes/modes/base/inventory. Git and non-Git inputs receive an independent
+checkout pinned to a commit of those exact captured bytes, rather than sharing
+the user's Git directory. User/global hooks, filters and encoding normalization
+are disabled there. Baseline/manifest tampering is checked against the database;
+concurrent preparation publishes once. Canonical candidates receive fresh host IDs
+per generation, including local verification, so legitimate later calls are not
+mistaken for delivery replay. Shared process cleanup now reaps an owned zombie
+leader before checking group absence after a permission race; permission alone
+still never proves exit.
+
+This is a trusted-local POSIX execution adapter. Untrusted mode is blocked before
+copy/spawn; scoped observations, Git/service profiles, addressed agent messages,
+dispatcher/UI/API wiring, exact patch/review/integration and current verified
+completion remain open. No live-model/biological admission is inferred from the
+HTTP-fixture process checks. Verification: full default suite588 passed/8 skipped;
+all119 queue/workspace/runtime/process cases also pass from the extracted wheel
+outside the checkout, as does CLI `brains`. Relevant Ruff/mypy pass; handoff
+records timing and package hash. The aggregate Task5 checklist remains open.
+
 **Task5 tool-effect increment:** `AttemptEnvironment` gates the actual environment
 step, including controller-local pytest actions. `Tools` commits a debit, call,
 event and outbox before the effect, outside any surrounding SQLite transaction;
@@ -234,8 +279,8 @@ Late acknowledgement is audit only and cannot restore the old fence.
 
 The adapter requires full project read permission until scoped observations are
 implemented. Git/service tools are unsupported; this is a trusted local adapter,
-not a hostile-code sandbox or an owned-process supervisor. The caller still owns
-workspace creation and process lifetime. A real `run_agent` read now accounts for
+not a hostile-code sandbox. The tool adapter alone does not own process lifetime;
+the separate Runtime increment above now supplies private copies and supervision. A real `run_agent` read now accounts for
 both model and tool in the common store. Projects with more than200 files no
 longer crash observation construction; tool listing retains the full result.
 Verification: full default collection558 passed/8 skipped; latest40 source

@@ -66,29 +66,36 @@ def _group_gone(group_id: int) -> bool:
     return False
 
 
-def _signal_group(group_id: int, sig: int) -> bool:
+def _signal_group(process: subprocess.Popen, sig: int) -> bool:
     try:
-        os.killpg(group_id, sig)
+        os.killpg(process.pid, sig)
         return True
     except ProcessLookupError:
+        process.wait(timeout=0)
         return False
     except PermissionError:
-        if _group_gone(group_id):
+        # macOS may deny signalling an unreaped zombie. Reap only our owned
+        # leader, then independently require absence of the complete group.
+        try:
+            process.wait(timeout=0)
+        except subprocess.TimeoutExpired:
+            pass
+        if _group_gone(process.pid):
             return False
         raise
 
 
 def _terminate(process: subprocess.Popen) -> None:
-    if not _signal_group(process.pid, signal.SIGTERM):
+    if not _signal_group(process, signal.SIGTERM):
         return
     try:
         process.wait(timeout=5)
     except subprocess.TimeoutExpired:
-        _signal_group(process.pid, signal.SIGKILL)
+        _signal_group(process, signal.SIGKILL)
         process.wait(timeout=5)
     # The leader can exit while children still hold the owned process group.
     if not _group_gone(process.pid):
-        _signal_group(process.pid, signal.SIGKILL)
+        _signal_group(process, signal.SIGKILL)
         if not _group_gone(process.pid):
             raise OSError('Owned process group termination is unconfirmed')
 

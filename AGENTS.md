@@ -175,7 +175,7 @@ When the user corrects your approach, append a one-line rule here before ending 
 
 - Treat Hermes in this project’s plan as FlyCode itself: the host for connected agents orchestrated by the fly controller. Do not request a separate Hermes repository.
 - Verify helper reuse through observable delegation; passing numeric examples alone does not establish that an existing helper was used.
-- Read helper signatures and Pydantic fields before calling project APIs from experiment runners.
+- Locate helper definitions and read signatures/Pydantic fields before importing or calling project APIs in integration code.
 - Locate source and test paths with `rg --files` before reading them; do not guess filenames.
 - Use globally unique test basenames: pytest's default import mode rejects duplicate names across test directories.
 - Model UI projects as one local folder with multiple independent chats; also allow chats without a project, and do not require Git.

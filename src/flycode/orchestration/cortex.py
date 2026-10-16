@@ -70,7 +70,8 @@ class AttemptCortex:
             'candidate_tools': list(dict.fromkeys([*task.permissions.tools, 'stop']))})
 
     def generate_candidates(self, context: CortexContext):
-        return self.core.generate_candidates(self._context(context))
+        candidates = self.core.generate_candidates(self._context(context))
+        return [item.model_copy(update={'id': uuid4().hex}) for item in candidates]
 
     def consolidate(self, context: CortexContext, transcript: list[str]) -> str:
         # This summary is local, including after cancellation; it never spends another request.

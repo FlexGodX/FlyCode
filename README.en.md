@@ -94,24 +94,32 @@ The internal team queue foundation uses shared Pydantic contracts and one SQLite
 database for tasks, instances, attempts, budgets and events. Assignment and
 reservation commit atomically; command replay does not charge twice, and restart
 retains unconfirmed ownership until reconciliation. Tracker reads the same store.
-Executor, CLI/API and screen integration remain unfinished; the current interface
+The internal runtime now executes attempts in separate processes; CLI/API and
+screen integration remain unfinished. The current interface
 still runs one task at a time. See the checked
 [delivery plan](docs/superpowers/plans/2026-10-16-specification-delivery.md).
 The model transport adapter acquires an endpoint slot and charges the request
 before HTTP, records available token usage and retains unknown timeout outcomes.
-Waiting can be cancelled without sending a request. Supervisor, legacy-run and
-probe wiring remains unfinished; all UI calls do not yet share this admission.
+Waiting can be cancelled without sending a request. Legacy-run and probe wiring
+remains unfinished; all UI calls do not yet share this admission.
 
 `AttemptCortex` binds the existing `run_agent` to the canonical attempt's objective,
 acceptance criteria and model budget. Admission pins the actual loaded LM Studio
 instance and its context capacity; configuration changes require another probe.
 A conservative request-size bound rejects oversized input before HTTP, but does
-not replace an exact tokenizer. One read step in a project copy is checked;
-supervision and verified completion remain unfinished. `AttemptEnvironment` checks
+not replace an exact tokenizer. `AttemptEnvironment` checks
 permissions and paths, charges before each tool and records its actual outcome.
 Replay never repeats an effect; unknown outcomes retain attempt ownership. It
 currently requires full project read access and supports local file tools/pytest.
 This guards a trusted copy; it is not a sandbox for hostile code.
+
+`Runtime` launches the existing `run_agent` in an owned process group; a separate
+host thread serves model HTTP. Heartbeat10s/lease30s remain independent of model
+waits. Stop terminates the owned group, while unfinished HTTP or unknown pytest
+effects retain attempt ownership until reconciliation. `Workspaces` fixes dirty/
+untracked bytes and modes in an independent checkout without user settings/hooks.
+Raw results are retained, but still require patch/review/integration and current
+verification; they cannot establish `succeeded`.
 
 ## First run without an API key
 

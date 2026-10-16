@@ -2,6 +2,55 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Task5 owned worker and private workspace — 2026-10-16
+
+`Runtime.launch` now executes the actual `run_agent` in a host-owned POSIX
+process group and an independent checkout. `Workspaces.prepare` observably
+reuses shared snapshot capture, preserving dirty/untracked bytes, modes and
+selected-folder Git inventory. The original Git directory is never shared;
+private baseline commits disable hooks, filters and encoding normalization.
+Baseline/manifest tampering and conflicting concurrent registration are checked.
+Schema5 adds workspace/worker records without resetting prior spending.
+
+Provider clients stay in the parent, in a separate RPC thread; the child has
+its own scoped Store connection for gated tools. A separate supervisor renews
+heartbeat10s/lease30s and stops owned descendants independently of blocked HTTP.
+The child's watchdog starts before heavy imports and kills its own group on
+control EOF/timeout. Frames are bounded4MiB JSON with checked request sequences;
+these are private worker RPC, not ORC addressed agent messages. A launch barrier
+prevents admission before both parent threads exist. Partial socket/home/process/
+thread failures close allocated resources and release only proven unstarted work.
+Readiness, not process creation, records the actual start. Missing biological
+graph is an explicit startup failure, never a synthetic substitute.
+
+Stop/pause retains endpoint ownership until the real HTTP outcome arrives; late
+responses cannot restore a fence. Unknown pytest effects retain reconciliation
+even after group absence. Failure to open the supervisor database stops the
+owned process without releasing durable ownership; recovery/expiry must reconcile
+it. Client cleanup errors cannot strand supervision. Fresh candidate IDs allow
+legitimate repeated local-verification generations without replaying tool effects.
+Shared process cleanup now reaps its owned zombie leader before independently
+checking group absence on macOS; permission failure alone remains insufficient.
+
+Raw `run-result.json` and its hash are retained outside the input project. Normal
+results remain reconciling with `review_artifact_pending`: they are not immutable
+patch review, integrated verification or canonical completion. This adapter
+supports trusted local POSIX projects with full-read permission and local file/
+pytest tools. Untrusted, Git/service profiles and detached resources remain
+unsupported. Dispatcher, addressed messages, legacy/probe shared admission,
+exact patch/review/integration and UI/API wiring are still open. Task5 and the
+overall goal remain active. The previous tool-effect checkpoint is `4ad3344`.
+
+Verification: full default suite588 passed/8 skipped in293.69s. All119 queue,
+workspace/runtime and process-cleanup cases passed from the extracted wheel
+outside the checkout in67.91s; extracted CLI `brains` passed. Relevant Ruff and
+mypy13 source files pass. The process tests include actual HTTP blocked during
+Stop/heartbeat, pytest descendants, control EOF, recovery, missing graph and
+injected allocation/thread/client-cleanup/database-open failures. Wheel SHA256:
+`06cacbf4f3ed3b4872af3a41c4b225dadf8a372ffe312d7c42222c7723cfd40e`.
+No new live-model, biological admission or browser acceptance is inferred from
+HTTP-fixture and process tests.
+
 ## Task5 canonical tool effects — 2026-10-16
 
 `AttemptEnvironment` gates the actual `SoftwareEnvironment.step` before counters

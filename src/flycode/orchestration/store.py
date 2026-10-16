@@ -29,6 +29,7 @@ from ..domain.orchestration import (
     TaskCommand,
     TaskDraft,
     ToolCall,
+    WorkerRecord,
     WorkflowBudget,
     WorkflowDraft,
     WorkflowSpec,
@@ -65,7 +66,7 @@ class Store:
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=FULL')
         version = self.db.execute('PRAGMA user_version').fetchone()[0]
-        if version not in (0, 1, 2, 3):
+        if version not in (0, 1, 2, 3, 4, 5):
             self.db.close()
             raise StoreError('schema_version', str(version))
         self.db.executescript('''
@@ -112,9 +113,13 @@ class Store:
                 state TEXT NOT NULL, data TEXT NOT NULL);
             CREATE UNIQUE INDEX IF NOT EXISTS active_tool ON tool_calls(attempt_id)
                 WHERE state IN ('running','uncertain');
+            CREATE TABLE IF NOT EXISTS workspaces (
+                id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL UNIQUE REFERENCES attempts(id), data TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS workers (
+                id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL UNIQUE REFERENCES attempts(id), data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS counters (name TEXT PRIMARY KEY, value INTEGER NOT NULL);
             INSERT OR IGNORE INTO counters VALUES ('task_number',0),('root_starts',0),('queue_paused',0);
-            PRAGMA user_version=3;
+            PRAGMA user_version=5;
         ''')
 
     def close(self):
@@ -744,6 +749,13 @@ class Store:
         attempt = changed(attempt, state='reconciling')
         self._save_attempt(attempt)
         self.db.execute('UPDATE reservations SET uncertain=1 WHERE attempt_id=?', (attempt.id,))
+        worker = self.db.execute('SELECT data FROM workers WHERE attempt_id=?', (attempt.id,)).fetchone()
+        if worker is not None:
+            record = WorkerRecord.model_validate_json(worker['data'])
+            if not record.stop_confirmed:
+                record = changed(record, state='uncertain')
+                self.db.execute('UPDATE workers SET data=? WHERE id=?', (record.model_dump_json(), record.id))
+                self._event(scope, workflow, 'worker_reconciling', task=task, attempt=attempt, worker_id=record.id, reason=reason)
         for row in self.db.execute("SELECT data FROM model_calls WHERE attempt_id=? AND state='running'", (attempt.id,)):
             call = changed(ModelCall.model_validate_json(row['data']), status='uncertain', late=True)
             self.db.execute('UPDATE model_calls SET state=?,data=? WHERE id=?', ('uncertain', call.model_dump_json(), call.id))
