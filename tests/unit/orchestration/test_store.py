@@ -630,3 +630,112 @@ def test_default_task_count_and_depth_limits_apply_to_real_draft_graph(setup):
         parent = store.create_task(owner, wf.id, draft(permission, parent_id=parent), key=f'depth-{i}').id
     with pytest.raises(StoreError, match='depth'):
         store.create_task(owner, wf.id, draft(permission, parent_id=parent), key='too-deep')
+
+
+def test_heartbeat_extends_current_lease_without_resetting_deadline_or_budget(setup):
+    from flycode.domain.orchestration import BudgetAmount
+    from flycode.orchestration.store import StoreError
+
+    store, owner, runtime, _, instance, now, *_ = setup
+    wf, task = queued(setup)
+    attempt = store.claim(runtime, request(instance, task)).attempt
+    store.confirm_started(runtime, attempt.id, attempt.fence)
+    store.spend(runtime, attempt.id, attempt.fence, BudgetAmount(model_calls=1), key='heartbeat-spent')
+    now[0] = 1010.
+    renewed = store.heartbeat(runtime, attempt.id, attempt.fence)
+    assert renewed.lease_until == 1040.
+    now[0] = 1031.
+    assert store.expire(runtime) == []
+    store.spend(runtime, attempt.id, attempt.fence, BudgetAmount(model_calls=1), key='after-renewal')
+    assert store.workflow(owner, wf.id).deadline_at == 2800.
+    assert store.budget(owner, wf.id).spent.model_calls == 2
+    command(store, owner, store.task(owner, task.id), 'release_assignment')
+    with pytest.raises(StoreError, match='fence'):
+        store.heartbeat(runtime, attempt.id, attempt.fence)
+
+
+def test_expired_worker_loses_fence_but_keeps_reservations_and_instance(setup):
+    from flycode.orchestration.store import StoreError
+
+    store, owner, runtime, profile, instance, now, *_ = setup
+    wf, task = queued(setup)
+    attempt = store.claim(runtime, request(instance, task)).attempt
+    store.confirm_started(runtime, attempt.id, attempt.fence)
+    now[0] = 1030.
+    with pytest.raises(StoreError, match='fence'):
+        store.heartbeat(runtime, attempt.id, attempt.fence)
+    expired = store.expire(runtime)
+    assert len(expired) == 1 and expired[0].state == 'reconciling'
+    assert store.budget(owner, wf.id).reserved.model_calls == 2
+    assert store.budget(owner, wf.id).uncertain
+    assert store.task(owner, task.id).current_attempt_id == attempt.id
+    assert store.instance(runtime, instance.id).state == 'reconciling'
+    assert store.expire(runtime) == []
+    replacement = store.register_instance(runtime, profile.id)
+    result = store.claim(runtime, request(replacement, store.task(owner, task.id), key='after-expiry'))
+    assert result.attempt is None and 'task_not_ready' in result.reasons
+    with pytest.raises(StoreError, match='uncertain'):
+        store.confirm_stopped(runtime, attempt.id, attempt.fence, outcome='retry_wait')
+
+
+def test_workflow_deadline_revokes_even_healthy_worker_and_retains_slot_until_stop(setup):
+    from flycode.orchestration.store import StoreError
+
+    store, owner, runtime, _, instance, now, *_ = setup
+    wf, task = queued(setup)
+    attempt = store.claim(runtime, request(instance, task)).attempt
+    store.confirm_started(runtime, attempt.id, attempt.fence)
+    for timestamp in range(1010, 2800, 10):
+        now[0] = float(timestamp)
+        store.heartbeat(runtime, attempt.id, attempt.fence)
+    now[0] = 2800.
+    expired = store.expire(runtime)
+    assert len(expired) == 1
+    assert store.workflow(owner, wf.id).state == 'incomplete'
+    assert store.workflow(owner, wf.id).active_slot
+    with pytest.raises(StoreError, match='fence|wall_deadline'):
+        store.heartbeat(runtime, attempt.id, attempt.fence)
+    store.confirm_stopped(runtime, attempt.id, attempt.fence, outcome='retry_wait', expenditure_confirmed=True)
+    assert not store.workflow(owner, wf.id).active_slot
+    assert store.workflow(owner, wf.id).deadline_at == 2800.
+
+
+def test_user_cancellation_wins_over_simultaneous_workflow_deadline(setup):
+    store, owner, runtime, _, instance, now, *_ = setup
+    wf, task = queued(setup)
+    attempt = store.claim(runtime, request(instance, task)).attempt
+    store.confirm_started(runtime, attempt.id, attempt.fence)
+    command(store, owner, store.task(owner, task.id), 'cancel')
+    now[0] = 2800.
+    store.expire(runtime)
+    assert store.workflow(owner, wf.id).state == 'cancelling'
+    store.confirm_stopped(runtime, attempt.id, attempt.fence, outcome='retry_wait', expenditure_confirmed=True)
+    assert store.workflow(owner, wf.id).state == 'cancelled'
+    assert not store.workflow(owner, wf.id).active_slot
+
+
+def test_lease_expiration_is_scoped_durable_and_not_resurrected_by_other_connection(setup):
+    from flycode.domain.orchestration import AccessScope
+    from flycode.orchestration.store import Store, StoreError
+
+    store, owner, runtime, _, instance, now, catalogue, *_ = setup
+    wf, task = queued(setup)
+    attempt = store.claim(runtime, request(instance, task)).attempt
+    store.confirm_started(runtime, attempt.id, attempt.fence)
+    now[0] = 1030.
+    foreign = AccessScope(actor_id='host', project_ids={'q'}, role='runtime')
+    assert store.expire(foreign) == []
+    with pytest.raises(StoreError, match='scope'):
+        store.heartbeat(owner, attempt.id, attempt.fence)
+    assert len(store.expire(runtime)) == 1
+    second = Store(store.path, catalogue=catalogue, clock=lambda: now[0])
+    try:
+        with pytest.raises(StoreError, match='fence'):
+            second.heartbeat(runtime, attempt.id, attempt.fence)
+        assert second.budget(owner, wf.id).uncertain
+        assert second.instance(runtime, instance.id).state == 'reconciling'
+        assert second.expire(runtime) == []
+        events = [event for event in second.events(owner, wf.id) if event.kind == 'attempt_reconciling']
+        assert len(events) == 1 and events[0].data['reason'] == 'lease_expired'
+    finally:
+        second.close()

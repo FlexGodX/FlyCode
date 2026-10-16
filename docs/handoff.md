@@ -2,6 +2,32 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Task5 lease/deadline foundation — 2026-10-16
+
+`Store.heartbeat` extends only current, unexpired ownership to now+30s, without
+resetting spending or the workflow deadline. `Store.expire` moves expired leases
+to reconciling, revokes fencing, retains instance/reservations and marks spending
+uncertain. A healthy heartbeat cannot override the 30-minute workflow deadline.
+Deadline moves the workflow to incomplete but retains its active root slot until
+all owned attempts have confirmed stop; user cancellation remains cancelling then
+cancelled. Repeated sweeps and another SQLite connection cannot resurrect the lease.
+These are store operations; a live supervisor calling heartbeat every10s and
+actual process-stop proof are still missing. Task5 is not complete.
+
+Verification: 51 targeted tests passed; full default suite502 passed/8 skipped
+in233.33s. Relevant Ruff/mypy pass. Five new lease/deadline cases passed against
+the extracted wheel outside the checkout; wheel SHA256:
+`2d82891f6ab8fb2c4c9eee5fc0af3b51929b8e7e29bd7c5b5245ff96e395b774`.
+No new live LM, graph admission or browser acceptance is claimed.
+
+Next runtime reuse: `verification.runner._terminate(Popen)` confirms absence of
+an owned POSIX process group created with `start_new_session=True`. Ordinary
+agent tool subprocesses inherit the worker group, but nested verification creates
+another session and must be tracked separately. Docker daemon resources and
+detached processes escape that group; block unsupported resource profiles until
+ownership tracking exists. Never kill a user-owned server or trust a recovered
+numeric PID as proof of ownership. The detailed Task5 notes are in the delivery plan.
+
 ## Canonical queue foundation — 2026-10-16
 
 Task4 now has shared Pydantic workflow/task/profile/instance/attempt contracts,

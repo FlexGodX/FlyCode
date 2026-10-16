@@ -714,13 +714,46 @@ class Store:
                 for attempt in self.attempts(scope, workflow.id):
                     if attempt.state not in {'assigned', 'running', 'stopping'}:
                         continue
-                    task = self._task(attempt.task_id)
-                    self._save_task(changed(task, fence=task.fence + 1, revision=task.revision + 1))
-                    self._save_attempt(changed(attempt, state='reconciling'))
-                    self.db.execute('UPDATE reservations SET uncertain=1 WHERE attempt_id=?', (attempt.id,))
-                    instance = self._instance(attempt.instance_id)
-                    self._save_instance(changed(instance, state='reconciling', revision=instance.revision + 1))
-                    self._event(scope, workflow, 'attempt_reconciling', task=task, attempt=attempt)
+                    self._reconcile(scope, workflow, attempt, 'host_restart')
+
+    def _reconcile(self, scope, workflow, attempt, reason):
+        task = self._task(attempt.task_id)
+        self._save_task(changed(task, fence=task.fence + 1, revision=task.revision + 1))
+        attempt = changed(attempt, state='reconciling')
+        self._save_attempt(attempt)
+        self.db.execute('UPDATE reservations SET uncertain=1 WHERE attempt_id=?', (attempt.id,))
+        instance = self._instance(attempt.instance_id)
+        self._save_instance(changed(instance, state='reconciling', revision=instance.revision + 1))
+        self._event(scope, workflow, 'attempt_reconciling', task=task, attempt=attempt, reason=reason)
+        return self._attempt(attempt.id)
+
+    def heartbeat(self, scope, attempt_id, fence):
+        with self.transaction():
+            attempt, task, workflow = self._owned(scope, attempt_id, fence)
+            attempt = changed(attempt, lease_until=self.clock() + 30.)
+            self._save_attempt(attempt)
+            self._event(scope, workflow, 'attempt_heartbeat', task=task, attempt=attempt, fence=fence)
+            return attempt
+
+    def expire(self, scope):
+        """Revoke expired ownership without asserting that its process has stopped."""
+        self._role(scope, ('runtime',))
+        expired = []
+        with self.transaction():
+            now = self.clock()
+            for workflow in self.workflows(scope):
+                if not workflow.active_slot:
+                    continue
+                deadline = workflow.deadline_at is not None and (now >= workflow.deadline_at or now < workflow.started_at)
+                for attempt in self.attempts(scope, workflow.id):
+                    if attempt.state in {'assigned', 'running', 'stopping'} and (deadline or now >= attempt.lease_until):
+                        expired.append(self._reconcile(scope, workflow, attempt, 'wall_deadline' if deadline else 'lease_expired'))
+                if deadline and workflow.state not in {'incomplete', 'cancelling'}:
+                    active = any(a.state in ACTIVE for a in self.attempts(scope, workflow.id))
+                    workflow = changed(workflow, state='incomplete', active_slot=active, revision=workflow.revision + 1)
+                    self._save_workflow(workflow)
+                    self._event(scope, workflow, 'workflow_deadline', task=self._task(workflow.root_task_id))
+        return expired
 
     def confirm_stopped(self, scope, attempt_id, fence, *, outcome, expenditure_confirmed=False):
         self._role(scope, ('runtime',))
@@ -750,9 +783,9 @@ class Store:
             instance = self._instance(attempt.instance_id)
             self._save_instance(changed(instance, state='idle', current_attempt_id=None, revision=instance.revision + 1))
             active = any(a.state in ACTIVE for a in self.attempts(scope, workflow.id))
-            if not active and workflow.state in {'cancelling', 'pausing'}:
-                workflow = changed(workflow, state='cancelled' if workflow.state == 'cancelling' else 'paused',
-                                   active_slot=workflow.state != 'cancelling', revision=workflow.revision + 1)
+            if not active and workflow.state in {'cancelling', 'pausing', 'incomplete'}:
+                state = {'cancelling': 'cancelled', 'pausing': 'paused', 'incomplete': 'incomplete'}[workflow.state]
+                workflow = changed(workflow, state=state, active_slot=state == 'paused', revision=workflow.revision + 1)
                 self._save_workflow(workflow)
             self._event(scope, workflow, 'attempt_stopped', task=task, attempt=attempt, outcome=terminal)
             result = self._attempt(attempt_id)

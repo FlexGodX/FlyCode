@@ -184,6 +184,45 @@ Ruff/mypy pass; extracted wheel persists/reopens the queue and runs CLI `brains`
 - [ ] Verify pause/cancel/retry do not reset budget; no new assignments after stop; user-owned resources untouched.
 - [ ] Commit and expose tracker API/activity from same event stream.
 
+**Task5 lease foundation:** `Store.heartbeat` renews only current unexpired
+ownership by 30s. `Store.expire` revokes expired attempts into reconciling,
+retaining instance and reservations; it never starts a replacement. Workflow
+deadline expires even a healthy lease and keeps the root slot until all owned
+processes are confirmed stopped. User cancellation takes precedence over deadline.
+The actual supervisor must call heartbeat every10s and run the expiry sweep;
+these store methods alone do not provide a background worker or stop proof.
+Verification:51 targeted tests and full default suite502 passed/8 skipped;
+Ruff/mypy pass. Five lease/deadline cases also pass on the extracted wheel.
+This partial Task5 increment leaves the aggregate checklist open.
+
+**Runtime implementation constraints:**
+
+1. Reuse `run_agent`/event sink/stop callback, but do not create a second lifecycle
+   in legacy `RunManager.records`. Bind events to canonical instance/attempt/fence.
+2. `cortex.generate_candidates` is synchronous today, including network calls.
+   Keep it outside the serving event loop and SQLite transaction. Supervise owned
+   workers independently so heartbeat, cancellation and HTTP remain responsive.
+3. Gate each actual primary/scorer HTTP call and each tool before its effect,
+   not merely a candidate-generation step or an after-the-fact counter. Share
+   one endpoint slot, including explicit probes; acquire only for the request.
+   Unknown transport/process outcomes require reconciliation, not automatic replay.
+4. The runtime must validate profile context against available model capacity
+   and enforce tool/file arguments. Current structural context bounds and pinned
+   protocol probes do not prove those properties.
+5. Lease expiry revokes commit authority but cannot kill a process. Retain the
+   ownership/reservation until owned process-group absence and unknown effects
+   are reconciled. Never stop user-owned servers or infer death from an absent
+   heartbeat. Publish real subprocess and HTTP evidence before closing Task5.
+
+Existing POSIX cleanup is `verification/runner.py:_terminate(Popen)`, with
+`_signal_group`/`_group_gone`; it assumes an owned `start_new_session=True`
+process whose PID is its process-group ID. Ordinary agent tool subprocesses
+inherit that group, but `verification.run_pytest` starts a separate session.
+Track nested verification groups separately. Docker daemon resources and detached
+project processes are not contained by a client process group. Block unsupported
+resource profiles until owned-resource tracking exists; a stale numeric PID or
+lease timeout is not sufficient ownership/absence proof.
+
 ### Task 6: Review, интеграция и completion (17/22/29)
 
 **Files:** create `src/flycode/orchestration/{workspaces,integration}.py`, verification oracle/sandbox adapters; tests actual two-writer conflicts/integration/verification.
