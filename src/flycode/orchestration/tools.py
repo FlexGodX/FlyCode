@@ -16,7 +16,7 @@ from ..domain.orchestration import (
     MessageDraft,
     ToolCall,
 )
-from ..domain.verification import CheckSpec
+from ..domain.verification import CheckSpec, ProcessRef
 from ..verification.plan import validate_target
 from .store import Store, StoreError, changed, covers
 
@@ -129,9 +129,28 @@ class Tools:
             validate_target(target)
         action = ToolAction(id=uuid4().hex, tool='run_tests', source='host',
             arguments={'registered_check': check.model_dump(mode='json'), 'number': number})
-        return self._begin(scope, attempt_id, fence, action)[0]
+        return self._begin(scope, attempt_id, fence, action, execution_profile='registered-pytest-v1')[0]
 
-    def _begin(self, scope, attempt_id, fence, action):
+    def bind_process(self, scope, identity, ref: ProcessRef):
+        store = self.store
+        store._role(scope, ('runtime',))
+        with store.transaction():
+            call = self.get(scope, identity)
+            attempt, task, workflow = store._owned(scope, call.attempt_id, call.fence, running=True)
+            if (call.status != 'running' or call.execution_profile != 'registered-pytest-v1'
+                    or task.paused or workflow.state != 'running' or store._counter('queue_paused')):
+                raise StoreError('process_admission')
+            if call.process is not None:
+                if call.process != ref:
+                    raise StoreError('request_replay')
+                return call
+            call = changed(call, process=ref)
+            store.db.execute('UPDATE tool_calls SET data=? WHERE id=?', (call.model_dump_json(), call.id))
+            store._event(scope, workflow, 'check_process_admitted', task=task, attempt=attempt,
+                call_id=call.id, process=ref.model_dump(mode='json'))
+            return call
+
+    def _begin(self, scope, attempt_id, fence, action, *, execution_profile=None):
         store = self.store
         digest = hashlib.sha256(json.dumps(action.arguments, sort_keys=True, allow_nan=False).encode()).hexdigest()
         with store.transaction():
@@ -147,7 +166,8 @@ class Tools:
                                 (attempt_id,)).fetchone():
                 raise StoreError('resource_busy', 'One tool may execute per attempt')
             call = ToolCall(id=uuid4().hex, workflow_id=workflow.id, task_id=task.id, attempt_id=attempt_id,
-                instance_id=attempt.instance_id, fence=fence, tool=action.tool, argument_hash=digest, started_at=store.clock())
+                instance_id=attempt.instance_id, fence=fence, tool=action.tool, argument_hash=digest, started_at=store.clock(),
+                execution_profile=execution_profile)
             store._debit(scope, attempt, task, workflow, BudgetAmount(tool_calls=1))
             store.db.execute('INSERT INTO tool_calls VALUES (?,?,?,?)',
                              (call.id, attempt_id, call.status, call.model_dump_json()))

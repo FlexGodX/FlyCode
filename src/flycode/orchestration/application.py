@@ -132,6 +132,8 @@ class Application:
         if not self.path.exists():
             return True
         journal = self._journal(expected)
+        if journal.state == 'rolled_back':
+            return True
         clean = True
         for index in reversed(range(len(journal.operations))):
             operation, change = journal.operations[index], expected[index]

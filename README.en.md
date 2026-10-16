@@ -131,8 +131,14 @@ evidence. `reopen` creates a new verifiable version while retaining attempts,
 spending and the original workflow deadline. Repeated review requires fresh
 checks; compatible previously applied results are verified without rewriting
 source files or historical attempts. Older databases without freshness pins
-retain their history but require new verification. This is an internal foundation:
-integrator crash recovery, conflict resolution and CLI/API/UI wiring remain open.
+retain their history but require new verification. Registered host checks use an
+independent supervisor and a durable whole-group stop receipt. After a crash,
+`Integration.reconcile` excludes a live coordinator and checks process custody
+before rollback. Unknown external effects retain ownership until trusted
+reconciliation; group absence alone does not settle effects. Late writes through
+old descriptors survive; owner file replacement blocks rollback. This is an
+internal trusted-local foundation: conflict resolution and CLI/API/UI wiring
+remain open.
 
 Addressed messages use the same SQLite database, with durable redelivery and
 atomic receipts/correlated answers. Workflow limits are200 deliveries,16KiB per

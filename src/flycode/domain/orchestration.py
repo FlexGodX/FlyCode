@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from .action import MUTATING_TOOLS, VALID_TOOLS
 from .task import TaskSpec
-from .verification import AcceptanceContract, SubjectSnapshot
+from .verification import AcceptanceContract, ProcessRef, SubjectSnapshot
 
 TaskState = Literal['planned', 'ready', 'assigned', 'running', 'awaiting_review', 'succeeded',
                     'blocked', 'retry_wait', 'failed', 'cancelled']
@@ -328,6 +328,8 @@ class ToolCall(QueueModel):
     ended_at: float | None = None
     error_class: str | None = Field(default=None, max_length=200)
     late: bool = False
+    execution_profile: Literal['registered-pytest-v1'] | None = None
+    process: ProcessRef | None = None
 
 
 class WorkspaceRecord(QueueModel):

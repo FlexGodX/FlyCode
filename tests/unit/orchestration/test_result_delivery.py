@@ -710,6 +710,324 @@ def test_runtime_cannot_start_inside_an_admitted_host_review(owned, delivery, mo
     assert result.status == 'approved' and blocked == [True]
 
 
+def test_host_check_process_is_durable_before_pytest_admission(owned, delivery, monkeypatch):
+    from flycode.orchestration.review import Reviews
+    from flycode.orchestration.tools import Tools
+    from flycode.verification import custody
+
+    store, owner, host, workflow, _, _, _ = owned
+    runtime, artifact, _, approval = delivery
+    checker = reviewer(owned, [artifact])
+    run = custody.run
+    admitted = []
+
+    def inspect_admission(*args):
+        def admit(ref):
+            args[-1](ref)
+            assert not store.db.in_transaction
+            calls = [call for call in Tools(store).calls(owner, workflow.id) if call.attempt_id == checker.id]
+            assert calls[-1].execution_profile == 'registered-pytest-v1'
+            assert calls[-1].process == ref and calls[-1].status == 'running'
+            with pytest.raises(BlockingIOError), custody.stopped(ref):
+                pytest.fail('An executing registered check had no custody lock')
+            admitted.append(ref)
+        return run(*args[:-1], admit)
+
+    monkeypatch.setattr(custody, 'run', inspect_admission)
+    review = Reviews(store, runtime.root).run(host, checker.id, checker.fence, artifact.id, approval_hash=approval)
+    assert review.status == 'approved' and len(admitted) == 4
+    assert len({ref.id for ref in admitted}) == 4
+    for ref in admitted:
+        with custody.stopped(ref) as receipt:
+            assert receipt.started and receipt.stop_confirmed
+
+
+@pytest.mark.parametrize('when', ['before-admission', 'after-start'])
+def test_owner_pause_fences_check_admission_and_retains_started_effects(owned, delivery, monkeypatch, when):
+    from flycode.orchestration.review import Reviews
+    from flycode.orchestration.tools import Tools
+    from flycode.verification import custody
+
+    store, owner, host, workflow, _, _, _ = owned
+    runtime, artifact, _, approval = delivery
+    checker = reviewer(owned, [artifact])
+    before = store.budget(owner, workflow.id).spent
+    run = custody.run
+
+    def pause():
+        current = store.task(owner, checker.task_id)
+        store.command(owner, current.id, TaskCommand(operation='pause', expected_revision=current.revision,
+            idempotency_key='pause-host-check'))
+
+    def interrupt(*args):
+        def admit(ref):
+            if when == 'before-admission':
+                pause()
+            return args[-1](ref)
+        def state(value):
+            args[-2](value)
+            if value == 'running' and when == 'after-start':
+                pause()
+        return run(*args[:-2], state, admit)
+
+    monkeypatch.setattr(custody, 'run', interrupt)
+    review = Reviews(store, runtime.root).run(host, checker.id, checker.fence, artifact.id, approval_hash=approval)
+    assert review.status == 'inconclusive'
+    calls = [call for call in Tools(store).calls(owner, workflow.id) if call.attempt_id == checker.id]
+    assert len(calls) == 1 and calls[0].late
+    assert store.budget(owner, workflow.id).spent.tool_calls == before.tool_calls + 1
+    if when == 'after-start':
+        assert calls[0].status == 'uncertain'
+        assert store.task(owner, checker.task_id).current_attempt_id == checker.id
+        assert not store._attempt(checker.id).stop_confirmed
+        assert store.budget(owner, workflow.id).uncertain
+        with custody.stopped(calls[0].process) as receipt:
+            assert receipt.started and receipt.stop_confirmed and receipt.reason == 'cancelled'
+    else:
+        assert calls[0].process is None and calls[0].status == 'failed'
+        assert store.task(owner, checker.task_id).current_attempt_id is None
+        assert store._attempt(checker.id).stop_confirmed
+        assert not store.budget(owner, workflow.id).uncertain
+
+
+@pytest.mark.parametrize('owner_change', ['retained-original', 'source-replacement'])
+def test_actual_integrator_crash_requires_stopped_checks_and_effect_reconciliation(owned, model_server, tmp_path, owner_change):
+    import os
+    import signal
+    import subprocess
+    import sys
+    import time
+
+    from flycode.orchestration.artifacts import Artifacts
+    from flycode.orchestration.integration import Integration
+    from flycode.orchestration.review import Reviews
+    from flycode.orchestration.store import StoreError
+    from flycode.orchestration.tools import Tools
+    from flycode.verification.custody import stopped
+
+    store, owner, host, workflow, task, author, source = owned
+    runtime = repair(owned, model_server, tmp_path)
+    artifact = Artifacts(store, runtime.root).for_attempt(owner, author.id)
+    service = Integration(store, runtime.root)
+    block, ready, counter = [tmp_path / name for name in ('block-applied', 'check-ready.json', 'external-count.txt')]
+    oracle = tmp_path / 'recovery-oracle/tests'
+    oracle.mkdir(parents=True)
+    (oracle / 'test_example.py').write_text(
+        'import json, os, runpy, subprocess, sys, time\nfrom pathlib import Path\n'
+        'def test_example():\n'
+        f'    if Path({str(block)!r}).exists():\n'
+        f'        with Path({str(counter)!r}).open("a") as stream: stream.write("once\\n")\n'
+        '        child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])\n'
+        f'        Path({str(ready)!r}).write_text(json.dumps(dict(group=os.getpgrp(), child=child.pid)))\n'
+        '        time.sleep(60)\n'
+        '    assert runpy.run_path("src/example.py")["answer"] == 1\n')
+    approval = service.engine.oracles.approve(task.acceptance, checks(), oracle.parent)
+    checker = reviewer(owned, [artifact])
+    review = Reviews(store, runtime.root).run(host, checker.id, checker.fence, artifact.id, approval_hash=approval)
+    assert review.status == 'approved'
+    integrator = reviewer(owned, [artifact])
+    config = tmp_path / 'coordinator.json'
+    config.write_text(json.dumps({'database': str(store.path), 'root': str(runtime.root),
+        'scope': host.model_dump(mode='json'), 'attempt': integrator.id, 'fence': integrator.fence,
+        'artifact': artifact.id, 'review': review.id, 'approval': {task.id: approval, integrator.task_id: approval}, 'block': str(block)}))
+    script = tmp_path / 'coordinator.py'
+    script.write_text('''import json, sys
+from pathlib import Path
+from flycode.domain.orchestration import AccessScope
+from flycode.orchestration.store import Store
+from flycode.orchestration.integration import Integration
+config=json.loads(Path(sys.argv[1]).read_text())
+store=Store(Path(config['database']))
+service=Integration(store,Path(config['root']))
+verify=service._verify
+def block_applied(*args,**kwargs):
+    if kwargs['applied']:
+        Path(config['block']).touch()
+    return verify(*args,**kwargs)
+service._verify=block_applied
+service.run(AccessScope.model_validate(config['scope']),config['attempt'],config['fence'],
+    (config['artifact'],),(config['review'],),approval_hashes=config['approval'])
+''')
+    coordinator = None
+    group = None
+    with (source / 'src/example.py').open('r+b') as original, (tmp_path / 'coordinator.log').open('wb') as log:
+        try:
+            coordinator = subprocess.Popen([sys.executable, str(script), str(config)], start_new_session=True, stdout=log, stderr=log)
+            deadline = time.monotonic() + 20
+            while not ready.exists():
+                assert coordinator.poll() is None, (tmp_path / 'coordinator.log').read_text()
+                assert time.monotonic() < deadline
+                time.sleep(.02)
+            group = json.loads(ready.read_text())['group']
+            record = service.get(owner, store.db.execute('SELECT id FROM integrations WHERE attempt_id=?', (integrator.id,)).fetchone()['id'])
+            calls = [call for call in Tools(store).calls(owner, workflow.id) if call.attempt_id == integrator.id]
+            active = [call for call in calls if call.status == 'running']
+            assert len(active) == 1 and active[0].process is not None
+            os.kill(coordinator.pid, signal.SIGSTOP)
+            _, status = os.waitpid(coordinator.pid, os.WUNTRACED)
+            assert os.WIFSTOPPED(status)
+            store.recover(host)
+            before = store.budget(owner, workflow.id)
+            with pytest.raises(StoreError, match='coordinator_running'):
+                service.reconcile(host, record.id)
+            assert store.budget(owner, workflow.id) == before
+            assert (source / 'src/example.py').read_text() == 'answer = 1\n'
+            coordinator.kill()
+            coordinator.wait(timeout=5)
+            deadline = time.monotonic() + 10
+            while True:
+                try:
+                    with stopped(active[0].process) as receipt:
+                        assert receipt.started and receipt.reason == 'coordinator_lost'
+                    break
+                except (BlockingIOError, ValueError):
+                    assert time.monotonic() < deadline
+                    time.sleep(.02)
+            pending = service.reconcile(host, record.id)
+            assert pending.state == 'reconciling' and pending.error == 'effects_unknown'
+            assert (source / 'src/example.py').read_text() == 'answer = 1\n'
+            assert store.task(owner, integrator.task_id).current_attempt_id == integrator.id
+            assert store.budget(owner, workflow.id).uncertain
+            # The harness independently checks the fixture's declared external
+            # effect before the trusted host records its resolution. Group exit
+            # alone must never perform this acknowledgement.
+            with pytest.raises(ProcessLookupError):
+                os.killpg(group, 0)
+            assert counter.read_text() == 'once\n'
+            Tools(store).finish(host, active[0].id, status='failed', error_class='FixtureEffectsReconciled')
+            original.write(b'late owner bytes\n')
+            original.truncate()
+            original.flush()
+            if owner_change == 'source-replacement':
+                replacement = tmp_path / 'owner-replacement.py'
+                replacement.write_bytes(b'new owner source bytes\n')
+                replacement.replace(source / 'src/example.py')
+            reconciled = service.reconcile(host, record.id)
+            assert reconciled.state == ('failed' if owner_change == 'retained-original' else 'reconciling')
+            assert reconciled.error == ('host_interrupted' if owner_change == 'retained-original' else 'rollback_conflict')
+            assert (source / 'src/example.py').read_bytes() == (
+                b'late owner bytes\n' if owner_change == 'retained-original' else b'new owner source bytes\n')
+            assert store.budget(owner, workflow.id).spent == before.spent
+            assert counter.read_text() == 'once\n'
+            assert store.workflow(owner, workflow.id).state != 'succeeded'
+            assert store._attempt(integrator.id).stop_confirmed is (owner_change == 'retained-original')
+            if owner_change == 'retained-original':
+                assert store.task(owner, integrator.task_id).current_attempt_id is None
+                assert not store.workflow(owner, workflow.id).active_slot
+                assert not store.budget(owner, workflow.id).uncertain
+                assert service.reconcile(host, record.id).model_dump(mode='json') == reconciled.model_dump(mode='json')
+            else:
+                assert store.task(owner, integrator.task_id).current_attempt_id == integrator.id
+                with pytest.raises(StoreError, match='reconcile_required'):
+                    store.confirm_stopped(host, integrator.id, integrator.fence, outcome='failed', expenditure_confirmed=True)
+            assert (source / 'user-dirty.bin').read_bytes() == b'\x00\xff user bytes\r\n'
+            with pytest.raises(StoreError, match='reconcile_required'):
+                service.run(host, integrator.id, integrator.fence, (artifact.id,), (review.id,),
+                    approval_hashes={task.id: approval, integrator.task_id: approval})
+        finally:
+            if coordinator is not None:
+                if coordinator.poll() is None:
+                    coordinator.kill()
+                coordinator.wait(timeout=5)
+            if group is not None:
+                try:
+                    os.killpg(group, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                except PermissionError:
+                    from flycode.verification.runner import _group_gone
+
+                    assert _group_gone(group), 'Harness process cleanup remained unconfirmed'
+
+
+@pytest.mark.parametrize('interruption', ['output_limit', 'descendants_terminated'])
+def test_interrupted_check_retains_actual_effects_until_reconciliation(owned, delivery, tmp_path, interruption):
+    from flycode.orchestration.store import StoreError
+    from flycode.orchestration.tools import Tools
+    from flycode.orchestration.verification import CheckExecutor
+    from flycode.verification.custody import stopped
+    from flycode.verification.runner import run_pytest
+
+    store, owner, host, workflow, _, _, _ = owned
+    _, artifact, _, _ = delivery
+    checker = reviewer(owned, [artifact])
+    subject = tmp_path / 'noisy-subject'
+    subject.mkdir()
+    (subject / 'pytest.ini').write_text('[pytest]\naddopts = -s\n')
+    effect = tmp_path / 'external-effect'
+    if interruption == 'output_limit':
+        code = ('import os, time\nfrom pathlib import Path\n'
+            f'def test_noisy():\n    Path({str(effect)!r}).write_text("started")\n'
+            '    os.write(1, b"x" * (3 * 1024 * 1024))\n    time.sleep(60)\n')
+    else:
+        child = f'from pathlib import Path; import time; Path({str(effect)!r}).write_text("started"); time.sleep(60)'
+        code = ('import subprocess, sys, time\nfrom pathlib import Path\n'
+            f'def test_child():\n    subprocess.Popen([sys.executable, "-c", {child!r}])\n'
+            '    for _ in range(200):\n'
+            f'        if Path({str(effect)!r}).exists(): return\n'
+            '        time.sleep(.01)\n    assert False, "Owned child did not start"\n')
+    (subject / 'test_noisy.py').write_text(code)
+    before = store.budget(owner, workflow.id).spent
+    executor = CheckExecutor(store, host, checker.id, checker.fence)
+    result = executor.execute(CheckSpec(), 1, lambda **kwargs:
+        run_pytest(subject, tmp_path / 'noisy-output', 10, 1, lambda: False, **kwargs))
+    call = next(call for call in Tools(store).calls(owner, workflow.id) if call.attempt_id == checker.id)
+    assert effect.read_text() == 'started'
+    assert not result.complete and result.process_started and result.stop_confirmed
+    with stopped(call.process) as receipt:
+        assert receipt.reason == interruption
+    assert call.status == 'uncertain' and executor.should_stop()
+    assert store.budget(owner, workflow.id).spent.tool_calls == before.tool_calls + 1
+    with pytest.raises(StoreError, match='resource_busy'):
+        store.confirm_stopped(host, checker.id, checker.fence, outcome='failed', expenditure_confirmed=True)
+
+
+def test_recovery_never_resurrects_an_assignment_stopped_by_another_host(owned, delivery, monkeypatch):
+    from contextlib import contextmanager
+
+    from flycode.orchestration.integration import Integration
+
+    store, owner, host, workflow, task, _, _ = owned
+    runtime, artifact, review, approval = delivery
+    service = Integration(store, runtime.root)
+    integrator = reviewer(owned, [artifact])
+    confirm = store.confirm_stopped
+
+    def unavailable(*args, **kwargs):
+        raise OSError('Host verification could not start')
+    def crash(*args, **kwargs):
+        raise RuntimeError('Coordinator died before acknowledging stop')
+    monkeypatch.setattr(service, '_verify', unavailable)
+    monkeypatch.setattr(store, 'confirm_stopped', crash)
+    with pytest.raises(RuntimeError, match='before acknowledging stop'):
+        service.run(host, integrator.id, integrator.fence, (artifact.id,), (review.id,),
+            approval_hashes={task.id: approval, integrator.task_id: approval})
+    monkeypatch.setattr(store, 'confirm_stopped', confirm)
+    record = service.get(owner, store.db.execute('SELECT id FROM integrations WHERE attempt_id=?', (integrator.id,)).fetchone()['id'])
+    assert record.state == 'failed' and not store._attempt(integrator.id).stop_confirmed
+    before = store.budget(owner, workflow.id).spent
+    transaction = store.transaction
+    raced = []
+
+    @contextmanager
+    def stop_before_transaction():
+        if not raced:
+            raced.append(True)
+            confirm(host, integrator.id, integrator.fence, outcome='failed', expenditure_confirmed=True)
+        with transaction():
+            yield
+
+    monkeypatch.setattr(store, 'transaction', stop_before_transaction)
+    assert service.reconcile(host, record.id).state == 'failed'
+    assert raced == [True]
+    assert store._attempt(integrator.id).state == 'failed'
+    assert store._attempt(integrator.id).stop_confirmed
+    assert store.task(owner, integrator.task_id).current_attempt_id is None
+    assert store.instance(host, integrator.instance_id).state == 'idle'
+    assert store.budget(owner, workflow.id).spent == before
+    assert not store.budget(owner, workflow.id).uncertain
+
+
 def test_live_root_assignment_blocks_integration_of_child_patch(owned, model_server, tmp_path):
     import shutil
 

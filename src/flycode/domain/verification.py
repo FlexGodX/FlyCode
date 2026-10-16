@@ -95,6 +95,24 @@ class CaseResult(VerificationModel):
     subject_hash: str | None = None
 
 
+class ProcessRef(VerificationModel):
+    version: Literal['pytest-custody-v1'] = 'pytest-custody-v1'
+    id: str = Field(pattern=r'^[0-9a-f]{32}$')
+    directory: str
+    device: int = Field(ge=0)
+    inode: int = Field(gt=0)
+    request_hash: str = Field(pattern=r'^[0-9a-f]{64}$')
+
+
+class ProcessReceipt(VerificationModel):
+    ref: ProcessRef
+    state: Literal['preparing', 'admitted', 'stopped', 'uncertain'] = 'preparing'
+    started: bool = False
+    stop_confirmed: bool = False
+    exit_code: int | None = None
+    reason: str | None = None
+
+
 class CheckAttempt(VerificationModel):
     id: str = Field(default_factory=lambda: uuid4().hex)
     check_id: str = 'pytest'
@@ -104,6 +122,10 @@ class CheckAttempt(VerificationModel):
     error_class: AttemptError | None = None
     started_at: datetime | None = None
     ended_at: datetime | None = None
+    process: ProcessRef | None = None
+    process_started: bool = False
+    stop_confirmed: bool = False
+    process_reason: str | None = None
     number: int
     argv: list[str]
     exit_code: int | None

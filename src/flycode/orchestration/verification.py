@@ -43,12 +43,13 @@ class CheckExecutor:
             return CheckAttempt(number=number, argv=[], exit_code=None, duration=0, state='cancelled', cancelled=True,
                 error_class='policy', reasons=[error.code])
         try:
-            result = invocation()
+            result = invocation(on_admit=lambda ref: tools.bind_process(self.scope, call.id, ref))
         except BaseException as error:
             tools.finish(self.scope, call.id, status='uncertain', error_class=type(error).__name__)
             self.uncertain = True
             raise
-        self.uncertain = result.error_class in {'timeout', 'cleanup'}
+        self.uncertain = (result.error_class in {'timeout', 'cleanup'}
+            or (result.process_started and result.process_reason != 'completed'))
         tools.finish(self.scope, call.id, status='uncertain' if self.uncertain else
             'completed' if result.complete else 'failed', error_class=result.error_class)
         return result

@@ -1,7 +1,9 @@
 """One host integrator: exact reviews, merged checks, journaled apply and completion."""
 
 import hashlib
+import os
 import shutil
+from contextlib import ExitStack
 from pathlib import Path
 from uuid import uuid4
 
@@ -9,6 +11,7 @@ from ..domain import ToolAction
 from ..domain.results import IntegrationRecord
 from ..domain.verification import SubjectRef
 from ..verification.acceptance import input_identity
+from ..verification.custody import locked, stopped
 from ..verification.engine import VerificationEngine
 from ..verification.plan import PlanBuilder
 from ..verification.snapshot import capture
@@ -110,6 +113,89 @@ class Integration:
             return record
         with self.store.transaction():
             return self.store._invalidate_result(scope, identity, 'result_changed', expected=record)
+
+    def reconcile(self, scope, identity):
+        store = self.store
+        store._role(scope, ('runtime',))
+        if store.db.in_transaction:
+            raise RuntimeError('Integration reconciliation cannot run in a SQLite transaction')
+        record = self.get(scope, identity)
+        attempt = store._attempt(record.attempt_id)
+        if record.state in {'completed', 'invalidated'}:
+            return self.refresh(scope, identity)
+        if record.state == 'failed' and attempt.stop_confirmed:
+            return record
+        if record.runtime_root != str(self.root) or record.coordinator_identity is None:
+            raise StoreError('ownership_unknown')
+        try:
+            with locked(self.root / 'integrations' / record.id / 'coordinator.lock', identity=record.coordinator_identity):
+                return self._recover(scope, self.get(scope, identity))
+        except BlockingIOError as error:
+            raise StoreError('coordinator_running') from error
+        except (OSError, ValueError) as error:
+            if isinstance(error, StoreError):
+                raise
+            raise StoreError('ownership_unknown') from error
+
+    def _recover(self, scope, record):
+        store = self.store
+        with store.transaction():
+            record = self.get(scope, record.id)
+            attempt = store._attempt(record.attempt_id)
+            if record.state == 'failed' and attempt.stop_confirmed:
+                return record
+            task, workflow = store.task(scope, attempt.task_id), store.workflow(scope, record.workflow_id)
+            if task.current_attempt_id != attempt.id or attempt.fence != record.fence:
+                raise StoreError('fence')
+            if attempt.state in {'assigned', 'running', 'stopping'}:
+                attempt = store._reconcile(scope, workflow, attempt, 'integration_recovery')
+            record = changed(record, state='reconciling', error='host_interrupted')
+            store.db.execute('UPDATE integrations SET state=?,data=? WHERE id=?',
+                (record.state, record.model_dump_json(), record.id))
+        tools = Tools(store)
+        calls = [call for call in tools.calls(scope, workflow.id) if call.attempt_id == attempt.id]
+        with ExitStack() as locks:
+            for call in calls:
+                if call.process is not None:
+                    try:
+                        receipt = locks.enter_context(stopped(call.process))
+                    except (OSError, ValueError):
+                        return self._save(scope, record, error='process_unconfirmed')
+                    if (not receipt.started and call.execution_profile == 'registered-pytest-v1'
+                            and call.status in {'running', 'uncertain'}):
+                        tools.finish(scope, call.id, status='failed', error_class='NeverStarted')
+                elif call.execution_profile == 'registered-pytest-v1' and call.status in {'running', 'uncertain'}:
+                    # The canonical binding commits before GO, so an unbound
+                    # invocation of this versioned profile never executed pytest.
+                    tools.finish(scope, call.id, status='failed', error_class='NeverAdmitted')
+            calls = [call for call in tools.calls(scope, workflow.id) if call.attempt_id == attempt.id]
+            unknown = any(call.status in {'running', 'uncertain'} and call.tool != 'integrate' for call in calls)
+            unknown |= store.db.execute("SELECT 1 FROM model_calls WHERE attempt_id=? AND state IN ('running','uncertain')",
+                (attempt.id,)).fetchone() is not None
+            if unknown:
+                return self._save(scope, record, error='effects_unknown')
+            directory = self.root / 'integrations' / record.id
+            try:
+                clean = Application(directory, Path(record.source_root), directory / 'baseline', directory / 'candidate').rollback(record.changes)
+            except (OSError, ValueError):
+                clean = False
+            if not clean:
+                return self._save(scope, record, error='rollback_conflict')
+            for call in calls:
+                if call.tool == 'integrate' and call.status in {'running', 'uncertain'}:
+                    tools.finish(scope, call.id, status='failed', error_class='IntegrationAborted')
+            with store.transaction():
+                workflow = store.workflow(scope, workflow.id)
+                state = workflow.state if workflow.state in {'cancelling', 'cancelled', 'failed', 'pausing', 'paused'} else 'incomplete'
+                store._save_workflow(changed(workflow, state=state, revision=workflow.revision + 1))
+                record = changed(record, state='failed', error='host_interrupted')
+                store.db.execute('UPDATE integrations SET state=?,data=? WHERE id=?', (record.state, record.model_dump_json(), record.id))
+            # A crash between these transactions retains the assignment. The
+            # durable rolled-back journal makes the next reconciliation safe.
+            store.confirm_stopped(scope, attempt.id, attempt.fence, outcome='failed', expenditure_confirmed=True)
+            with store.transaction():
+                store._event(scope, workflow, 'integration_reconciled', task=task, attempt=attempt, integration_id=record.id)
+            return record
 
     def _guard(self, scope, record, *, deep=False):
         attempt, task, workflow = self.store._owned(scope, record.attempt_id, record.fence, running=True)
@@ -249,6 +335,20 @@ class Integration:
             author_attempts=author_attempts, changes=() if previous_result is not None else tuple(changes[path] for path in sorted(changes)),
             created_at=store.clock())
         self._guard(scope, record, deep=True)
+        directory = self.root / 'integrations' / record.id
+        directory.mkdir(parents=True, mode=0o700)
+        with locked(directory / 'coordinator.lock', create=True) as descriptor:
+            info = os.fstat(descriptor)
+            record = changed(record, coordinator_identity=(info.st_dev, info.st_ino))
+            return self._execute(scope, record)
+
+    def _execute(self, scope, record):
+        store = self.store
+        attempt_id, fence = record.attempt_id, record.fence
+        attempt, task, workflow = self._guard(scope, record, deep=True)
+        source, before = Path(record.source_root), record.source_before
+        approval_hashes, hashes = record.approval_hashes, record.artifact_hashes
+        artifacts = [self.artifacts.get(scope, identity) for identity in hashes]
         with store.transaction():
             self._guard(scope, record)
             if store.db.execute("SELECT 1 FROM integrations WHERE workflow_id=? AND state IN ('preparing','verifying','applying','reconciling')",
@@ -258,7 +358,6 @@ class Integration:
             store.db.execute('INSERT INTO integrations VALUES (?,?,?,?,?)', (record.id, workflow.id, attempt_id, record.state, record.model_dump_json()))
             store._event(scope, workflow, 'integration_started', task=task, attempt=attempt, integration_id=record.id)
         directory = self.root / 'integrations' / record.id
-        directory.mkdir(parents=True, mode=0o700)
         application = Application(directory, source, directory / 'baseline', directory / 'candidate')
         executor = CheckExecutor(store, scope, attempt_id, fence)
         apply_call = None
@@ -266,7 +365,7 @@ class Integration:
             if capture(source, directory / 'baseline').subject_hash != before.subject_hash:
                 raise StoreError('integration_conflict')
             shutil.copytree(directory / 'baseline', directory / 'candidate')
-            for artifact in artifacts if previous_result is None else ():
+            for artifact in artifacts if record.previous_result_id is None else ():
                 for change in artifact.changes:
                     target = directory / 'candidate' / change.path
                     if change.after is None:
@@ -288,7 +387,7 @@ class Integration:
             record = self._save(scope, record, state='applying')
             # Trusted integrator operation, authorized by the root's write scopes and exact reviews.
             # It is not exposed as a reviewer/model tool or permission grant.
-            if previous_result is None:
+            if record.previous_result_id is None:
                 apply_call, _ = Tools(store)._begin(scope, attempt_id, fence, ToolAction(id=uuid4().hex,
                     tool='integrate', source='host', arguments={'patches': hashes, 'source_hash': before.subject_hash}))
             application.apply(record.changes, lambda: self._guard(scope, record))
@@ -309,7 +408,7 @@ class Integration:
                 attempt, task, workflow = self._guard(scope, record)
                 for task_id, author_id in record.author_attempts.items():
                     original = store.task(scope, task_id)
-                    if previous_result is None:
+                    if record.previous_result_id is None:
                         _succeed(store, scope, store._attempt(author_id), original, workflow,
                             evidence_id=record.applied_verdicts[task_id].evidence_id)
                     else:
@@ -318,7 +417,7 @@ class Integration:
                             integration_id=record.id, evidence_id=record.applied_verdicts[task_id].evidence_id)
                 _succeed(store, scope, attempt, task, workflow, evidence_id=record.applied_verdicts[task.id].evidence_id)
                 root_task = store.task(scope, workflow.root_task_id)
-                if root_task.state != 'succeeded' and root_task.id not in author_attempts:
+                if root_task.state != 'succeeded' and root_task.id not in record.author_attempts:
                     store._save_task(changed(root_task, state='succeeded', revision=root_task.revision + 1, updated_at=store.clock()))
                 required = [item for item in store.tasks(scope, workflow.id) if required_task(item)]
                 if (any(item.state != 'succeeded' or item.current_attempt_id is not None for item in required)
@@ -333,10 +432,12 @@ class Integration:
             return record
         except (OSError, ValueError) as error:
             record = self.get(scope, record.id)
-            clean = application.rollback(record.changes)
+            effects_unknown = any(call.status in {'running', 'uncertain'} and call.tool != 'integrate'
+                for call in Tools(store).calls(scope, workflow.id) if call.attempt_id == attempt_id)
+            clean = False if effects_unknown else application.rollback(record.changes)
             if apply_call is not None:
                 Tools(store).finish(scope, apply_call.id, status='failed' if clean else 'uncertain', error_class=type(error).__name__)
-            record = self._save(scope, record, state='failed' if clean else 'reconciling', error=getattr(error, 'code', type(error).__name__))
+            record = self._save(scope, record, state='failed' if clean else 'reconciling', error='effects_unknown' if effects_unknown else getattr(error, 'code', type(error).__name__))
             if clean:
                 try:
                     store.confirm_stopped(scope, attempt_id, fence, outcome='failed', expenditure_confirmed=True)

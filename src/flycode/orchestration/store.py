@@ -983,6 +983,9 @@ class Store:
                 return AgentAttempt.model_validate(result)
             if attempt.fence != fence or task.current_attempt_id != attempt_id or attempt.state not in ACTIVE:
                 raise StoreError('fence', 'Stop acknowledgement does not own the current attempt')
+            if self.db.execute("SELECT 1 FROM integrations WHERE attempt_id=? AND state IN ('preparing','verifying','applying','reconciling')",
+                               (attempt_id,)).fetchone():
+                raise StoreError('reconcile_required', 'Resolve the integration journal before releasing its assignment')
             if self.db.execute("SELECT 1 FROM model_calls WHERE attempt_id=? AND state IN ('running','uncertain')",
                                (attempt_id,)).fetchone():
                 raise StoreError('resource_busy', 'Confirm the model transport outcome before releasing ownership')

@@ -2,6 +2,50 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Task6 coordinator custody and interrupted integration — 2026-10-16
+
+The increment after `37b7f53` adds versioned ProcessRef/Receipt, an independent
+pytest supervisor with inherited lock and private GO/Stop channel, and canonical
+pre-execution ToolCall binding. Only custody under the expected lock identity
+confirms whole-group stop. Missing/replaced/substituted evidence fails closed;
+saved PIDs never authorize recovery signals. A passing leader whose surviving
+descendants were killed is interrupted, not complete. Started cancellation and
+output bounds retain unknown effects and actual spend.
+
+`Integration.reconcile` excludes a live coordinator, atomically rechecks ownership
+and holds process locks through object-preserving rollback/state changes. Actual
+coordinator death tests prove source and reservations stay held until the host
+independently reconciles external effects. Late-descriptor writes survive rollback;
+owner file replacement blocks it. Generic stop acknowledgment cannot bypass an
+unresolved integration journal; replay does not overwrite later edits or resurrect
+a stopped assignment. This is trusted-local macOS process evidence, not a hostile
+sandbox, reboot recovery or automatic external-effect verifier.
+
+Final frozen identity: `9994d779d3ae8922afc0c00326f4ffaed413e4fddd40717531e010ad0d8a1585`.
+Validation: 751 passed / 8 skipped across the full default collection in three
+isolated shards (517.36s wall); 139 extracted-wheel checks; 5 real FlyWire checks;
+Ruff and mypy (33 source files) pass. The final English-prompt Qwen repair/review/
+integration/source acceptance passed in 55.19s with 3 model calls / 26 tools and
+20 stopped natural-completion receipts. All 131 packaged Python files and README
+match; CLI lists ten controllers. Both sequential full failures and concrete
+receipt/child REDs remain alongside the successful final measurement. Wheel hash,
+timings and archive: [validation report](validation/2026-10-16-coordinator-custody.md).
+
+Task6 and the goal remain open. Next minimal RED: two actual same-base artifacts
+changing answer=0 to 1 and 2, each approved by an owner oracle answer>0. Current code
+raises overlap before retaining a conflict record or canonical resolution task.
+The resolution must retain both pinned inputs and be idempotent/inert. Do not add
+succeeded dependencies on awaiting_review authors; that creates a wait cycle.
+An independent merged-regression case uses two flags: each patch yields sum=1 but
+merging yields 2 and must fail before source apply. Integrator budget is 25 tools for
+root-author+child or 33 for an aggregate root+two children, without reruns; 24 is
+insufficient. Runtime currently does not expose both artifact versions to a resolver.
+Creating the bounded resolution draft must preserve owner/runtime authority and
+64-task limits, not forge an owner scope. Dispatcher/shared legacy admission,
+standalone-review recovery, the remaining deadline/rerun matrix and Tasks7–8 remain
+open. The separately completed 296-run benchmark remains a historical limited
+experiment; trained candidates are still rejected for production transfer.
+
 ## Task6 result freshness and reopened generations — 2026-10-16
 
 The increment after `8cb1083` adds schema9 result pins: runtime location,

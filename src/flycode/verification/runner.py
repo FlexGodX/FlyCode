@@ -11,7 +11,13 @@ from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 
-from ..domain.verification import AttemptError, CaseOutcome, CaseResult, CheckAttempt
+from ..domain.verification import (
+    AttemptError,
+    CaseOutcome,
+    CaseResult,
+    CheckAttempt,
+    ProcessReceipt,
+)
 
 OUTPUT_LIMIT = 2 * 1024 * 1024
 REPORT_LIMIT = 8 * 1024 * 1024
@@ -86,9 +92,9 @@ def _signal_group(process: subprocess.Popen, sig: int) -> bool:
         raise
 
 
-def _terminate(process: subprocess.Popen) -> None:
+def _terminate(process: subprocess.Popen) -> bool:
     if not _signal_group(process, signal.SIGTERM):
-        return
+        return False
     try:
         process.wait(timeout=5)
     except subprocess.TimeoutExpired:
@@ -99,6 +105,7 @@ def _terminate(process: subprocess.Popen) -> None:
         _signal_group(process, signal.SIGKILL)
         if not _group_gone(process.pid, process=process):
             raise OSError('Owned process group termination is unconfirmed')
+    return True
 
 
 def _junit_id(node_id: str) -> str:
@@ -111,11 +118,13 @@ def _junit_id(node_id: str) -> str:
 
 def run_pytest(sandbox: Path, output: Path, timeout: float, number: int,
                should_stop: Callable[[], bool], *, targets: Sequence[str] = (),
-               on_state: Callable[[str], None] = lambda state: None) -> CheckAttempt:
+               on_state: Callable[[str], None] = lambda state: None,
+               on_admit: Callable = lambda ref: None) -> CheckAttempt:
     from .plan import validate_target
 
     for target in targets:
         validate_target(target)
+    sandbox, output = sandbox.resolve(), output.resolve()
     output.mkdir()
     report = output / 'junit.xml'
     observer = output / 'cases.jsonl'
@@ -131,37 +140,56 @@ def run_pytest(sandbox: Path, output: Path, timeout: float, number: int,
     started_at = datetime.now(timezone.utc)
     on_state('preparing')
     cancelled, complete, exit_code = False, False, None
-    process_started = False
+    process_started, stop_confirmed, process_ref = False, False, None
+    process_reason = None
+
+    def admit(ref):
+        nonlocal process_ref
+        process_ref = ref
+        on_admit(ref)
+
     with (output / 'stdout.txt').open('wb') as stdout, (output / 'stderr.txt').open('wb') as stderr:
         if should_stop():
             return CheckAttempt(number=number, argv=argv, exit_code=None, duration=0, cancelled=True,
                                 state='cancelled', error_class='cancelled', started_at=started_at,
+                                stop_confirmed=True,
                                 ended_at=datetime.now(timezone.utc),
                                 reasons=['cancelled before process start'])
         try:
-            process = subprocess.Popen(argv, cwd=sandbox, env=environment, stdout=stdout, stderr=stderr,
-                                       start_new_session=True)
-            process_started = True
-            on_state('running')
-            try:
-                while process.poll() is None:
-                    cancelled = should_stop()
-                    if cancelled or time.monotonic() - started >= timeout:
-                        reasons.append('cancelled' if cancelled else 'runner timeout')
-                        _terminate(process)
-                        break
-                    if any(path.exists() and path.stat().st_size > limit for path, limit in (
-                        (output / 'stdout.txt', OUTPUT_LIMIT), (output / 'stderr.txt', OUTPUT_LIMIT),
-                        (observer, REPORT_LIMIT), (report, REPORT_LIMIT))):
-                        reasons.append('runner output exceeded size limit')
-                        _terminate(process)
-                        break
-                    time.sleep(.05)
-                exit_code = process.wait()
-            finally:
-                _terminate(process)
-        except OSError as exc:
-            label = 'owned process cleanup unconfirmed' if process_started else 'runner unavailable'
+            from .custody import run, stopped, supported
+
+            if not supported():
+                stop_confirmed = True
+                raise OSError('Process custody is unavailable on this platform')
+            receipt = run(argv, sandbox, environment, stdout, stderr, output, timeout, should_stop, on_state, admit)
+            process_started = receipt.started
+            process_ref, stop_confirmed = receipt.ref, receipt.stop_confirmed
+            process_reason = receipt.reason
+            cancelled = receipt.reason == 'cancelled'
+            exit_code = receipt.exit_code
+            if receipt.reason == 'timeout':
+                reasons.append('runner timeout')
+            elif receipt.reason == 'output_limit':
+                reasons.append('runner output exceeded size limit')
+            elif not receipt.stop_confirmed:
+                reasons.append('owned process cleanup unconfirmed')
+            elif not receipt.started and not cancelled:
+                reasons.append('runner unavailable before process start')
+            elif receipt.reason != 'completed':
+                reasons.append(receipt.reason or 'runner stopped')
+        except (OSError, ValueError, EOFError, subprocess.SubprocessError) as exc:
+            if process_ref is not None:
+                stop_confirmed = False
+                try:
+                    receipt = ProcessReceipt.model_validate_json((output / 'process.json').read_text())
+                    if receipt.ref == process_ref:
+                        process_started, process_reason = receipt.started, receipt.reason
+                    with stopped(process_ref) as receipt:
+                        process_started, process_reason = receipt.started, receipt.reason
+                    stop_confirmed = receipt.stop_confirmed
+                except (OSError, ValueError):
+                    pass
+            label = 'owned process cleanup unconfirmed' if process_ref is not None and not stop_confirmed else 'runner unavailable'
             reasons.append(f'{label}: {type(exc).__name__}')
     if any(path.exists() and path.stat().st_size > limit for path, limit in (
         (output / 'stdout.txt', OUTPUT_LIMIT), (output / 'stderr.txt', OUTPUT_LIMIT),
@@ -224,4 +252,6 @@ def run_pytest(sandbox: Path, output: Path, timeout: float, number: int,
                         cases=cases, collected=collected, reasons=reasons, cancelled=cancelled, complete=complete,
                         state='interrupted' if error_class == 'cleanup' else
                               'cancelled' if cancelled else 'blocked' if error_class == 'unavailable' else 'finished',
-                        error_class=error_class, started_at=started_at, ended_at=datetime.now(timezone.utc))
+                        error_class=error_class, started_at=started_at, ended_at=datetime.now(timezone.utc),
+                        process=process_ref, process_started=process_started, stop_confirmed=stop_confirmed,
+                        process_reason=process_reason)

@@ -249,19 +249,40 @@ def test_new_git_base_invalidates_even_when_input_file_bytes_are_unchanged(tmp_p
         engine.verify_plan(plan, roots)
 
 
-def test_unconfirmed_cleanup_preserves_cases_but_cannot_pass(tmp_path, monkeypatch):
+@pytest.mark.parametrize('damage', ['lock', 'receipt', 'other-receipt'])
+def test_unconfirmed_cleanup_preserves_cases_but_cannot_pass(tmp_path, monkeypatch, damage):
     import json
+    from pathlib import Path
 
-    from flycode.verification import VerificationEngine
+    from flycode.verification import VerificationEngine, custody
+    from flycode.verification.runner import run_pytest
 
     root = tmp_path / 'project'
     root.mkdir()
     (root / 'test_ok.py').write_text('def test_ok(): assert True')
 
-    def unconfirmed(process):
-        raise PermissionError('cleanup not confirmed')
+    other_receipt = None
+    if damage == 'other-receipt':
+        other = run_pytest(root, tmp_path / 'other', 10, 1, lambda: False)
+        assert other.complete and other.stop_confirmed
+        other_receipt = (tmp_path / 'other/process.json').read_bytes()
+    inspect = custody.stopped
+    expected = []
 
-    monkeypatch.setattr('flycode.verification.runner._terminate', unconfirmed)
+    def replaced_ownership(ref):
+        if not expected:
+            expected.append(ref)
+        directory = Path(ref.directory)
+        if damage == 'receipt':
+            (directory / 'process.json').unlink(missing_ok=True)
+        elif damage == 'other-receipt':
+            (directory / 'process.json').write_bytes(other_receipt)
+        elif not (directory / 'retained.lock').exists():
+            (directory / 'process.lock').rename(directory / 'retained.lock')
+            (directory / 'process.lock').touch()
+        return inspect(ref)
+
+    monkeypatch.setattr(custody, 'stopped', replaced_ownership)
     engine = VerificationEngine(tmp_path / 'evidence')
     result = engine.verify(root)
     assert result.status == 'inconclusive'
@@ -270,3 +291,5 @@ def test_unconfirmed_cleanup_preserves_cases_but_cannot_pass(tmp_path, monkeypat
     assert not manifest['complete']
     attempt = manifest['invocations'][0]
     assert attempt['error_class'] == 'cleanup' and attempt['state'] == 'interrupted'
+    assert attempt['process'] is not None and not attempt['stop_confirmed']
+    assert attempt['process']['id'] == expected[0].id

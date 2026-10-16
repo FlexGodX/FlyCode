@@ -157,8 +157,14 @@ def test_passing_pytest_does_not_leave_background_children_running(tmp_path):
             f"    Path({str(pid_file)!r}).write_text(str(p.pid))\n")
     root = project(tmp_path, code)
     try:
-        result = VerificationEngine(tmp_path / 'evidence').verify(root)
-        assert result.status == 'passed'
+        engine = VerificationEngine(tmp_path / 'evidence')
+        result = engine.verify(root)
+        assert result.status == 'inconclusive'
+        assert result.cases[0].outcome == 'passed'
+        manifest = json.loads((engine.data_dir / result.evidence_id / 'manifest.json').read_text())
+        attempt = manifest['invocations'][0]
+        assert not attempt['complete'] and attempt['stop_confirmed']
+        assert attempt['process_reason'] == 'descendants_terminated'
         time.sleep(1.2)
         assert not marker.exists(), 'Owned subprocess escaped runner cleanup'
     finally:

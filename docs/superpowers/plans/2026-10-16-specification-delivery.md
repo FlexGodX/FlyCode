@@ -496,8 +496,50 @@ calls/26 tools; continuing its reopened review used20 additional checks and no
 model calls or source replacement. The harness's earlier duplicate-key rejection
 is retained alongside the successful continuation. Frozen identity, wheel hash,
 durations and evidence archive are in
-`docs/validation/2026-10-16-result-lifecycle.md`. Step3 coordinator crash recovery
-above remains unimplemented; this lifecycle increment does not close Task6.
+`docs/validation/2026-10-16-result-lifecycle.md`. At that lifecycle measurement, coordinator crash recovery remained unimplemented;
+the subsequent custody increment below addresses its bounded host protocol.
+Task6 remains open.
+
+**Coordinator recovery execution:** `domain/verification.py` adds versioned
+`ProcessRef` and `ProcessReceipt`; `verification/custody.py` owns a separate
+supervisor, inherited exclusive lock and private start/stop channel. The runner
+admits pytest only after a durable callback, and the supervisor records confirmed
+whole-group stop before releasing custody. `custody.stopped(ref)` holds an
+exclusive lock during inspection/reconciliation; missing/replaced objects or
+incomplete receipts never authorize signals or a new writer. No saved PID is an
+execution capability. `CheckExecutor` binds the ref to its charged ToolCall before
+GO. `Integration.reconcile` must exclude a live coordinator, revoke old ownership,
+inspect all local process receipts and retain unknown external effects before
+using the existing object-preserving rollback. Interrupted checks are not pass
+and actual spend is never refunded.
+
+1. RED→GREEN real coordinator death with a sleeping pytest descendant: require
+   durable group absence, one execution and unchanged user effects; cover normal
+   completion, pre-admission Stop, inherited-lock lifetime and replaced objects.
+2. RED→GREEN canonical host check: bind process custody before execution, fence
+   late admission, preserve uncertain interrupted effects and partial evidence.
+3. RED→GREEN actual applied-verification host crash: prevent rollback/retry while
+   coordinator or pytest is live; require effect reconciliation, then safe rollback
+   with dirty/untracked/late-descriptor bytes and shared spending retained.
+4. Freeze implementation; full/relevant/package/real smoke; update measured
+   status and publish a checked commit. Unsupported or ambiguous ownership stays
+   blocked; this does not claim a hostile-code sandbox or scientific admission.
+
+Recovery boundary checks also cover the failed-record/stop-acknowledgment race: reload
+assignment ownership and publish reconciling atomically before rollback. A saved
+stop receipt is accepted only under the expected inherited lock identity; missing
+or substituted receipts preserve cleanup uncertainty. Killing remaining descendants
+after a passing pytest leader is an interruption, not a completed effect. Natural
+report errors without forced termination remain known non-passing outcomes.
+
+Coordinator-recovery slice verified: 22 targeted correction checks; 751 passed /
+8 skipped across the full collection in three isolated shards (517.36s wall);
+139 extracted-wheel checks; 5 actual FlyWire checks; Ruff/mypy (33 source files)
+pass. Final live Qwen repair/review/integration/source acceptance uses 3 model
+calls / 26 tools and 20 stopped host receipts in 55.19s. Both sequential full
+failures remain retained; exact case IDs match the three passing shards with no
+omissions or duplicates. Source identity, final wheel hash, full timings and
+limits: `docs/validation/2026-10-16-coordinator-custody.md`. Task6 remains open.
 
 - [x] RED→GREEN: an actual worker repair produces a pinned patch only after
   recorded group absence; original dirty/untracked bytes and modes survive.

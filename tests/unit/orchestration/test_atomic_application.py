@@ -88,6 +88,23 @@ def test_restart_rolls_back_using_saved_original_object(installation):
     assert target.read_bytes() == b'before\n' and target.stat().st_ino == inode
 
 
+def test_completed_rollback_replay_preserves_late_original_and_new_owner_edits(installation):
+    installer, change, target = installation
+    with target.open('r+b') as original:
+        installer.apply((change,), lambda: None)
+        original.write(b'late original bytes\n')
+        original.truncate()
+        original.flush()
+        assert installer.rollback((change,))
+    assert target.read_bytes() == b'late original bytes\n'
+    target.write_bytes(b'owner continued editing after rollback\n')
+    inode = target.stat().st_ino
+    restarted = application.Application(installer.directory, installer.source, installer.baseline, installer.candidate)
+    assert restarted.rollback((change,))
+    assert target.read_bytes() == b'owner continued editing after rollback\n'
+    assert target.stat().st_ino == inode
+
+
 @pytest.mark.parametrize('deleting', [False, True])
 def test_create_delete_and_rollback_preserve_objects(installation, deleting):
     installer, _, target = installation
