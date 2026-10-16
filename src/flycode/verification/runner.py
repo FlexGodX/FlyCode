@@ -53,9 +53,14 @@ def parse_junit(path: Path) -> list[CaseResult]:
         raise ValueError('Invalid or inconsistent JUnit report') from exc
 
 
-def _group_gone(group_id: int) -> bool:
+def _group_gone(group_id: int, *, process: subprocess.Popen | None = None) -> bool:
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline:
+        if process is not None:
+            try:
+                process.wait(timeout=0)
+            except subprocess.TimeoutExpired:
+                pass
         try:
             os.killpg(group_id, 0)
         except ProcessLookupError:
@@ -74,13 +79,9 @@ def _signal_group(process: subprocess.Popen, sig: int) -> bool:
         process.wait(timeout=0)
         return False
     except PermissionError:
-        # macOS may deny signalling an unreaped zombie. Reap only our owned
-        # leader, then independently require absence of the complete group.
-        try:
-            process.wait(timeout=0)
-        except subprocess.TimeoutExpired:
-            pass
-        if _group_gone(process.pid):
+        # The leader may become waitable after the permission error. Reap only
+        # our owned process while independently checking the complete group.
+        if _group_gone(process.pid, process=process):
             return False
         raise
 
@@ -94,9 +95,9 @@ def _terminate(process: subprocess.Popen) -> None:
         _signal_group(process, signal.SIGKILL)
         process.wait(timeout=5)
     # The leader can exit while children still hold the owned process group.
-    if not _group_gone(process.pid):
+    if not _group_gone(process.pid, process=process):
         _signal_group(process, signal.SIGKILL)
-        if not _group_gone(process.pid):
+        if not _group_gone(process.pid, process=process):
             raise OSError('Owned process group termination is unconfirmed')
 
 

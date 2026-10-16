@@ -66,7 +66,7 @@ class Store:
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=FULL')
         version = self.db.execute('PRAGMA user_version').fetchone()[0]
-        if version not in (0, 1, 2, 3, 4, 5):
+        if version not in (0, 1, 2, 3, 4, 5, 6):
             self.db.close()
             raise StoreError('schema_version', str(version))
         self.db.executescript('''
@@ -119,7 +119,23 @@ class Store:
                 id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL UNIQUE REFERENCES attempts(id), data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS counters (name TEXT PRIMARY KEY, value INTEGER NOT NULL);
             INSERT OR IGNORE INTO counters VALUES ('task_number',0),('root_starts',0),('queue_paused',0);
-            PRAGMA user_version=5;
+            CREATE TABLE IF NOT EXISTS messages (
+                sequence INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
+                workflow_id TEXT NOT NULL REFERENCES workflows(id),
+                recipient_attempt_id TEXT NOT NULL REFERENCES attempts(id), data TEXT NOT NULL);
+            CREATE INDEX IF NOT EXISTS workflow_messages ON messages(workflow_id,sequence);
+            CREATE TABLE IF NOT EXISTS message_batches (
+                attempt_id TEXT NOT NULL REFERENCES attempts(id), key TEXT NOT NULL,
+                request_hash TEXT NOT NULL, message_ids TEXT NOT NULL, PRIMARY KEY(attempt_id,key));
+            CREATE TABLE IF NOT EXISTS message_outbox (
+                message_id TEXT PRIMARY KEY REFERENCES messages(id), delivered_at REAL);
+            CREATE TABLE IF NOT EXISTS message_inbox (
+                message_id TEXT PRIMARY KEY REFERENCES messages(id), data TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS message_questions (
+                workflow_id TEXT NOT NULL REFERENCES workflows(id), correlation_id TEXT NOT NULL,
+                batch_id TEXT NOT NULL, expires_at REAL NOT NULL, answer_id TEXT REFERENCES messages(id),
+                PRIMARY KEY(workflow_id,correlation_id));
+            PRAGMA user_version=6;
         ''')
 
     def close(self):

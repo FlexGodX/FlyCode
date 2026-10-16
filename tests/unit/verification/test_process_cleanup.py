@@ -77,3 +77,34 @@ def test_final_kill_must_be_followed_by_confirmed_absence(monkeypatch):
     runner._terminate(SimpleNamespace(pid=123, wait=lambda timeout: 0))
     assert signal.SIGKILL in calls
     assert calls[-1] == 0
+
+
+def test_owned_leader_exiting_after_permission_race_is_reaped_during_absence_poll(monkeypatch):
+    process = subprocess.Popen([sys.executable, '-c',
+        'import os, sys; print("ready", flush=True); sys.stdin.buffer.read(1); os._exit(0)'],
+        start_new_session=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    signal_group = runner.os.killpg
+    denied, released = False, False
+    def departing_group(pid, sig):
+        nonlocal denied, released
+        if pid == process.pid and sig == signal.SIGTERM and not denied:
+            denied = True
+            raise PermissionError('leader is departing but not waitable yet')
+        if pid == process.pid and sig == 0 and not released:
+            released = True
+            process.stdin.write(b'x')
+            process.stdin.flush()
+        return signal_group(pid, sig)
+    try:
+        assert process.stdout.readline().strip() == b'ready'
+        monkeypatch.setattr(runner.os, 'killpg', departing_group)
+        runner._terminate(process)
+        assert process.returncode == 0
+        assert runner._group_gone(process.pid)
+    finally:
+        if not released:
+            process.stdin.write(b'x')
+            process.stdin.flush()
+        process.wait(timeout=5)
+        process.stdin.close()
+        process.stdout.close()

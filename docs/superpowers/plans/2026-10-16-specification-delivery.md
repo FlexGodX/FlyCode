@@ -218,6 +218,60 @@ Verification: full default suite515 passed/8 skipped, targeted suite109 passed,
 changed-file Ruff/mypy pass. Extracted wheel:13 transport checks and CLI `brains`
 passed outside the checkout. These adapter checks do not close Task5 execution.
 
+**Addressed-message execution slice (ORC-06/08):**
+
+Files: `domain/orchestration.py` defines discriminated message content, drafts,
+immutable envelopes and receipts; `orchestration/messages.py` owns send/pending/
+acknowledge/journal operations; `store.py` migrates message outbox/inbox and open
+questions in the same SQLite file. `cortex.py`, `runtime.py` and `worker.py` connect
+explicit host-approved peer progress to model context without shared mutable
+prompts. `tests/unit/orchestration/test_agent_messages.py` owns broker negatives
+and real two-worker HTTP/context delivery checks.
+
+- [x] RED→GREEN: `Messages.send(scope, attempt_id, fence, draft)` derives sender,
+  workflow/task and current recipient attempt from host ownership; causal replies retain the original recipient attempt
+  even after it stops or is replaced. Discriminated
+  task_request/question/answer/progress/artifact_ready/review_result/handoff/cancel
+  contents cannot set permissions or task status. Deliverable artifact IDs/hashes
+  require approval in both task contracts; obsolete links from revoked senders
+  remain audit-only data and never authorize file paths or artifact fetches.
+- [x] RED→GREEN: send reserves one of200 deliveries per explicit recipient, max3,
+  with immutable server IDs/sequence,16KiB UTF-8 envelope, TTL≤300s and hops≤4.
+  Retry uses attempt-scoped idempotency before stale ownership checks. Child
+  messages derive correlation/hop and cannot extend their parent's expiration.
+- [x] RED→GREEN: pending is repeatable until acknowledgement; inbox receipt,
+  correlated-answer closure and event/outbox commit together. First valid answer
+  wins; one open question per correlation. Expired/stale deliveries are audit-only,
+  including delayed answers and obsolete contracts on either participant, and
+  cannot change the current task/result.
+- [x] RED→GREEN: enforce project/workflow/recipient ownership and read-scope
+  containment, malformed schemas, unknown recipients, causation authorization,
+  two-connection races, restart replay and rollback after outbox failure.
+- [x] RED→GREEN: explicitly configured peer progress crosses real worker sockets
+  into the second worker's real HTTP request as labeled data. Context size stays
+  bounded; acknowledge only after successful actual inference. No automatic task
+  cancel/assignment/review approval is inferred from message text.
+- [x] Run targeted broker/process tests, full pytest, relevant Ruff/mypy, build
+  and extract the wheel, repeat message/process checks outside the checkout,
+  update handoff/Plan/README RU/EN, then commit and push the verified increment.
+
+Working limits of this slice: worker routes currently emit real controller
+progress; all eight kinds are available through the typed host/RPC contract,
+but model-selected message tools and child-wait dispatch still need connection.
+Artifact references are approved task-input hashes, not a generated-artifact
+registry or review gate. Late answers bind both original participants' attempts;
+question broadcasts tolerate an unavailable first peer. Context preflight reuses
+the actual primary prompt builder, preserving baseline inference when no message
+or omission marker fits. Stopped peers/message-budget exhaustion emit blocked
+notification events without aborting execution. Late answers survive a later
+contract/scope change as audit evidence, including obsolete artifact references.
+The following full run exposed a macOS leader-reaping race; a deterministic
+owned-process test reproduced it. Reap throughout group-absence polling, never
+infer absence from permission denial. Final full suite643 passed/8 skipped;
+all195 queue/message/local-cortex/process cases passed on the extracted wheel
+outside the checkout, as did CLI `brains`. Relevant Ruff/mypy pass. Handoff
+records failures, final timings and wheel fingerprint; Task5 remains open.
+
 **Runtime implementation constraints:**
 
 **Task5 owned-process increment:** `Runtime.launch` consumes the current committed

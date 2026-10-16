@@ -121,6 +121,15 @@ untracked bytes and modes in an independent checkout without user settings/hooks
 Raw results are retained, but still require patch/review/integration and current
 verification; they cannot establish `succeeded`.
 
+Addressed messages use the same SQLite database, with durable redelivery and
+atomic receipts/correlated answers. Workflow limits are200 deliveries,16KiB per
+envelope, up to3 explicit recipients,5minute TTL and4 forwarding hops. Late
+answers cannot move into a replacement attempt. Explicitly approved worker routes
+send actual activity to a peer's bounded model context with source/revision.
+Insufficient context defers messages without stopping a valid baseline request.
+Messages grant no permissions or task completion. Model-selected communication
+and the messaging UI remain unfinished.
+
 ## First run without an API key
 
 ```bash

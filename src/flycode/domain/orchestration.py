@@ -3,7 +3,7 @@
 import hashlib
 import json
 from pathlib import PurePosixPath
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -361,11 +361,12 @@ class WorkerConfig(QueueModel):
     task: TaskSpec
     brain: str
     seed: int
+    message_recipients: tuple[str, ...] = ()
 
 
 class WorkerRequest(QueueModel):
     sequence: int = Field(ge=1)
-    operation: Literal['ready', 'candidates', 'activity', 'result', 'error']
+    operation: Literal['ready', 'candidates', 'activity', 'message', 'result', 'error']
     payload: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -373,3 +374,110 @@ class WorkerReply(QueueModel):
     sequence: int = Field(ge=1)
     payload: dict[str, Any] = Field(default_factory=dict)
     error: str | None = None
+
+
+class MessageTaskRequest(QueueModel):
+    kind: Literal['task_request']
+    objective: str = Field(min_length=1, max_length=12000)
+
+
+class MessageQuestion(QueueModel):
+    kind: Literal['question']
+    question: str = Field(min_length=1, max_length=12000)
+
+
+class MessageAnswer(QueueModel):
+    kind: Literal['answer']
+    answer: str = Field(min_length=1, max_length=12000)
+
+
+class MessageProgress(QueueModel):
+    kind: Literal['progress']
+    summary: str = Field(min_length=1, max_length=12000)
+    step: int | None = Field(default=None, ge=0, le=121)
+
+
+class MessageArtifactReady(QueueModel):
+    kind: Literal['artifact_ready']
+    summary: str = Field(min_length=1, max_length=12000)
+
+
+class MessageReviewResult(QueueModel):
+    kind: Literal['review_result']
+    recommendation: Literal['approve', 'changes_requested', 'inconclusive']
+    summary: str = Field(min_length=1, max_length=12000)
+
+
+class MessageHandoff(QueueModel):
+    kind: Literal['handoff']
+    summary: str = Field(min_length=1, max_length=12000)
+
+
+class MessageCancel(QueueModel):
+    kind: Literal['cancel']
+    reason: str = Field(min_length=1, max_length=12000)
+
+
+MessageContent = Annotated[MessageTaskRequest | MessageQuestion | MessageAnswer | MessageProgress
+    | MessageArtifactReady | MessageReviewResult | MessageHandoff | MessageCancel, Field(discriminator='kind')]
+
+
+class MessageArtifact(QueueModel):
+    id: str = Field(pattern=r'^[0-9a-f]{32}$')
+    sha256: str = Field(pattern=r'^[0-9a-f]{64}$')
+
+
+class MessageDraft(QueueModel):
+    recipients: tuple[str, ...] = Field(min_length=1, max_length=3)
+    content: MessageContent
+    idempotency_key: str = Field(min_length=1, max_length=200)
+    causation_id: str | None = Field(default=None, min_length=1, max_length=200)
+    ttl_seconds: float = Field(default=300., gt=0, le=300.)
+    artifacts: tuple[MessageArtifact, ...] = Field(default=(), max_length=8)
+
+    @field_validator('recipients')
+    @classmethod
+    def explicit_recipients(cls, values):
+        if len(set(values)) != len(values) or any(not value.strip() or len(value) > 200 for value in values):
+            raise ValueError('Expected unique explicit recipients')
+        return values
+
+    @model_validator(mode='after')
+    def artifact_content(self):
+        if self.content.kind == 'artifact_ready' and not self.artifacts:
+            raise ValueError('Artifact-ready messages require approved artifact references')
+        if len({item.id for item in self.artifacts}) != len(self.artifacts):
+            raise ValueError('Duplicate artifact reference')
+        return self
+
+
+class AgentMessage(QueueModel):
+    id: str
+    batch_id: str
+    schema_version: Literal[1] = 1
+    sequence: int = Field(ge=1)
+    project_id: str
+    workflow_id: str
+    task_id: str
+    attempt_id: str
+    sender_id: str
+    sender_fence: int = Field(ge=1)
+    recipient_id: str
+    recipient_attempt_id: str
+    recipient_fence: int = Field(ge=1)
+    correlation_id: str
+    causation_id: str | None
+    hops: int = Field(ge=0, le=4)
+    created_at: float
+    expires_at: float
+    idempotency_key: str
+    content: MessageContent
+    artifacts: tuple[MessageArtifact, ...] = ()
+
+
+class MessageReceipt(QueueModel):
+    message_id: str
+    recipient_attempt_id: str
+    received_at: float
+    outcome: Literal['received', 'audit']
+    reason: str | None = None

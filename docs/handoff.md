@@ -2,6 +2,67 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Task5 addressed messages — 2026-10-16
+
+`Messages.send/pending/acknowledge/journal` use the common Store. Schema6 adds
+messages, attempt-keyed batches, outbox/inbox and open questions without changing
+existing assignment/spending. Envelopes schema1 derive workflow/task/sender and
+recipient attempt from host authority, use explicit max3 recipients,16KiB UTF-8,
+TTL≤300s, inherited expiration, hops≤4 and max200 deliveries per workflow.
+Host actor changes cannot duplicate an attempt's idempotent send. All eight
+message types have closed schemas. Deliverable artifact ID/hash links must be
+approved inputs of both task contracts; obsolete links from revoked senders remain
+audit data and cannot authorize paths, artifact fetches or message delivery.
+
+Pending is repeatable until receipt. Inbox, first correlated-answer closure and
+event/outbox commit atomically. Outbox failure rolls back the entire operation.
+Expired/revoked messages remain audit-only; both parent participants bind to their
+original attempt, so an answer cannot reach a replacement using the same instance.
+Causal replies resolve their original recipient attempt even after it becomes idle;
+contract/scope changes on either participant preserve only audit data.
+A stale first broadcast target does not invalidate a valid peer's question. A late
+answer survives later contract/scope changes as audit-only data, including obsolete
+artifact references; it never becomes context for a current attempt.
+`cancel`, handoff/task requests and review recommendations remain data, without
+queue commands, permission grants or completion authority.
+
+Explicit host-approved routes pass real controller activity over worker RPC;
+`AttemptCortex` adds labeled, bounded excerpts with sender/attempt/task revision
+and contract hash. Successful actual inference acknowledges only included
+messages. Local verification, errors and omitted messages do not acknowledge.
+Large entries cannot starve small ones. The existing primary client now shares
+its actual candidate-prompt builder with context preflight, so messages or their
+omission marker cannot overflow an otherwise valid baseline request. Deferred
+context and blocked notifications emit metadata-only events; a stopped peer or
+exhausted message budget does not abort the agent or reset execution spending.
+
+A real two-worker check holds the first in its actual pytest tool while its
+controller message appears in the second's actual HTTP generation request;
+source bytes remain unchanged. This is process/HTTP-fixture evidence, not a
+live-model/research or integrated-completion claim. Model-selected question/
+answer tools, child-wait dispatch, dispatcher/UI/API wiring, legacy/probe endpoint
+admission, generated-artifact registry and exact review/integration/completion
+remain open. The owned-process checkpoint is `681aa5f`; Task5 is still open.
+
+The final late-contract run exposed a real macOS cleanup race in
+`test_real_worker_runs_agent_in_private_copy_without_claiming_completion`:
+639 passed/8 skipped/1 failed. Permission denial occurred before the leader was
+waitable; it then became a zombie during group-absence polling. The original
+one-time reap left the durable worker uncertain. A deterministic owned-process
+regression reproduced it; cleanup now reaps the owned leader throughout polling
+and still independently requires complete group absence. Persistent permission
+denial never proves exit. The subsequent collection641 passed/8 skipped in316.62s;
+that collection predates the final two historical-recipient cases. All54 message
+cases now pass with original-attempt routing.
+
+Final verification: full default suite643 passed/8 skipped in324.54s. All195
+queue/message/local-cortex/process-cleanup cases passed from the extracted wheel
+outside the checkout in102.37s; extracted CLI `brains` passed. Relevant Ruff and
+mypy15 source files pass. The preceding broader queue/verification/local-cortex
+increment suite238 passed in107.03s before those last two cases. Wheel SHA256:
+`89d7557a738dbc8681e50c846d884e416ff7d7690fda62a6e5b16a907e994542`.
+No fresh live-model, biological admission or browser acceptance is inferred.
+
 ## Task5 owned worker and private workspace — 2026-10-16
 
 `Runtime.launch` now executes the actual `run_agent` in a host-owned POSIX

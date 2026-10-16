@@ -15,6 +15,8 @@ from ..agent import RunResult
 from ..brain import BRAIN_REGISTRY
 from ..domain import VALID_TOOLS, TaskSpec
 from ..domain.orchestration import (
+    MessageDraft,
+    MessageProgress,
     WorkerConfig,
     WorkerRecord,
     WorkerReply,
@@ -25,6 +27,7 @@ from ..verification.evidence import atomic_json
 from ..verification.runner import _group_gone, _terminate
 from . import wire
 from .cortex import AttemptCortex
+from .messages import Messages
 from .store import Store, StoreError, changed
 from .tools import SUPPORTED, Tools
 from .workspaces import Workspaces
@@ -42,7 +45,8 @@ class Runtime:
             raise StoreError('not_found', 'worker')
         return WorkerRecord.model_validate_json(row['data'])
 
-    def launch(self, scope, attempt_id, fence, source: Path, *, brain='functional', seed=0, trust='trusted-local-process'):
+    def launch(self, scope, attempt_id, fence, source: Path, *, brain='functional', seed=0, trust='trusted-local-process',
+               message_recipients=()):
         if trust != 'trusted-local-process':
             raise StoreError('unsupported_sandbox', 'Hostile code requires a supported sandbox')
         if os.name != 'posix':
@@ -53,6 +57,11 @@ class Runtime:
             raise StoreError('unsupported_profile')
         if brain not in BRAIN_REGISTRY:
             raise StoreError('brain')
+        if message_recipients:
+            route = MessageDraft(recipients=message_recipients, idempotency_key='route-validation',
+                content=MessageProgress(kind='progress', summary='Route admission.'))
+            message_recipients = route.recipients
+            Messages(self.store).recipients(scope, attempt, message_recipients)
         workspace = self.workspaces.prepare(scope, attempt_id, fence, source)
         directory = self.workspaces.root / workspace.id
         record = WorkerRecord(id=uuid4().hex, attempt_id=attempt_id, fence=fence, created_at=self.store.clock())
@@ -64,7 +73,7 @@ class Runtime:
         task_spec = TaskSpec(id=task.id, task=task.objective, seed=seed, max_steps=attempt.reserved.tool_calls + 1,
             max_tool_calls=attempt.reserved.tool_calls + 1)
         config = WorkerConfig(database=str(self.store.path.resolve()), repository=str(directory / 'repository'),
-            scope=scope, attempt_id=attempt_id, fence=fence, task=task_spec, brain=brain, seed=seed)
+            scope=scope, attempt_id=attempt_id, fence=fence, task=task_spec, brain=brain, seed=seed, message_recipients=message_recipients)
         return WorkerHandle(self, scope, record, directory, config)
 
 
@@ -73,6 +82,7 @@ class WorkerHandle:
         self.runtime, self.scope, self.record, self.directory = runtime, scope, record, directory
         self.finished, self.process_stopped, self.stopping, self.rpc_done = Event(), Event(), Event(), Event()
         self.result, self.error = None, None
+        self.message_recipients = frozenset(config.message_recipients)
         self.launch_ready, self.launch_failed = Event(), False
         channels: list[socket.socket] = []
         child_rpc = child_control = None
@@ -164,6 +174,21 @@ class WorkerHandle:
                         connection._owned(self.scope, attempt.id, attempt.fence, running=True)
                         payload = {'candidates': [item.model_dump(mode='json') for item in candidates],
                             'model_calls': cortex.model_calls, 'routing': cortex.last_routing.model_dump(mode='json')}
+                    elif request.operation == 'message':
+                        draft = MessageDraft.model_validate(request.payload)
+                        if not set(draft.recipients) <= self.message_recipients:
+                            raise StoreError('message_route')
+                        try:
+                            messages = Messages(connection).send(self.scope, attempt.id, attempt.fence, draft)
+                            payload = {'message_ids': [item.id for item in messages]}
+                        except StoreError as error:
+                            if error.code not in {'recipient', 'recipient_workflow', 'message_scope', 'message_budget'}:
+                                raise
+                            with connection.transaction():
+                                connection._owned(self.scope, attempt.id, attempt.fence, running=True)
+                                connection._event(self.scope, workflow, 'message_blocked', task=task, attempt=attempt,
+                                    reason=error.code, message_kind=draft.content.kind)
+                            payload = {'blocked': error.code}
                     elif request.operation == 'activity':
                         data = request.payload
                         kind = data.get('kind')

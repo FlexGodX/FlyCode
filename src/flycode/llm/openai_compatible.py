@@ -56,7 +56,7 @@ class OpenAICompatibleLLM:
             return self._client.chat.completions.create(**options)
         return self.request_executor(request) if self.request_executor is not None else request()
 
-    def generate_candidates(self, context: CortexContext) -> list[CandidateAction]:
+    def _candidate_messages(self, context: CortexContext) -> list[dict[str, str]]:
         n = context.n_candidates or DEFAULT_CANDIDATE_COUNT
         tools = context.candidate_tools or list(VALID_TOOLS)
         system = SYSTEM_PROMPT.format(n_candidates=n, tools=", ".join(tools))
@@ -68,21 +68,33 @@ class OpenAICompatibleLLM:
             fly_policy_bias=context.fly_policy_bias,
             observation_summary=context.observation.model_dump_json(),
         )
+        if self.structured_output:
+            system += '\nReturn an object with a "candidates" array instead of a bare array.'
+            system += ("\nPropose independent alternatives for ONE immediate tool call, not a sequential plan."
+                       " Keep each rationale under 15 words. Reuse known file contents from working memory."
+                       " Do not repeat a successful read or failed tests unless relevant files changed.")
+        return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
+    def context_fits(self, context: CortexContext) -> bool:
+        """Use the actual candidate prompt and the existing conservative guard."""
+        if self.context_limit is None:
+            return True
+        size = len(json.dumps(self._candidate_messages(context), ensure_ascii=False).encode())
+        return size + (self.max_tokens if self.max_tokens is not None else 1536) <= self.context_limit
+
+    def generate_candidates(self, context: CortexContext) -> list[CandidateAction]:
+        n = context.n_candidates or DEFAULT_CANDIDATE_COUNT
+        tools = context.candidate_tools or list(VALID_TOOLS)
         options: dict[str, Any] = {}
         if self.max_tokens is not None:
             options["max_tokens"] = self.max_tokens
         if self.structured_output:
             options["response_format"] = _candidate_format(tools, n)
             options["reasoning_effort"] = "none"
-            system += '\nReturn an object with a "candidates" array instead of a bare array.'
-            system += ("\nPropose independent alternatives for ONE immediate tool call, not a sequential plan."
-                       " Keep each rationale under 15 words. Reuse known file contents from working memory."
-                       " Do not repeat a successful read or failed tests unless relevant files changed.")
         response = self._complete(
             model=self.model,
             temperature=self.temperature,
-            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+            messages=self._candidate_messages(context),
             **options,
         )
         raw = response.choices[0].message.content or "[]"

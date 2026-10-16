@@ -70,6 +70,11 @@ def main():
             action = data.get('action', {})
             request('activity', {'kind': kind, 'step': data.get('step'), 'mode': data.get('mode'),
                                  'tool': action.get('tool')})
+            if kind == 'controller' and config.message_recipients:
+                step, mode = data.get('step'), data.get('mode')
+                request('message', {'recipients': config.message_recipients,
+                    'idempotency_key': f'controller:{step}',
+                    'content': {'kind': 'progress', 'summary': f'Controller entered {mode} at step {step}.', 'step': step}})
 
         brain, connection = None, None
         try:
