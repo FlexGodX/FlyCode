@@ -2,6 +2,41 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Canonical queue foundation — 2026-10-16
+
+Task4 now has shared Pydantic workflow/task/profile/instance/attempt contracts,
+one SQLite store and tracker commands/projections. Claims commit ownership,
+reservation, sequenced event and outbox together. Unique active task/instance
+indexes, `BEGIN IMMEDIATE`, scoped idempotency and monotonic fencing cover two
+connections, stale revisions and replay. Profile admission pins an explicitly
+probed server model descriptor revision; discovery and catalogue lock contention
+cannot trigger HTTP or qualify a claim. Context capacity remains Task5.
+
+Drafts are inert; enqueue requires objective, acceptance, approved permissions
+and budget. Graph checks include aggregate-parent completion edges. Limits are
+one active root, four active attempts, 64 tasks, depth three/eight children,
+three attempts, 60 model/120 tool calls and 30 minutes from first confirmed start.
+Twenty percent remains available for review. Actual first starts, rather than
+assignments, advance separate root/internal every-eighth aging counters.
+Pause/retry keep spending and deadlines. Recovery retains ownership/reservations,
+marks spending uncertain and requires host reconciliation before release.
+Tracker shows assigned/running separately and retains terminal attempt history.
+
+This is the persistence foundation, not a live team executor. Next: Task5 actual
+`run_agent` adapter, endpoint resource pool, messages, heartbeat and process-stop
+proof; then Task6 isolated writer artifacts/review/integration/completion. No
+manual command can manufacture `succeeded` or bypass the pending completion gate.
+HTTP principals must derive `AccessScope` from host authority, never request JSON.
+Current interfaces continue using the existing single-agent runtime.
+
+Verification: full default suite 494 passed/8 skipped in 234.64s; final targeted
+queue/catalogue/tracker suite 46 passed in 19.29s, including three tests added
+after full-suite collection. Relevant Ruff and mypy (nine source files) pass.
+Wheel SHA256 `7ddbf6d0680976a7758caf2863801e7f59acefa9e7b623adba1d3aefbe716547`:
+extracted-package SQLite create/restart/tracker and CLI `brains` passed outside
+the checkout. Eight opt-in tests remain skipped; no fresh live LM, graph research
+admission or browser acceptance is claimed for this backend increment.
+
 ## Feedback benchmark and rejected training candidates — 2026-10-16
 
 English-prompt `benchmarks/feedback-v1` is executed on runtime `694d42d`:
@@ -28,7 +63,7 @@ readouts/topology were verified; only tool readout and bounded gain/leak change.
 Identity now includes training and telemetry, reproduced RED then fixed. Relevant
 research/training tests: 38 passed; opt-in real graph tests: 5 passed; Ruff/mypy passed.
 This is four known synthetic families, not matched compute or §§90–99 evidence.
-The orchestration goal remains active: canonical SQLite Task4 is still next;
+The orchestration goal remains active: Task4 persistence is delivered above;
 this standalone benchmark does not implement or admit ORC19/24.
 
 ## Live single/dual model acceptance — 2026-10-16
@@ -50,8 +85,8 @@ The relocated verdicts were checked current. Different prompts/budgets/cache sta
 make the durations unsuitable for performance comparison; no research/orchestration
 admission is inferred. Earlier 5s timeout remains recorded below.
 
-Tasks1–3a are delivered for their supported scope. Next: canonical SQLite Task4,
-then the shared runtime/resource/review/completion work. Seven biological-graph
+Tasks1–3a are delivered for their supported scope. Task4 persistence is recorded
+above; shared runtime/resource/review/completion remains next. Seven biological-graph
 cases remain opt-in/unrun in this increment; a fresh graph/research acceptance is
 still required on the final runtime.
 

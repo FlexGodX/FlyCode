@@ -19,6 +19,7 @@ ModelRole = Literal['primary', 'scorer']
 
 
 class ModelDescriptor(BaseModel):
+    revision: int = 1
     model_ref: str
     model_id: str
     display_name: str
@@ -49,16 +50,31 @@ class ModelCatalogue:
         ids = {entry['id'] for entry in data if isinstance(entry.get('id'), str) and 0 < len(entry['id']) <= 200}
         with self.lock:
             for entry in self.entries.values():
-                if entry.model_id not in ids:
+                if entry.model_id not in ids and entry.status != 'unavailable':
+                    entry.revision += 1
                     entry.status = 'unavailable'
                     entry.roles = []
                     entry.reason = 'Model unavailable at the configured endpoint'
             for model_id in sorted(ids):
                 ref = hashlib.sha256(f'{self.endpoint_ref}:{model_id}'.encode()).hexdigest()[:24]
                 if ref not in self.entries or self.entries[ref].status == 'unavailable':
+                    revision = self.entries[ref].revision + 1 if ref in self.entries else 1
                     self.entries[ref] = ModelDescriptor(model_ref=ref, model_id=model_id, display_name=model_id,
-                                                        endpoint_ref=self.endpoint_ref)
+                                                        endpoint_ref=self.endpoint_ref, revision=revision)
             return [entry.model_copy(deep=True) for entry in self.entries.values()]
+
+    def resolve(self, model_ref: str, role: ModelRole, capability_version: str) -> ModelDescriptor | None:
+        """Read an admitted protocol snapshot without HTTP or waiting for a probe."""
+        if not self.lock.acquire(blocking=False):
+            return None
+        try:
+            entry = self.entries.get(model_ref)
+            if (entry is None or entry.status != 'ready' or role not in entry.roles
+                    or entry.capability_version != capability_version or entry.capability_source != 'explicit-local-probe'):
+                return None
+            return entry.model_copy(deep=True)
+        finally:
+            self.lock.release()
 
     def probe(self, model_ref: str, role: ModelRole) -> ModelDescriptor:
         if role not in {'primary', 'scorer'}:
@@ -74,6 +90,7 @@ class ModelCatalogue:
             context = CortexContext(task='Inspect sample.py without editing it', behavior_mode='explore',
                                     observation=Observation(task='compatibility probe'))
             entry.probe_calls += 1
+            entry.revision += 1
             try:
                 if role == 'primary':
                     client = OpenAICompatibleLLM(model=entry.model_id, base_url=self.base_url, api_key=key,

@@ -90,6 +90,14 @@ chain of thought. The diagram represents Functional Fly and component calls,
 not a biophysical simulation. Large tool outputs are clipped to 16,000 characters
 in the browser journal.
 
+The internal team queue foundation uses shared Pydantic contracts and one SQLite
+database for tasks, instances, attempts, budgets and events. Assignment and
+reservation commit atomically; command replay does not charge twice, and restart
+retains unconfirmed ownership until reconciliation. Tracker reads the same store.
+Executor, CLI/API and screen integration remain unfinished; the current interface
+still runs one task at a time. See the checked
+[delivery plan](docs/superpowers/plans/2026-10-16-specification-delivery.md).
+
 ## First run without an API key
 
 ```bash

@@ -126,11 +126,24 @@ absence confirmation and optional-check safety gates have fault-injection regres
 
 **Interfaces:** canonical `WorkItem`, `AgentProfile`, `AgentInstance`, `AgentAttempt`; SQLite `Store.create_task`, `command`, `claim`, `events`; revisions/idempotency/fencing in transaction.
 
-- [ ] RED: draft creates no tool/model effects; enqueue requires objective, criteria, permission and budget; cycles/foreign dependencies rejected.
-- [ ] RED: two connections race for one task; exactly one attempt/owner/event/reservation; replayed command returns same result; root WIP=1; dependencies and profile/scope enforced.
-- [ ] GREEN: parameterized SQL, unique active assignment indexes, persistent sequence/outbox, baseline priority and every-eighth aging; reserve before execution.
-- [ ] Verify restart durability, stale revision conflict, no eligibility/backoff reasons, budget exhaustion and paused queue; no second tracker status store.
-- [ ] Commit with phase coverage, not blanket phase completion.
+- [x] RED: draft creates no tool/model effects; enqueue requires objective, criteria, permission and budget; cycles/foreign dependencies rejected.
+- [x] RED: two connections race for one task; exactly one attempt/owner/event/reservation; replayed command returns same result; root WIP=1; dependencies and profile/scope enforced.
+- [x] GREEN: parameterized SQL, unique active assignment indexes, persistent sequence/outbox, baseline priority and every-eighth aging; reserve before execution.
+- [x] Verify restart durability, stale revision conflict, no eligibility/backoff reasons, budget exhaustion and paused queue; no second tracker status store.
+- [x] Commit with phase coverage, not blanket phase completion.
+
+Task4 implementation covers canonical persistence and host-side commands only.
+Tests exercise actual SQLite connections, transaction rollback on outbox failure,
+restart during stop, cumulative spending, reserved verification capacity, both
+aging counters, scope reduction and model descriptor version changes. Tracker
+distinguishes assigned from runtime-confirmed running and retains stopped attempt
+history. No worker process, message consumer, heartbeat, workspace integration or
+completion is implied. Stop acknowledgement is currently a trusted host operation;
+Task5 must establish actual process termination before invoking it. Profile
+context capacity and tool argument enforcement also remain runtime requirements.
+Verification: full default suite494 passed/8 skipped; final targeted suite46
+passed (three additional checks followed full-suite collection). Relevant
+Ruff/mypy pass; extracted wheel persists/reopens the queue and runs CLI `brains`.
 
 **Execution notes for Task4:**
 

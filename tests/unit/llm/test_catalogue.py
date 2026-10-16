@@ -53,3 +53,26 @@ def test_scorer_probe_requires_option_logprobs_and_never_marks_failure_ready(mod
     assert len(model_server.requests) == 2
     with pytest.raises(ValueError):
         catalogue.probe("foreign-ref", "primary")
+
+
+def test_resolution_requires_current_role_version_and_returns_detached_snapshot(model_server):
+    from flycode.llm.catalogue import ModelCatalogue
+
+    catalogue = ModelCatalogue(model_server.url)
+    entry = catalogue.discover()[0]
+    assert catalogue.resolve(entry.model_ref, 'primary', entry.capability_version) is None
+    model_server.respond = lambda request: model_server.completion(json.dumps({'candidates': [
+        {'tool': 'read_file', 'arguments': {'path': 'sample.py'}}]}))
+    ready = catalogue.probe(entry.model_ref, 'primary')
+    resolved = catalogue.resolve(entry.model_ref, 'primary', entry.capability_version)
+    assert resolved.revision > entry.revision
+    resolved.roles.clear()
+    assert catalogue.resolve(entry.model_ref, 'primary', entry.capability_version).roles == ['primary']
+    assert catalogue.resolve(entry.model_ref, 'scorer', entry.capability_version) is None
+    assert catalogue.resolve(entry.model_ref, 'primary', 'obsolete') is None
+    assert catalogue.lock.acquire(blocking=False)
+    try:
+        assert catalogue.resolve(entry.model_ref, 'primary', entry.capability_version) is None
+    finally:
+        catalogue.lock.release()
+    assert len(model_server.requests) == ready.probe_calls == 1
