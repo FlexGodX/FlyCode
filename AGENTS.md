@@ -178,9 +178,11 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Locate helper definitions and read signatures, Pydantic fields and ownership checks before using project APIs in integration code.
 - Before reading or searching a new source/test file, locate its exact path with `rg --files`; finish discovery before issuing reads/searches, and never put guessed filenames in the discovery batch.
 - Reap an owned process throughout group-absence polling; it may become waitable after the initial permission error.
+- Test custody blocking with a held ownership lock or an explicit owned Popen handle; never SIGSTOP a PID inferred only from `os.getppid()`.
 - Use globally unique test basenames: pytest's default import mode rejects duplicate names across test directories.
 - Do not edit `src/` while a full test suite or research benchmark is running: implementation fingerprints bind each measurement to unchanged bytes. Finish edits before the final run.
 - Keep validation helpers out of pytest discovery: never name an archive helper `setup.py`, and never add configuration files above active test sandboxes.
+- Keep parametrizations that share a fixed Compose project name in one pytest process; splitting their temporary folders does not isolate Docker resources.
 - Model UI projects as one local folder with multiple independent chats; also allow chats without a project, and do not require Git.
 - For UI-only tasks, run interface/browser tests only unless the user requests broader testing.
 - Folder selection must offer a native system dialog; do not require users to type local paths.

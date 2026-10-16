@@ -1975,3 +1975,236 @@ def test_real_repair_review_integration_application_and_current_verified_complet
     calls = Tools(store).calls(owner, workflow.id)
     assert len([call for call in calls if call.attempt_id == integrator.id]) == 17
     assert store.budget(owner, workflow.id).reserved == BudgetAmount()
+
+
+@pytest.mark.parametrize('concurrent_settlement', [False, True])
+def test_live_review_coordinator_cannot_be_acknowledged_as_stopped(owned, delivery, tmp_path, monkeypatch, concurrent_settlement):
+    import os
+    import signal
+    import subprocess
+    import sys
+    import time
+    from pathlib import Path
+
+    from flycode.orchestration.review import Reviews
+    from flycode.orchestration.store import StoreError
+
+    store, owner, host, workflow, _, _, source = owned
+    runtime, artifact, _, approval = delivery
+    checker = reviewer(owned, [artifact])
+    ready = tmp_path / 'review-ready'
+    config = tmp_path / 'review-coordinator.json'
+    config.write_text(json.dumps({'database': str(store.path), 'root': str(runtime.root),
+        'scope': host.model_dump(mode='json'), 'attempt': checker.id, 'fence': checker.fence,
+        'artifact': artifact.id, 'approval': approval, 'ready': str(ready)}))
+    script = tmp_path / 'review-coordinator.py'
+    script.write_text('''import json,sys,time
+from pathlib import Path
+from flycode.domain.orchestration import AccessScope
+from flycode.orchestration.review import Reviews
+from flycode.orchestration.store import Store
+from flycode.verification.engine import VerificationEngine
+config=json.loads(Path(sys.argv[1]).read_text())
+store=Store(Path(config['database']))
+verify=VerificationEngine.verify_plan
+def held(self,*args,**kwargs):
+    Path(config['ready']).touch()
+    time.sleep(60)
+    return verify(self,*args,**kwargs)
+VerificationEngine.verify_plan=held
+Reviews(store,Path(config['root'])).run(AccessScope.model_validate(config['scope']),config['attempt'],config['fence'],
+    config['artifact'],approval_hash=config['approval'])
+''')
+    coordinator = None
+    try:
+        with (tmp_path / 'review-coordinator.log').open('wb') as output:
+            coordinator = subprocess.Popen([sys.executable, str(script), str(config)],
+                stdout=output, stderr=output, start_new_session=True,
+                env={**os.environ, 'PYTHONPATH': str(Path(sys.modules[Reviews.__module__].__file__).resolve().parents[2])})
+        deadline = time.monotonic() + 10
+        while not ready.exists():
+            assert coordinator.poll() is None, (tmp_path / 'review-coordinator.log').read_text()
+            assert time.monotonic() < deadline
+            time.sleep(.02)
+        os.kill(coordinator.pid, signal.SIGSTOP)
+        _, status = os.waitpid(coordinator.pid, os.WUNTRACED)
+        assert os.WIFSTOPPED(status)
+        store.recover(host)
+        before = store.budget(owner, workflow.id)
+        with pytest.raises(StoreError, match='reconcile_required'):
+            store.confirm_stopped(host, checker.id, checker.fence, outcome='failed', expenditure_confirmed=True)
+        assert store.budget(owner, workflow.id) == before
+        with pytest.raises(StoreError, match='coordinator_running'):
+            Reviews(store, runtime.root).reconcile(host, checker.id)
+        coordinator.kill()
+        coordinator.wait(timeout=5)
+        if concurrent_settlement:
+            from contextlib import contextmanager
+
+            from flycode.orchestration import review as module
+            from flycode.orchestration.store import Store
+
+            original_lock = module.locked
+            settled = []
+            @contextmanager
+            def raced(*args, **kwargs):
+                if not settled:
+                    settled.append(None)
+                    connection = Store(store.path)
+                    try:
+                        settled[0] = Reviews(connection, runtime.root).reconcile(host, checker.id)
+                    finally:
+                        connection.close()
+                with original_lock(*args, **kwargs) as descriptor:
+                    yield descriptor
+            monkeypatch.setattr(module, 'locked', raced)
+        recovered = Reviews(store, runtime.root).reconcile(host, checker.id)
+        if concurrent_settlement:
+            assert recovered == settled[0]
+        assert len([event for event in store.events(owner, workflow.id)
+            if event.kind == 'review_reconciled' and event.attempt_id == checker.id]) == 1
+        assert recovered.state == 'interrupted'
+        assert store._attempt(checker.id).stop_confirmed
+        assert store.task(owner, checker.task_id).current_attempt_id is None
+        assert store.budget(owner, workflow.id).spent == before.spent
+        assert not store.db.execute('SELECT 1 FROM reviews WHERE attempt_id=?', (checker.id,)).fetchone()
+        assert (source / 'src/example.py').read_text() == 'answer = 0\n'
+        assert (source / 'user-dirty.bin').read_bytes() == b'\x00\xff user bytes\r\n'
+    finally:
+        if coordinator is not None:
+            if coordinator.poll() is None:
+                coordinator.kill()
+            coordinator.wait(timeout=5)
+
+
+@pytest.mark.parametrize('custody_busy', [False, True])
+def test_crashed_review_keeps_started_check_effects_unknown_until_host_ack(owned, delivery, tmp_path, custody_busy):
+    import os
+    import signal
+    import subprocess
+    import sys
+    import time
+    from pathlib import Path
+
+    from flycode.orchestration.review import Reviews
+    from flycode.orchestration.store import StoreError
+    from flycode.orchestration.tools import Tools
+    from flycode.verification.custody import locked, stopped
+
+    store, owner, host, workflow, task, _, source = owned
+    runtime, artifact, _, _ = delivery
+    service = Reviews(store, runtime.root)
+    ready, counter = tmp_path / 'review-check-ready.json', tmp_path / 'review-effects.txt'
+    oracle = tmp_path / 'review-crash-oracle/tests'
+    oracle.mkdir(parents=True)
+    (oracle / 'test_example.py').write_text('import json,os,runpy,subprocess,sys,time\nfrom pathlib import Path\n'
+        'def test_example():\n'
+        '    answer=runpy.run_path("src/example.py")["answer"]\n'
+        '    if answer == 1:\n'
+        f'        with Path({str(counter)!r}).open("a") as stream: stream.write("once\\n")\n'
+        '        child=subprocess.Popen([sys.executable,"-c","import time;time.sleep(60)"])\n'
+        f'        Path({str(ready)!r}).write_text(json.dumps(dict(group=os.getpgrp(),child=child.pid)))\n'
+        '        time.sleep(60)\n    assert answer == 1\n')
+    approval = service.engine.oracles.approve(task.acceptance, checks(), oracle.parent)
+    checker = reviewer(owned, [artifact])
+    config = tmp_path / 'crashed-review.json'
+    config.write_text(json.dumps({'database': str(store.path), 'root': str(runtime.root),
+        'scope': host.model_dump(mode='json'), 'attempt': checker.id, 'fence': checker.fence,
+        'artifact': artifact.id, 'approval': approval}))
+    script = tmp_path / 'crashed-review.py'
+    script.write_text('''import json,sys
+from pathlib import Path
+from flycode.domain.orchestration import AccessScope
+from flycode.orchestration.store import Store
+from flycode.orchestration.review import Reviews
+c=json.loads(Path(sys.argv[1]).read_text())
+s=Store(Path(c['database']))
+Reviews(s,Path(c['root'])).run(AccessScope.model_validate(c['scope']),c['attempt'],c['fence'],c['artifact'],approval_hash=c['approval'])
+''')
+    coordinator = group = None
+    try:
+        with (tmp_path / 'crashed-review.log').open('wb') as output:
+            coordinator = subprocess.Popen([sys.executable, str(script), str(config)], stdout=output, stderr=output,
+                start_new_session=True, env={**os.environ,
+                    'PYTHONPATH': str(Path(sys.modules[Reviews.__module__].__file__).resolve().parents[2])})
+        deadline = time.monotonic() + 15
+        while not ready.exists():
+            assert coordinator.poll() is None, (tmp_path / 'crashed-review.log').read_text()
+            assert time.monotonic() < deadline
+            time.sleep(.02)
+        group = json.loads(ready.read_text())['group']
+        call = next(c for c in Tools(store).calls(owner, workflow.id) if c.attempt_id == checker.id and c.status == 'running')
+        assert call.process is not None
+        with pytest.raises(StoreError, match='coordinator_running'):
+            service.reconcile(host, checker.id)
+        coordinator.kill()
+        coordinator.wait(timeout=5)
+        deadline = time.monotonic() + 10
+        while True:
+            try:
+                with stopped(call.process) as receipt:
+                    assert receipt.started and receipt.reason == 'coordinator_lost'
+                break
+            except (BlockingIOError, ValueError):
+                assert time.monotonic() < deadline
+                time.sleep(.02)
+        pending = service.reconcile(host, checker.id)
+        assert pending.state == 'reconciling' and pending.error == 'effects_unknown'
+        assert counter.read_text() == 'once\n'
+        with pytest.raises(ProcessLookupError):
+            os.killpg(group, 0)
+        assert store.task(owner, checker.task_id).current_attempt_id == checker.id
+        assert not store._attempt(checker.id).stop_confirmed
+        with pytest.raises(StoreError, match='reconcile_required'):
+            store.confirm_stopped(host, checker.id, checker.fence, outcome='failed', expenditure_confirmed=True)
+        spent = store.budget(owner, workflow.id).spent
+        Tools(store).finish(host, call.id, status='failed', error_class='FixtureEffectsReconciled')
+        if custody_busy:
+            with locked(Path(call.process.directory) / 'process.lock', identity=(call.process.device, call.process.inode)):
+                held = service.reconcile(host, checker.id)
+                assert held.state == 'reconciling' and held.error == 'process_unconfirmed'
+                assert not store._attempt(checker.id).stop_confirmed
+                assert store.task(owner, checker.task_id).current_attempt_id == checker.id
+                assert store.budget(owner, workflow.id).spent == spent
+        settled = service.reconcile(host, checker.id)
+        assert settled.state == 'interrupted' and store._attempt(checker.id).stop_confirmed
+        assert store.budget(owner, workflow.id).spent == spent and counter.read_text() == 'once\n'
+        assert service.reconcile(host, checker.id) == settled
+        assert not store.db.execute('SELECT 1 FROM reviews WHERE attempt_id=?', (checker.id,)).fetchone()
+        assert (source / 'src/example.py').read_text() == 'answer = 0\n'
+        assert (source / 'user-dirty.bin').read_bytes() == b'\x00\xff user bytes\r\n'
+    finally:
+        if coordinator is not None:
+            if coordinator.poll() is None:
+                coordinator.kill()
+            coordinator.wait(timeout=5)
+        if group is not None:
+            try:
+                os.killpg(group, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
+
+def test_schema10_unfinished_review_lane_without_custody_stays_unreleasable(owned, delivery):
+    from flycode.orchestration.review import Reviews
+    from flycode.orchestration.store import Store, StoreError
+
+    store, owner, host, workflow, _, _, _ = owned
+    runtime, artifact, _, _ = delivery
+    checker = reviewer(owned, [artifact])
+    with store.transaction():
+        store._claim_execution(host, checker.id, checker.fence, 'review')
+        store.db.execute('DROP TABLE review_executions')
+        store.db.execute('PRAGMA user_version=10')
+    before = store.budget(owner, workflow.id)
+    connection = Store(store.path)
+    try:
+        with pytest.raises(StoreError, match='reconcile_required'):
+            connection.confirm_stopped(host, checker.id, checker.fence, outcome='failed', expenditure_confirmed=True)
+        with pytest.raises(StoreError, match='ownership_unknown'):
+            Reviews(connection, runtime.root).reconcile(host, checker.id)
+        assert connection.task(owner, checker.task_id).current_attempt_id == checker.id
+        assert not connection._attempt(checker.id).stop_confirmed
+        assert connection.budget(owner, workflow.id) == before
+    finally:
+        connection.close()

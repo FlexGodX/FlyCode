@@ -101,7 +101,7 @@ still runs one task at a time. See the checked
 The model transport adapter acquires an endpoint slot and charges the request
 before HTTP, records available token usage and retains unknown timeout outcomes.
 Waiting can be cancelled without sending a request. Single/dual cortex, direct
-clients and explicit probes share the SQLite endpoint ownership index (schema10).
+clients and explicit probes share the SQLite endpoint ownership index (schema11).
 All executors must use the same database through `FLYCODE_STATE_DATABASE`, which
 defaults to `~/.local/share/flycode/state.sqlite`. Unknown outcomes retain the
 endpoint across restart until trusted reconciliation; a busy probe returns409
@@ -145,7 +145,12 @@ independent supervisor and a durable whole-group stop receipt. After a crash,
 `Integration.reconcile` excludes a live coordinator and checks process custody
 before rollback. Unknown external effects retain ownership until trusted
 reconciliation; group absence alone does not settle effects. Late writes through
-old descriptors survive; owner file replacement blocks rollback. This is an
+old descriptors survive; owner file replacement blocks rollback. A standalone
+reviewer persists its input/oracle binding and coordinator custody before checks.
+`Reviews.reconcile` prevents replay of that attempt and releases ownership only
+after coordinator/check shutdown and effect reconciliation. Older unfinished
+review lanes without custody proof stay blocked; recovery creates no approval.
+This is an
 internal trusted-local foundation: dispatcher and CLI/API/UI wiring remain open.
 Worker stderr is retained outside the repository copy with a64KiB bound; events
 carry its path, hash, size and truncation status without the error text.

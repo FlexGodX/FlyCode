@@ -1,15 +1,19 @@
 """Independent registered review of immutable worker output; no approval booleans."""
 
+import os
+from contextlib import ExitStack
 from pathlib import Path
 from uuid import uuid4
 
-from ..domain.results import ReviewRecord
+from ..domain.results import ReviewExecution, ReviewRecord
 from ..domain.verification import SubjectRef
+from ..verification.custody import locked, stopped
 from ..verification.engine import VerificationEngine
 from ..verification.plan import PlanBuilder, contract_hash
 from ..verification.snapshot import capture
 from .artifacts import Artifacts
-from .store import Store, StoreError
+from .store import Store, StoreError, changed
+from .tools import Tools
 from .verification import CheckExecutor, _succeed, accepted
 
 
@@ -38,6 +42,9 @@ class Reviews:
                     or record.approval_hash != approval_hash or record.reruns != reruns):
                 raise StoreError('idempotency')
             return record
+        if store.db.execute('SELECT 1 FROM review_executions WHERE id=?', (attempt_id,)).fetchone():
+            store.task(scope, store._attempt(attempt_id).task_id)
+            raise StoreError('reconcile_required', 'A recorded review execution cannot be replayed')
         attempt, task, workflow = store._owned(scope, attempt_id, fence, running=True)
         artifact = self.artifacts.get(scope, artifact_id)
         author = store._attempt(artifact.attempt_id)
@@ -58,8 +65,22 @@ class Reviews:
         snapshots = {stage: capture(root, ref=ref) for stage, root in roots.items()}
         plan = PlanBuilder().build(snapshots['integration'], task.acceptance, approved.checks,
             subjects=snapshots, approval_hash=approval_hash, reruns=reruns)
-        with store.transaction():
-            store._claim_execution(scope, attempt_id, fence, 'review')
+        directory = self.root / 'reviews' / attempt_id
+        directory.mkdir(parents=True, mode=0o700)
+        with locked(directory / 'coordinator.lock', create=True) as descriptor:
+            info = os.fstat(descriptor)
+            execution = ReviewExecution(attempt_id=attempt_id, project_id=task.project_id, workflow_id=workflow.id,
+                task_id=task.id, fence=fence, artifact_id=artifact_id, patch_hash=artifact.patch_hash,
+                approval_hash=approval_hash, reruns=reruns, runtime_root=str(self.root),
+                coordinator_identity=(info.st_dev, info.st_ino), created_at=store.clock())
+            with store.transaction():
+                store._claim_execution(scope, attempt_id, fence, 'review')
+                store.db.execute('INSERT INTO review_executions VALUES (?,?,?)',
+                    (attempt_id, execution.state, execution.model_dump_json()))
+            return self._execute(scope, attempt, task, workflow, artifact, approval_hash, reruns, engine, executor, plan, roots)
+
+    def _execute(self, scope, attempt, task, workflow, artifact, approval_hash, reruns, engine, executor, plan, roots):
+        store, attempt_id, fence, artifact_id = self.store, attempt.id, attempt.fence, artifact.id
         verdict = engine.verify_plan(plan, roots, should_stop=executor.should_stop)
         self.artifacts.get(scope, artifact_id)
         passed = accepted(engine, verdict, roots['integration'], task.acceptance)
@@ -79,6 +100,9 @@ class Reviews:
                 approval_hash=approval_hash, reruns=reruns, status='approved' if passed else 'inconclusive' if stop_reason else
                     'changes_requested' if verdict.status == 'failed' else 'inconclusive', verdict=verdict, created_at=store.clock())
             store.db.execute('INSERT INTO reviews VALUES (?,?,?,?)', (record.id, artifact_id, attempt_id, record.model_dump_json()))
+            execution = changed(self.execution(scope, attempt_id), state='completed', review_id=record.id)
+            store.db.execute('UPDATE review_executions SET state=?,data=? WHERE id=?',
+                (execution.state, execution.model_dump_json(), attempt_id))
             if passed:
                 _succeed(store, scope, current_attempt, current_task, current_workflow, evidence_id=verdict.evidence_id)
             store._event(scope, workflow, 'review_completed', task=task, attempt=attempt, review_id=record.id,
@@ -94,3 +118,81 @@ class Reviews:
                 if error.code not in {'resource_busy', 'uncertain'}:
                     raise
         return record
+
+
+    def execution(self, scope, attempt_id) -> ReviewExecution:
+        self.store.task(scope, self.store._attempt(attempt_id).task_id)
+        if (not self.store.db.execute('SELECT 1 FROM review_executions WHERE id=?', (attempt_id,)).fetchone()
+                and self.store.db.execute("SELECT 1 FROM execution_lanes WHERE attempt_id=? AND mode='review'", (attempt_id,)).fetchone()):
+            raise StoreError('ownership_unknown', 'Legacy review has no durable coordinator custody')
+        return self.store._load('review_executions', attempt_id, ReviewExecution)
+
+    def _save_execution(self, scope, record, **updates):
+        record = changed(record, **updates)
+        with self.store.transaction():
+            self.store.task(scope, record.task_id)
+            self.store.db.execute('UPDATE review_executions SET state=?,data=? WHERE id=?',
+                (record.state, record.model_dump_json(), record.attempt_id))
+        return record
+
+    def reconcile(self, scope, attempt_id) -> ReviewExecution:
+        store = self.store
+        store._role(scope, ('runtime',))
+        if store.db.in_transaction:
+            raise RuntimeError('Review reconciliation cannot run in a SQLite transaction')
+        record = self.execution(scope, attempt_id)
+        if record.state == 'completed' or (record.state == 'interrupted' and store._attempt(attempt_id).stop_confirmed):
+            return record
+        if record.runtime_root != str(self.root):
+            raise StoreError('ownership_unknown')
+        try:
+            with locked(self.root / 'reviews' / attempt_id / 'coordinator.lock', identity=record.coordinator_identity):
+                return self._recover(scope, self.execution(scope, attempt_id))
+        except BlockingIOError as error:
+            raise StoreError('coordinator_running') from error
+        except (OSError, ValueError) as error:
+            if isinstance(error, StoreError):
+                raise
+            raise StoreError('ownership_unknown') from error
+
+    def _recover(self, scope, record):
+        store = self.store
+        with store.transaction():
+            attempt = store._attempt(record.attempt_id)
+            if record.state == 'completed' or (record.state == 'interrupted' and attempt.stop_confirmed):
+                return record
+            task, workflow = store.task(scope, record.task_id), store.workflow(scope, record.workflow_id)
+            if attempt.fence != record.fence or task.current_attempt_id != attempt.id:
+                raise StoreError('fence')
+            if attempt.state in {'assigned', 'running', 'stopping'}:
+                attempt = store._reconcile(scope, workflow, attempt, 'review_recovery')
+            record = changed(record, state='reconciling', error='host_interrupted')
+            store.db.execute('UPDATE review_executions SET state=?,data=? WHERE id=?',
+                (record.state, record.model_dump_json(), attempt.id))
+        tools = Tools(store)
+        with ExitStack() as locks:
+            for call in tools.calls(scope, workflow.id):
+                if call.attempt_id != attempt.id:
+                    continue
+                if call.process is not None:
+                    try:
+                        receipt = locks.enter_context(stopped(call.process))
+                    except (OSError, ValueError):
+                        return self._save_execution(scope, record, error='process_unconfirmed')
+                    if not receipt.started and call.execution_profile == 'registered-pytest-v1' and call.status in {'running', 'uncertain'}:
+                        tools.finish(scope, call.id, status='failed', error_class='NeverStarted')
+                elif call.execution_profile == 'registered-pytest-v1' and call.status in {'running', 'uncertain'}:
+                    tools.finish(scope, call.id, status='failed', error_class='NeverAdmitted')
+            unknown = any(call.attempt_id == attempt.id and call.status in {'running', 'uncertain'}
+                for call in tools.calls(scope, workflow.id))
+            unknown |= store.db.execute("SELECT 1 FROM model_calls WHERE attempt_id=? AND state IN ('running','uncertain')",
+                (attempt.id,)).fetchone() is not None
+            if unknown:
+                return self._save_execution(scope, record, error='effects_unknown')
+            with store.transaction():
+                record = changed(record, state='interrupted', error='host_interrupted')
+                store.db.execute('UPDATE review_executions SET state=?,data=? WHERE id=?',
+                    (record.state, record.model_dump_json(), attempt.id))
+                store._confirm_stopped(scope, attempt.id, attempt.fence, outcome='failed', expenditure_confirmed=True)
+                store._event(scope, workflow, 'review_reconciled', task=task, attempt=attempt)
+            return record

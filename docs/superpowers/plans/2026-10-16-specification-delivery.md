@@ -708,6 +708,61 @@ durations and evidence archive are in
 the subsequent custody increment below addresses its bounded host protocol.
 Task6 remains open.
 
+**Standalone reviewer recovery slice (2026-10-17, checked increment):**
+`domain/results.py` defines `ReviewExecution`; `review.py` persists the exact
+attempt/fence, artifact/patch, oracle/reruns, runtime root and coordinator lock
+identity before invoking verification. Schema11 adds this record to the same
+Store; final ReviewRecord and terminal execution state commit together. An
+exception retains the admission instead of replaying checks.
+
+REDs show a still-live review coordinator released through `confirm_stopped`,
+a crashed reviewer without a recovery route, a two-connection settlement race,
+and an unfinished schema10 review lane treated as releasable without custody.
+The new runtime-only `Reviews.reconcile` requires the exact coordinator lock and
+all registered process receipts before settlement. Actual started effects remain
+unknown until trusted acknowledgment; known spending cannot bypass a held custody
+lock. Only known-never-started registered calls can be settled without effects.
+Recovery preserves spend/history/source and produces no positive review.
+Legacy unfinished lanes without a durable coordinator binding stay blocked.
+
+Seven initial targeted cases, a57-case broader queue/migration/review set and
+two real crash/custody-lock cases pass. The latter uses a held lock, not a PID
+inferred from a process parent. An automatic approval review rejected the earlier
+parent-SIGSTOP test design for potential pytest/agent suspension; it was never
+executed. Full frozen-source/package/graph and a new real-model smoke now pass
+as recorded below. Do not reuse the failed pinned-resolution case as a
+passing acceptance or automatically infer which candidate caused its loop.
+
+The first node-balanced full run on source
+`9242001f5d007fd1fbab8f5a2ffd2a106dc8864e705b08f3085680ce963dc3bb`
+records825 passed/8 skipped/2 failures in582.55s. Both failures are the real
+FastAPI/Postgres functional parametrizations, assigned to different processes.
+`docker compose config` confirms both target the global project `phase4`, with
+different published ports. A subsequent serialized run on unchanged source passes
+both cases (plus2 opt-in skips) in125.00s. The original Docker stderr is absent
+from their transcript, and the filtered daemon-history query returns no events;
+the exact first daemon error is unproven. Retain the full traces/config audit in
+`~/.cache/flycode/validation/flycode-review-custody-04nf6627`. All835 cases were repeated
+with this whole module as one scheduling unit, preserving every test/assertion,
+timeout and default skip:827 passed/8 skipped in664.197s. Do not relabel the failed full run as passing or mix
+the independent auto-reservation prototype into this source identity.
+
+The extracted wheel passes58 cases; actual FlyWire5, relevant Ruff/mypy45 and
+extracted CLI pass. All132 Python files and README metadata match; source9242
+is unchanged. Explicit Qwen probe passes26.254s. A separate preregistered English
+simple delivery passes95.860s with3 models/26 tools, exact completed review
+binding,20 natural process stop receipts, current verified source and no
+reserved/uncertain calls. It is not a passing replacement of pinned resolution
+or a dispatcher acceptance. [Review recovery report](../../validation/2026-10-17-review-recovery.md).
+
+Retrospective provider evidence for the failed pinned case now retains16 typed
+responses: both pinned reads are safe/proposed every time, but collide in identity
+and base score; zero-utility successful reads keep habituation discount1. Full
+neural states were not recorded, so this is a narrow structural witness, not a
+counterfactual benchmark or promotion. Next RED: separate pin identity and
+usefulness feedback, then a fresh real-model case. The isolated auto-reservation
+prototype remains unmerged; Task5/6/7/8 aggregate acceptance stays open.
+
 **Coordinator recovery execution:** `domain/verification.py` adds versioned
 `ProcessRef` and `ProcessReceipt`; `verification/custody.py` owns a separate
 supervisor, inherited exclusive lock and private start/stop channel. The runner

@@ -74,6 +74,24 @@ class ReviewRecord(QueueModel):
     created_at: float
 
 
+class ReviewExecution(QueueModel):
+    attempt_id: str
+    project_id: str
+    workflow_id: str
+    task_id: str
+    fence: int
+    artifact_id: str
+    patch_hash: str
+    approval_hash: str
+    reruns: int = Field(ge=0, le=2)
+    runtime_root: str
+    coordinator_identity: tuple[int, int]
+    state: Literal['running', 'completed', 'reconciling', 'interrupted'] = 'running'
+    review_id: str | None = None
+    error: str | None = None
+    created_at: float
+
+
 class IntegrationRecord(QueueModel):
     id: str
     project_id: str

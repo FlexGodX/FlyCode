@@ -76,7 +76,7 @@ class Store:
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=FULL')
         version = self.db.execute('PRAGMA user_version').fetchone()[0]
-        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
+        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11):
             self.db.close()
             raise StoreError('schema_version', str(version))
         self.db.executescript('''
@@ -160,7 +160,7 @@ class Store:
                 mode TEXT NOT NULL CHECK(mode IN ('worker','review','integration')));
             CREATE UNIQUE INDEX IF NOT EXISTS current_integration ON integrations(workflow_id) WHERE state='completed';
         ''')
-        if version < 10:
+        if version < 11:
             try:
                 with self.transaction():
                     if any(row['name'] == 'attempt_id' and row['notnull'] for row in self.db.execute('PRAGMA table_info(model_calls)')):
@@ -173,7 +173,9 @@ class Store:
                             SELECT rowid,id,attempt_id,endpoint_ref,state,data FROM model_calls_previous''')
                         self.db.execute('DROP TABLE model_calls_previous')
                         self.db.execute("CREATE UNIQUE INDEX active_endpoint ON model_calls(endpoint_ref) WHERE state IN ('running','uncertain')")
-                    self.db.execute('PRAGMA user_version=10')
+                    self.db.execute('''CREATE TABLE IF NOT EXISTS review_executions (
+                        id TEXT PRIMARY KEY REFERENCES attempts(id), state TEXT NOT NULL, data TEXT NOT NULL)''')
+                    self.db.execute('PRAGMA user_version=11')
             except BaseException:
                 self.db.close()
                 raise
@@ -1011,6 +1013,14 @@ class Store:
             return AgentAttempt.model_validate(result)
         if attempt.fence != fence or task.current_attempt_id != attempt_id or attempt.state not in ACTIVE:
             raise StoreError('fence', 'Stop acknowledgement does not own the current attempt')
+        legacy_review = self.db.execute("""SELECT 1 FROM execution_lanes lane
+            LEFT JOIN review_executions execution ON execution.id=lane.attempt_id
+            LEFT JOIN reviews review ON review.attempt_id=lane.attempt_id
+            WHERE lane.attempt_id=? AND lane.mode='review' AND execution.id IS NULL AND review.id IS NULL""",
+            (attempt_id,)).fetchone()
+        if legacy_review or self.db.execute("SELECT 1 FROM review_executions WHERE id=? AND state IN ('running','reconciling')",
+                           (attempt_id,)).fetchone():
+            raise StoreError('reconcile_required', 'Confirm review coordinator custody before releasing its assignment')
         if self.db.execute("SELECT 1 FROM integrations WHERE attempt_id=? AND state IN ('preparing','verifying','applying','reconciling')",
                            (attempt_id,)).fetchone():
             raise StoreError('reconcile_required', 'Resolve the integration journal before releasing its assignment')

@@ -2,6 +2,35 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Standalone review recovery — 2026-10-17
+
+Schema11 records exact review input/oracle/fence and coordinator custody before
+checks. Runtime reconciliation excludes live coordinators, checks every process
+receipt and keeps unknown effects occupied until trusted acknowledgment. Recovery
+cannot replay the attempt or create approval; unfinished legacy lanes without
+custody proof stay blocked. Full827 passed/8 skipped, all835 IDs once in664.197s;
+extracted wheel58, real graph5, relevant Ruff/mypy45 pass. Frozen source:
+`9242001f5d007fd1fbab8f5a2ffd2a106dc8864e705b08f3085680ce963dc3bb`.
+[Report](validation/2026-10-17-review-recovery.md) retains the first two Docker
+failures, controlled serial rerun and safer custody-lock replacement for the
+rejected parent-SIGSTOP test.
+
+Explicit Qwen probe passes26.254s. A separate English simple repair/review/
+integration smoke passes95.860s,3 models/26 tools,20 natural registered stop
+receipts, current verified completion, no reservations/unknown effects and owner
+bytes preserved. This does not pass the prior pinned conflict case or dispatcher.
+Archive: `~/.cache/flycode/validation/flycode-review-verified-wsavojze`.
+
+Retrospective server responses show both approved pins offered and safe in all16
+failed resolver calls. Equal fingerprints/base scores and successful-zero-utility
+reads retaining discount1 expose a selection defect; full neural states were not
+retained. No retraining/promotion follows from this alone. Next: pin identity/
+habituation RED regression and newly registered native case. An isolated
+candidate-specific remaining-reservation prototype at
+`/private/tmp/flycode-auto-reservation-kps6e829` has45 store cases plus a strengthened
+clamping/race case passing, but is not merged or dispatcher acceptance. Task5–8
+remain open. Older sections retain their historical status at measurement time.
+
 ## Shared endpoint / context redundancy — 2026-10-17
 
 The increment after `b90325c` shares the existing SQLite endpoint ownership index
