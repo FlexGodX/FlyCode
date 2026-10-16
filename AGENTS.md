@@ -178,6 +178,7 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Model UI projects as one local folder with multiple independent chats; also allow chats without a project, and do not require Git.
 - For UI-only tasks, run interface/browser tests only unless the user requests broader testing.
 - Folder selection must offer a native system dialog; do not require users to type local paths.
+- Read `model_end.error` and request timestamps before reporting a model timeout; polling duration and event counts alone do not prove failure.
 
 ## 12. How this file was built
 

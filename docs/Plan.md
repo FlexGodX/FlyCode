@@ -2683,7 +2683,7 @@ MOD-01..07 и MS-01..12 задают поведение и приёмку. Эт�
 
 | Порядок | Область | Статус на начало работ | Условие завершения |
 |---|---|---|---|
-| 1 | §102, выбор моделей | Nullable/API/CLI, явный catalogue probe и две панели реализованы; HTTP и mobile проверки пройдены; live Qwen repair открыт | Single/dual/generic, независимые панели и совместимость истории проверены |
+| 1 | §102, выбор моделей | Single/dual и generic HTTP контракты, CLI, catalogue/probes и две панели проверены; live single/dual repair и отдельный acceptance plan прошли | Single/dual/generic, независимые панели и совместимость истории проверены |
 | 2 | Фаза 21 | Pytest-основа готова: owner contract/oracle, exact case IDs, baseline/target/regression/integration и evidence; runtime completion gate открыт | Снимок → реальный pytest → структурированное evidence → текущий verdict |
 | 3 | Фазы 15/16 и 26/27 | Не реализовано | Единые задачи/попытки, транзакционная очередь и назначение без дублей |
 | 4 | Фазы 22/17 и 28/29 | Не реализовано | Изоляция, восстановление, review, интеграция и verified completion |

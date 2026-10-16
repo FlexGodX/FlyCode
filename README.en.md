@@ -541,6 +541,10 @@ exact criteria/check/case IDs; newer owner approval invalidates previous results
 The standalone CLI retains `registered-suite` scope. See the
 [verification specification](docs/specs/testing-module.md).
 
+Live LM Studio single/dual smoke passed: single used 3 Qwen requests without a
+scorer; dual used 3 Qwen + 3 Jev. Both repaired the fixture and separately passed
+an acceptance plan with unchanged owner-approved tests. [Results and scope](docs/validation/2026-10-16-model-selection.json).
+
 The standalone command covers the registered suite rather than automatically
 proving every user acceptance criterion. Process copies
 are for trusted code and do not restrict host/network access. `--trust untrusted`

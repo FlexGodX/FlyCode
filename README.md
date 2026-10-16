@@ -544,6 +544,10 @@ skipped/xfail, flaky, timeout и неполное evidence не дают усп�
 Standalone CLI сохраняет scope `registered-suite`. Подробности — в
 [спецификации проверок](docs/specs/testing-module.md).
 
+Live single/dual smoke на LM Studio прошли: single использовал 3 запроса Qwen
+без оценщика, dual — 3 Qwen + 3 Jev. Оба исправили fixture и отдельно прошли
+acceptance plan с неизменными утверждёнными тестами. [Результаты и границы](docs/validation/2026-10-16-model-selection.json).
+
 Standalone CLI проверяет зарегистрированный набор,
 а не автоматически все критерии пользовательской задачи. Процессная копия
 предназначена для доверенного кода и не ограничивает доступ к сети/хосту.

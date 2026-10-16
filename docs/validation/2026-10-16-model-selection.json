@@ -1,0 +1,996 @@
+{
+  "version": "model-selection-smoke-v1",
+  "source_revision": "18913d5faf30fc1551a6cd963458ee8016498036",
+  "implementation_fingerprint": "5756f1a0db6530ea578feb0d824248e156ffb96531e1f0f07ea8e9ec6a3f89d1",
+  "fixture": "toy_arithmetic_bug",
+  "scope": "Single-run software acceptance only; no orchestration or research admission",
+  "comparison": "No performance comparison: task wording, budgets and model cache conditions differ",
+  "weights_revision": null,
+  "cases": {
+    "single": {
+      "returncode": 0,
+      "wall_duration_s": 134.65,
+      "configuration": {
+        "model": "qwen/qwen3.5-9b",
+        "decision_model": null,
+        "implementation": "5756f1a0db6530ea578feb0d824248e156ffb96531e1f0f07ea8e9ec6a3f89d1"
+      },
+      "metrics": {
+        "task_id": "cli-task",
+        "brain": "functional_fly",
+        "control_mode": "bias_control",
+        "success": true,
+        "verified_completion": true,
+        "steps": 6,
+        "tool_calls": 6,
+        "llm_calls": 3,
+        "model_calls": {
+          "qwen/qwen3.5-9b": 3
+        },
+        "model_errors": [],
+        "wall_time_s": 131.0270518749967,
+        "changed_lines": 4,
+        "regressions": 0,
+        "recovery_events": 0,
+        "unsafe_proposals": 0,
+        "repeated_actions": 0,
+        "novel_observations": 4,
+        "strategy_switches": 5,
+        "final_confidence": 0.2081043985509461,
+        "mean_candidate_entropy": 0.6455534133434613,
+        "mean_rpe": 0.25,
+        "online_updates": 0,
+        "online_rollbacks": 0,
+        "online_learning_ms": 0.0,
+        "shadow_decisions": 0,
+        "shadow_agreements": 0,
+        "rollout_interventions": 0,
+        "rollout_rollbacks": 0,
+        "autonomy_rollbacks": 0
+      },
+      "limits": {
+        "model_calls": 8,
+        "tool_calls": 8,
+        "steps": 8,
+        "request_timeout_s": 90,
+        "wall_timeout_s": 360
+      },
+      "model_events": [
+        {
+          "kind": "cortex_config",
+          "data": {
+            "model": "qwen/qwen3.5-9b",
+            "decision_model": null,
+            "implementation": "5756f1a0db6530ea578feb0d824248e156ffb96531e1f0f07ea8e9ec6a3f89d1"
+          },
+          "timestamp": "2026-10-16T00:18:29.714404+00:00"
+        },
+        {
+          "kind": "model_start",
+          "data": {
+            "role": "reasoner",
+            "model": "qwen/qwen3.5-9b",
+            "reason": "semantic reasoning required; decision scoring follows neural confidence"
+          },
+          "timestamp": "2026-10-16T00:18:30.710405+00:00"
+        },
+        {
+          "kind": "model_end",
+          "data": {
+            "role": "reasoner",
+            "model": "qwen/qwen3.5-9b",
+            "model_calls": {
+              "qwen/qwen3.5-9b": 1
+            },
+            "error": ""
+          },
+          "timestamp": "2026-10-16T00:19:43.916362+00:00"
+        },
+        {
+          "kind": "model_start",
+          "data": {
+            "role": "reasoner",
+            "model": "qwen/qwen3.5-9b",
+            "reason": "semantic reasoning required; decision scoring follows neural confidence"
+          },
+          "timestamp": "2026-10-16T00:19:44.274282+00:00"
+        },
+        {
+          "kind": "model_end",
+          "data": {
+            "role": "reasoner",
+            "model": "qwen/qwen3.5-9b",
+            "model_calls": {
+              "qwen/qwen3.5-9b": 2
+            },
+            "error": ""
+          },
+          "timestamp": "2026-10-16T00:20:13.275805+00:00"
+        },
+        {
+          "kind": "model_start",
+          "data": {
+            "role": "reasoner",
+            "model": "qwen/qwen3.5-9b",
+            "reason": "semantic reasoning required; decision scoring follows neural confidence"
+          },
+          "timestamp": "2026-10-16T00:20:13.885470+00:00"
+        },
+        {
+          "kind": "model_end",
+          "data": {
+            "role": "reasoner",
+            "model": "qwen/qwen3.5-9b",
+            "model_calls": {
+              "qwen/qwen3.5-9b": 3
+            },
+            "error": ""
+          },
+          "timestamp": "2026-10-16T00:20:40.370434+00:00"
+        }
+      ],
+      "original_tests_unchanged": true,
+      "observed_inflight_per_cortex": 1,
+      "final_program_sha256": "a0322ceb93376f2f3d3e0f88656a39663e87b885f5376dbcc9441718697d26a4",
+      "acceptance_verdict": {
+        "version": "verification-verdict-v2",
+        "subject_hash": "31ddddfe223df31a176f7b8d271aefdf3b27571d3f3c085b2ea55bdb5e7f0173",
+        "plan_hash": "10439821f9679ddddb2fdbf7b43c5fb5427e4ca374872d0859fd872da98e857c",
+        "environment": {
+          "python": "3.12.13",
+          "platform": "macOS-27.0-arm64-arm-64bit",
+          "packages": [
+            [
+              "Mako",
+              "1.4.3"
+            ],
+            [
+              "MarkupSafe",
+              "3.0.4"
+            ],
+            [
+              "PyYAML",
+              "6.0.3"
+            ],
+            [
+              "Pygments",
+              "2.21.0"
+            ],
+            [
+              "SQLAlchemy",
+              "2.1.4"
+            ],
+            [
+              "alembic",
+              "1.20.0"
+            ],
+            [
+              "annotated-doc",
+              "0.0.5"
+            ],
+            [
+              "annotated-types",
+              "0.8.0"
+            ],
+            [
+              "anyio",
+              "4.15.1"
+            ],
+            [
+              "ast_serialize",
+              "0.13.0"
+            ],
+            [
+              "certifi",
+              "2026.7.22"
+            ],
+            [
+              "click",
+              "8.5.0"
+            ],
+            [
+              "fastapi",
+              "0.143.2"
+            ],
+            [
+              "flycode",
+              "0.1.0"
+            ],
+            [
+              "h11",
+              "0.16.0"
+            ],
+            [
+              "httpcore",
+              "1.0.9"
+            ],
+            [
+              "httpcore2",
+              "2.13.1"
+            ],
+            [
+              "httpx",
+              "0.28.1"
+            ],
+            [
+              "httpx2",
+              "2.13.1"
+            ],
+            [
+              "idna",
+              "3.20"
+            ],
+            [
+              "iniconfig",
+              "2.3.0"
+            ],
+            [
+              "jiter",
+              "0.17.0"
+            ],
+            [
+              "librt",
+              "0.16.0"
+            ],
+            [
+              "mypy",
+              "2.4.0"
+            ],
+            [
+              "mypy_extensions",
+              "1.1.0"
+            ],
+            [
+              "numpy",
+              "2.5.3"
+            ],
+            [
+              "openai",
+              "3.31.0"
+            ],
+            [
+              "opentelemetry-api",
+              "1.45.1"
+            ],
+            [
+              "packaging",
+              "26.3"
+            ],
+            [
+              "pathspec",
+              "1.1.1"
+            ],
+            [
+              "pip",
+              "25.0.1"
+            ],
+            [
+              "pluggy",
+              "1.6.0"
+            ],
+            [
+              "psycopg2-binary",
+              "2.9.13"
+            ],
+            [
+              "pyarrow",
+              "26.0.0"
+            ],
+            [
+              "pydantic",
+              "2.13.5"
+            ],
+            [
+              "pydantic_core",
+              "2.46.5"
+            ],
+            [
+              "pytest",
+              "9.1.1"
+            ],
+            [
+              "pytest-asyncio",
+              "1.4.0"
+            ],
+            [
+              "pytest-dotenv",
+              "0.5.2"
+            ],
+            [
+              "python-dotenv",
+              "1.2.4"
+            ],
+            [
+              "ruff",
+              "0.17.0"
+            ],
+            [
+              "scipy",
+              "1.18.1"
+            ],
+            [
+              "sniffio",
+              "1.3.1"
+            ],
+            [
+              "starlette",
+              "1.8.0"
+            ],
+            [
+              "truststore",
+              "0.10.5"
+            ],
+            [
+              "typing-inspection",
+              "0.4.4"
+            ],
+            [
+              "typing_extensions",
+              "4.16.0"
+            ],
+            [
+              "uvicorn",
+              "0.54.0"
+            ]
+          ],
+          "implementation_fingerprint": "5756f1a0db6530ea578feb0d824248e156ffb96531e1f0f07ea8e9ec6a3f89d1"
+        },
+        "status": "passed",
+        "reasons": [
+          "baseline: Registered pytest check passed on the captured subject",
+          "negative: Baseline negative control confirmed",
+          "target: Registered pytest check passed on the captured subject",
+          "regression: Registered pytest check passed on the captured subject",
+          "integration: Registered pytest check passed on the captured subject"
+        ],
+        "cases": [
+          {
+            "id": "tests/test_mathutils.py::test_subtract",
+            "outcome": "passed",
+            "duration": 3.9541999285575e-05,
+            "attempt": 1,
+            "flaky": false,
+            "diagnostics": [
+              "call:passed"
+            ],
+            "check_id": "baseline",
+            "subject_hash": "5094c0d8c2f57b05228048ff038a21936ee5142d2b9bb3e1cfe3aee28d4a20e0"
+          },
+          {
+            "id": "tests/test_mathutils.py::test_add",
+            "outcome": "failed",
+            "duration": 0.00010695800301618874,
+            "attempt": 1,
+            "flaky": false,
+            "diagnostics": [
+              "call:failed"
+            ],
+            "check_id": "negative",
+            "subject_hash": "5094c0d8c2f57b05228048ff038a21936ee5142d2b9bb3e1cfe3aee28d4a20e0"
+          },
+          {
+            "id": "tests/test_mathutils.py::test_add",
+            "outcome": "passed",
+            "duration": 4.545800038613379e-05,
+            "attempt": 1,
+            "flaky": false,
+            "diagnostics": [
+              "call:passed"
+            ],
+            "check_id": "target",
+            "subject_hash": "31ddddfe223df31a176f7b8d271aefdf3b27571d3f3c085b2ea55bdb5e7f0173"
+          },
+          {
+            "id": "tests/test_mathutils.py::test_add",
+            "outcome": "passed",
+            "duration": 3.5625002055894583e-05,
+            "attempt": 1,
+            "flaky": false,
+            "diagnostics": [
+              "call:passed"
+            ],
+            "check_id": "regression",
+            "subject_hash": "31ddddfe223df31a176f7b8d271aefdf3b27571d3f3c085b2ea55bdb5e7f0173"
+          },
+          {
+            "id": "tests/test_mathutils.py::test_subtract",
+            "outcome": "passed",
+            "duration": 2.9209004424046725e-05,
+            "attempt": 1,
+            "flaky": false,
+            "diagnostics": [
+              "call:passed"
+            ],
+            "check_id": "regression",
+            "subject_hash": "31ddddfe223df31a176f7b8d271aefdf3b27571d3f3c085b2ea55bdb5e7f0173"
+          },
+          {
+            "id": "tests/test_mathutils.py::test_add",
+            "outcome": "passed",
+            "duration": 3.641700459411368e-05,
+            "attempt": 1,
+            "flaky": false,
+            "diagnostics": [
+              "call:passed"
+            ],
+            "check_id": "integration",
+            "subject_hash": "31ddddfe223df31a176f7b8d271aefdf3b27571d3f3c085b2ea55bdb5e7f0173"
+          },
+          {
+            "id": "tests/test_mathutils.py::test_subtract",
+            "outcome": "passed",
+            "duration": 2.9791997803840786e-05,
+            "attempt": 1,
+            "flaky": false,
+            "diagnostics": [
+              "call:passed"
+            ],
+            "check_id": "integration",
+            "subject_hash": "31ddddfe223df31a176f7b8d271aefdf3b27571d3f3c085b2ea55bdb5e7f0173"
+          }
+        ],
+        "evidence_id": "d3f6848add3c40a085dd843c700ba607",
+        "evidence_hash": "dba817e8571738607ae4b2843772d08cb427b2ab13d06a73de242991af9480de",
+        "required_coverage": 1.0,
+        "scope": "acceptance-contract",
+        "contract_hash": "ec0512cdd6b20dd25c7466d433107dcc2451088e9bbe98550dc4ff19130bc97e",
+        "criteria": {
+          "add": "passed",
+          "subtract": "passed"
+        },
+        "checks": {
+          "baseline": "passed",
+          "negative": "passed",
+          "target": "passed",
+          "regression": "passed",
+          "integration": "passed"
+        },
+        "evaluator_version": "acceptance-verdict-v1",
+        "evaluated_at": "2026-10-16T00:30:28.976056Z"
+      },
+      "scorer_construction_assertion": "decider is None"
+    },
+    "dual": {
+      "returncode": 0,
+      "wall_duration_s": 94.43,
+      "configuration": {
+        "decision_model_argument": "missing",
+        "model": "qwen/qwen3.5-9b",
+        "decision_model": "jev-style-qwen3.5-2b-decision"
+      },
+      "metrics": {
+        "task_id": "local-live",
+        "brain": "functional_fly",
+        "control_mode": "bias_control",
+        "success": true,
+        "verified_completion": true,
+        "steps": 6,
+        "tool_calls": 6,
+        "llm_calls": 6,
+        "model_calls": {
+          "qwen/qwen3.5-9b": 3,
+          "jev-style-qwen3.5-2b-decision": 3
+        },
+        "model_errors": [],
+        "wall_time_s": 92.35291833299561,
+        "changed_lines": 4,
+        "regressions": 0,
+        "recovery_events": 0,
+        "unsafe_proposals": 0,
+        "repeated_actions": 1,
+        "novel_observations": 4,
+        "strategy_switches": 5,
+        "final_confidence": 0.2081043985509461,
+        "mean_candidate_entropy": 0.6670342645127865,
+        "mean_rpe": 0.19333333333333336,
+        "online_updates": 0,
+        "online_rollbacks": 0,
+        "online_learning_ms": 0.0,
+        "shadow_decisions": 0,
+        "shadow_agreements": 0,
+        "rollout_interventions": 0,
+        "rollout_rollbacks": 0,
+        "autonomy_rollbacks": 0
+      },
+      "limits": {
+        "model_calls": 30,
+        "steps": 20,
+        "request_timeout_s": 120,
+        "wall_timeout_s": 600
+      },
+      "model_events": [
+        {
+          "kind": "cortex_config",
+          "data": {
+            "decision_model_argument": "missing",
+            "model": "qwen/qwen3.5-9b",
+            "decision_model": "jev-style-qwen3.5-2b-decision"
+          },
+          "timestamp": "2026-10-16T00:24:20.804566+00:00"
+        },
+        {
+          "kind": "model_start",
+          "data": {
+            "role": "reasoner",
+            "model": "qwen/qwen3.5-9b",
+            "reason": "semantic reasoning required; decision scoring follows neural confidence"
+          },
+          "timestamp": "2026-10-16T00:24:21.131313+00:00"
+        },
+        {
+          "kind": "model_end",
+          "data": {
+            "role": "reasoner",
+            "model": "qwen/qwen3.5-9b",
+            "model_calls": {
+              "qwen/qwen3.5-9b": 1,
+              "jev-style-qwen3.5-2b-decision": 0
+            },
+            "error": ""
+          },
+          "timestamp": "2026-10-16T00:25:06.571901+00:00"
+        },
+        {
+          "kind": "model_start",
+          "data": {
+            "role": "decider",
+            "model": "jev-style-qwen3.5-2b-decision",
+            "reason": "Score safe candidates under controller uncertainty"
+          },
+          "timestamp": "2026-10-16T00:25:06.572195+00:00"
+        },
+        {
+          "kind": "model_end",
+          "data": {
+            "role": "decider",
+            "model": "jev-style-qwen3.5-2b-decision",
+            "model_calls": {
+              "qwen/qwen3.5-9b": 1,
+              "jev-style-qwen3.5-2b-decision": 1
+            },
+            "error": ""
+          },
+          "timestamp": "2026-10-16T00:25:08.096324+00:00"
+        },
+        {
+          "kind": "model_start",
+          "data": {
+            "role": "reasoner",
+            "model": "qwen/qwen3.5-9b",
+            "reason": "semantic reasoning required; decision scoring follows neural confidence"
+          },
+          "timestamp": "2026-10-16T00:25:08.233476+00:00"
+        },
+        {
+          "kind": "model_end",
+          "data": {
+            "role": "reasoner",
+            "model": "qwen/qwen3.5-9b",
+            "model_calls": {
+              "qwen/qwen3.5-9b": 2,
+              "jev-style-qwen3.5-2b-decision": 1
+            },
+            "error": ""
+          },
+          "timestamp": "2026-10-16T00:25:26.530966+00:00"
+        },
+        {
+          "kind": "model_start",
+          "data": {
+            "role": "decider",
+            "model": "jev-style-qwen3.5-2b-decision",
+            "reason": "Score safe candidates under controller uncertainty"
+          },
+          "timestamp": "2026-10-16T00:25:26.531245+00:00"
+        },
+        {
+          "kind": "model_end",
+          "data": {
+            "role": "decider",
+            "model": "jev-style-qwen3.5-2b-decision",
+            "model_calls": {
+              "qwen/qwen3.5-9b": 2,
+              "jev-style-qwen3.5-2b-decision": 2
+            },
+            "error": ""
+          },
+          "timestamp": "2026-10-16T00:25:27.060334+00:00"
+        },
+        {
+          "kind": "model_start",
+          "data": {
+            "role": "reasoner",
+            "model": "qwen/qwen3.5-9b",
+            "reason": "semantic reasoning required; decision scoring follows neural confidence"
+          },
+          "timestamp": "2026-10-16T00:25:27.216489+00:00"
+        },
+        {
+          "kind": "model_end",
+          "data": {
+            "role": "reasoner",
+            "model": "qwen/qwen3.5-9b",
+            "model_calls": {
+              "qwen/qwen3.5-9b": 3,
+              "jev-style-qwen3.5-2b-decision": 2
+            },
+            "error": ""
+          },
+          "timestamp": "2026-10-16T00:25:51.982577+00:00"
+        },
+        {
+          "kind": "model_start",
+          "data": {
+            "role": "decider",
+            "model": "jev-style-qwen3.5-2b-decision",
+            "reason": "Score safe candidates under controller uncertainty"
+          },
+          "timestamp": "2026-10-16T00:25:51.983530+00:00"
+        },
+        {
+          "kind": "model_end",
+          "data": {
+            "role": "decider",
+            "model": "jev-style-qwen3.5-2b-decision",
+            "model_calls": {
+              "qwen/qwen3.5-9b": 3,
+              "jev-style-qwen3.5-2b-decision": 3
+            },
+            "error": ""
+          },
+          "timestamp": "2026-10-16T00:25:52.996825+00:00"
+        }
+      ],
+      "original_tests_unchanged": true,
+      "observed_inflight_per_cortex": 1,
+      "final_program_sha256": "bf63726d7cb349ee8eb6654b7d15c78e845d2b6be9c41f020ade39acff58786b",
+      "acceptance_verdict": {
+        "version": "verification-verdict-v2",
+        "subject_hash": "1b8a4f88f288f68b8322c386e6ff609d22c7250b963f80c47d9ac2134ce3a65f",
+        "plan_hash": "faef118f090f2b437b12fcd932393d673bd33e9386923dd3d6ef4f637880425b",
+        "environment": {
+          "python": "3.12.13",
+          "platform": "macOS-27.0-arm64-arm-64bit",
+          "packages": [
+            [
+              "Mako",
+              "1.4.3"
+            ],
+            [
+              "MarkupSafe",
+              "3.0.4"
+            ],
+            [
+              "PyYAML",
+              "6.0.3"
+            ],
+            [
+              "Pygments",
+              "2.21.0"
+            ],
+            [
+              "SQLAlchemy",
+              "2.1.4"
+            ],
+            [
+              "alembic",
+              "1.20.0"
+            ],
+            [
+              "annotated-doc",
+              "0.0.5"
+            ],
+            [
+              "annotated-types",
+              "0.8.0"
+            ],
+            [
+              "anyio",
+              "4.15.1"
+            ],
+            [
+              "ast_serialize",
+              "0.13.0"
+            ],
+            [
+              "certifi",
+              "2026.7.22"
+            ],
+            [
+              "click",
+              "8.5.0"
+            ],
+            [
+              "fastapi",
+              "0.143.2"
+            ],
+            [
+              "flycode",
+              "0.1.0"
+            ],
+            [
+              "h11",
+              "0.16.0"
+            ],
+            [
+              "httpcore",
+              "1.0.9"
+            ],
+            [
+              "httpcore2",
+              "2.13.1"
+            ],
+            [
+              "httpx",
+              "0.28.1"
+            ],
+            [
+              "httpx2",
+              "2.13.1"
+            ],
+            [
+              "idna",
+              "3.20"
+            ],
+            [
+              "iniconfig",
+              "2.3.0"
+            ],
+            [
+              "jiter",
+              "0.17.0"
+            ],
+            [
+              "librt",
+              "0.16.0"
+            ],
+            [
+              "mypy",
+              "2.4.0"
+            ],
+            [
+              "mypy_extensions",
+              "1.1.0"
+            ],
+            [
+              "numpy",
+              "2.5.3"
+            ],
+            [
+              "openai",
+              "3.31.0"
+            ],
+            [
+              "opentelemetry-api",
+              "1.45.1"
+            ],
+            [
+              "packaging",
+              "26.3"
+            ],
+            [
+              "pathspec",
+              "1.1.1"
+            ],
+            [
+              "pip",
+              "25.0.1"
+            ],
+            [
+              "pluggy",
+              "1.6.0"
+            ],
+            [
+              "psycopg2-binary",
+              "2.9.13"
+            ],
+            [
+              "pyarrow",
+              "26.0.0"
+            ],
+            [
+              "pydantic",
+              "2.13.5"
+            ],
+            [
+              "pydantic_core",
+              "2.46.5"
+            ],
+            [
+              "pytest",
+              "9.1.1"
+            ],
+            [
+              "pytest-asyncio",
+              "1.4.0"
+            ],
+            [
+              "pytest-dotenv",
+              "0.5.2"
+            ],
+            [
+              "python-dotenv",
+              "1.2.4"
+            ],
+            [
+              "ruff",
+              "0.17.0"
+            ],
+            [
+              "scipy",
+              "1.18.1"
+            ],
+            [
+              "sniffio",
+              "1.3.1"
+            ],
+            [
+              "starlette",
+              "1.8.0"
+            ],
+            [
+              "truststore",
+              "0.10.5"
+            ],
+            [
+              "typing-inspection",
+              "0.4.4"
+            ],
+            [
+              "typing_extensions",
+              "4.16.0"
+            ],
+            [
+              "uvicorn",
+              "0.54.0"
+            ]
+          ],
+          "implementation_fingerprint": "5756f1a0db6530ea578feb0d824248e156ffb96531e1f0f07ea8e9ec6a3f89d1"
+        },
+        "status": "passed",
+        "reasons": [
+          "baseline: Registered pytest check passed on the captured subject",
+          "negative: Baseline negative control confirmed",
+          "target: Registered pytest check passed on the captured subject",
+          "regression: Registered pytest check passed on the captured subject",
+          "integration: Registered pytest check passed on the captured subject"
+        ],
+        "cases": [
+          {
+            "id": "tests/test_mathutils.py::test_subtract",
+            "outcome": "passed",
+            "duration": 3.6124998587183654e-05,
+            "attempt": 1,
+            "flaky": false,
+            "diagnostics": [
+              "call:passed"
+            ],
+            "check_id": "baseline",
+            "subject_hash": "b36e18bf5efc556571a13ceb20e5db333fdae32dc5558caf313eda25215ee755"
+          },
+          {
+            "id": "tests/test_mathutils.py::test_add",
+            "outcome": "failed",
+            "duration": 0.0001000420015770942,
+            "attempt": 1,
+            "flaky": false,
+            "diagnostics": [
+              "call:failed"
+            ],
+            "check_id": "negative",
+            "subject_hash": "b36e18bf5efc556571a13ceb20e5db333fdae32dc5558caf313eda25215ee755"
+          },
+          {
+            "id": "tests/test_mathutils.py::test_add",
+            "outcome": "passed",
+            "duration": 3.333300264785066e-05,
+            "attempt": 1,
+            "flaky": false,
+            "diagnostics": [
+              "call:passed"
+            ],
+            "check_id": "target",
+            "subject_hash": "1b8a4f88f288f68b8322c386e6ff609d22c7250b963f80c47d9ac2134ce3a65f"
+          },
+          {
+            "id": "tests/test_mathutils.py::test_add",
+            "outcome": "passed",
+            "duration": 3.462500171735883e-05,
+            "attempt": 1,
+            "flaky": false,
+            "diagnostics": [
+              "call:passed"
+            ],
+            "check_id": "regression",
+            "subject_hash": "1b8a4f88f288f68b8322c386e6ff609d22c7250b963f80c47d9ac2134ce3a65f"
+          },
+          {
+            "id": "tests/test_mathutils.py::test_subtract",
+            "outcome": "passed",
+            "duration": 2.9499999072868377e-05,
+            "attempt": 1,
+            "flaky": false,
+            "diagnostics": [
+              "call:passed"
+            ],
+            "check_id": "regression",
+            "subject_hash": "1b8a4f88f288f68b8322c386e6ff609d22c7250b963f80c47d9ac2134ce3a65f"
+          },
+          {
+            "id": "tests/test_mathutils.py::test_add",
+            "outcome": "passed",
+            "duration": 3.820800338871777e-05,
+            "attempt": 1,
+            "flaky": false,
+            "diagnostics": [
+              "call:passed"
+            ],
+            "check_id": "integration",
+            "subject_hash": "1b8a4f88f288f68b8322c386e6ff609d22c7250b963f80c47d9ac2134ce3a65f"
+          },
+          {
+            "id": "tests/test_mathutils.py::test_subtract",
+            "outcome": "passed",
+            "duration": 2.975000097649172e-05,
+            "attempt": 1,
+            "flaky": false,
+            "diagnostics": [
+              "call:passed"
+            ],
+            "check_id": "integration",
+            "subject_hash": "1b8a4f88f288f68b8322c386e6ff609d22c7250b963f80c47d9ac2134ce3a65f"
+          }
+        ],
+        "evidence_id": "9390ae24969d46aaac18ebf52f44d467",
+        "evidence_hash": "31065036c8f5e2d141e916127bf194f99b5a52956d2ddb8a0dec667f8a39753a",
+        "required_coverage": 1.0,
+        "scope": "acceptance-contract",
+        "contract_hash": "ec0512cdd6b20dd25c7466d433107dcc2451088e9bbe98550dc4ff19130bc97e",
+        "criteria": {
+          "add": "passed",
+          "subtract": "passed"
+        },
+        "checks": {
+          "baseline": "passed",
+          "negative": "passed",
+          "target": "passed",
+          "regression": "passed",
+          "integration": "passed"
+        },
+        "evaluator_version": "acceptance-verdict-v1",
+        "evaluated_at": "2026-10-16T00:30:29.966999Z"
+      },
+      "scorer_assertions": "default constructed, nonempty decision_scores, actual scorer calls",
+      "scorer_samples": [
+        {
+          "route": "reasoner+decider",
+          "decision_scores": {
+            "llm-0": 0.2812891547318759,
+            "llm-1": 0.2321424751737421,
+            "llm-2": 0.12853313247512488,
+            "llm-3": 0.35803523761925715
+          }
+        },
+        {
+          "route": "reasoner+decider",
+          "decision_scores": {
+            "llm-0": 0.2183497927689578,
+            "llm-1": 0.18771193494309085,
+            "llm-2": 0.1119729688286593,
+            "llm-3": 0.481965303459292
+          }
+        },
+        {
+          "route": "reasoner+decider",
+          "decision_scores": {
+            "llm-0": 0.15090583712683045,
+            "llm-1": 0.14546391116693722,
+            "llm-2": 0.656433399122978,
+            "llm-3": 0.04719685258325438
+          }
+        }
+      ]
+    }
+  },
+  "retained_bundle_id": "model-selection-20261016-299afcda9b7b"
+}

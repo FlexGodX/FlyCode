@@ -36,8 +36,10 @@
 Каждый пункт считается завершённым только после перечисленных проверок.
 
 Поставка `9eb6422`: nullable scorer, catalogue/probe и две панели опубликованы;
-371 passed/8 skipped, visual QA desktop/390/320. Живой single-Qwen repair остаётся
-непринятым (probe timeout), поэтому §102 не закрыт целиком.
+371 passed/8 skipped, visual QA desktop/390/320. На момент той поставки live
+single-Qwen repair не был принят из-за короткого timeout. Новые live single/dual
+прогоны на runtime `18913d5` прошли; результаты и границы сохранены в
+`docs/validation/2026-10-16-model-selection.json`. Старый failure не удалён.
 
 Trusted-local pytest engine/CLI опубликованы в `5d16b5a`; Task3a реализует
 owner-approved критерии, oracle bytes и составной план. Общий runtime completion
@@ -49,12 +51,12 @@ owner-approved критерии, oracle bytes и составной план. О
 
 **Interfaces:** `make_lmstudio_cortex(..., decision_model: str | None = DEFAULT_DECIDER)`; `RunRequest.decision_model` и `CortexConfig.decision_model` с тем же default; CLI `--no-decision-model` исключает `--decision-model`.
 
-- [ ] RED: сервер содержит только primary; `make_lmstudio_cortex(..., decision_model=None)` возвращает два кандидата при неопределённом контроллере, один HTTP inference, счётчик только primary; повтор после budget=1 не вызывает модель.
-- [ ] Run `.venv/bin/pytest tests/integration/test_local_cortex.py -q`; наблюдать failure проверки наличия `None`.
-- [ ] GREEN: условное создание/сброс/счётчик/вызов decider; null проходит доменные модели, пустые/sentinel IDs отклоняются; old default dual сохранён.
-- [ ] UI: model button и справа execution button; атомарный Apply, независимые настройки; personal defaults отдельно от просмотра истории, отключённые модели явно подписаны.
-- [ ] Проверить HTTP integration, CLI mutual exclusion, identity null ≠ dual; browser desktop/390/320, клавиатура, history → new task.
-- [ ] Зафиксировать проверенный diff и обновить статус §102.
+- [x] RED: сервер содержит только primary; `make_lmstudio_cortex(..., decision_model=None)` возвращает два кандидата при неопределённом контроллере, один HTTP inference, счётчик только primary; повтор после budget=1 не вызывает модель.
+- [x] Run `.venv/bin/pytest tests/integration/test_local_cortex.py -q`; наблюдать failure проверки наличия `None`.
+- [x] GREEN: условное создание/сброс/счётчик/вызов decider; null проходит доменные модели, пустые/sentinel IDs отклоняются; old default dual сохранён.
+- [x] UI: model button и справа execution button; атомарный Apply, независимые настройки; personal defaults отдельно от просмотра истории, отключённые модели явно подписаны.
+- [x] Проверить HTTP integration, CLI mutual exclusion, identity null ≠ dual; browser desktop/390/320, клавиатура, history → new task.
+- [x] Зафиксировать проверенный diff и обновить статус §102.
 
 ### Task 2: Совместимые будущие модели (§102)
 
@@ -62,11 +64,11 @@ owner-approved критерии, oracle bytes и составной план. О
 
 **Interfaces:** `ModelDescriptor` с opaque ref, provider model ID, availability, roles и versioned capabilities; `ModelCatalogue.discover()` / `probe(model_ref, role)`; GET `/api/models`, POST `/api/models/probe`.
 
-- [ ] RED: новый ID обнаружен без ready capability; explicit primary probe принимает structured candidates, scorer probe требует finite option probabilities; ошибки и отсутствующий ID не становятся ready.
-- [ ] Run новый test; подтвердить отсутствие catalogue/неверное поведение.
-- [ ] GREEN: один доверенный endpoint из server config, никакого URL в запросе; роли по реальному протоколу, probe учитывает запрос и возвращает причину.
-- [ ] Проверить generic primary/single и generic pair, unavailable selection без silent fallback, refresh без inference, session-token/origin на probe.
-- [ ] Зафиксировать результат, указать пределы обнаружения и проверки совместимости.
+- [x] RED: новый ID обнаружен без ready capability; explicit primary probe принимает structured candidates, scorer probe требует finite option probabilities; ошибки и отсутствующий ID не становятся ready.
+- [x] Run новый test; подтвердить отсутствие catalogue/неверное поведение.
+- [x] GREEN: один доверенный endpoint из server config, никакого URL в запросе; роли по реальному протоколу, probe учитывает запрос и возвращает причину.
+- [x] Проверить generic primary/single и generic pair, unavailable selection без silent fallback, refresh без inference, session-token/origin на probe.
+- [x] Зафиксировать результат, указать пределы обнаружения и проверки совместимости.
 
 ### Task 3: Снимки и pytest verification (фаза 21, основа 22)
 
@@ -137,8 +139,9 @@ absence confirmation and optional-check safety gates have fault-injection regres
   caller scope; a reused key with a different request is a conflict. Creation,
   metadata commands and enqueue never construct a cortex or execute project tools.
 - Draft roots may coexist, but only one root workflow is active. Persist separate
-  root-start and internal-dispatch counters; each eighth successful assignment
-  ages the oldest eligible candidate. Failed claims and waits increment neither.
+  root-start and internal-dispatch counters; each eighth successful launch
+  ages the oldest eligible candidate. Increment only on the runtime-confirmed
+  first start, not on a stored assignment, failed spawn, claim or wait.
 - Preserve spent/reserved/free amounts independently. A developer cannot consume
   the verification reserve. Active/uncertain ownership survives restart for
   reconciliation; neither lease expiry nor retry grants a second writer.
@@ -154,6 +157,7 @@ absence confirmation and optional-check safety gates have fault-injection regres
 
 **Interfaces:** `Dispatcher` consumes committed attempts; authenticated worker identity owns fence; shared resource ledger and message envelope with causal IDs.
 
+- [ ] RED: profile registration resolves server-owned model refs, role/capability versions, context and permissions; discovered-only or incompatible roles never qualify an instance for dispatch.
 - [ ] RED: execute real local task and observe actual instance/model/tool; no fake activity; serial endpoint while tools can run; Stop remains responsive.
 - [ ] RED: duplicate message dedup, TTL/hop/fanout limits; crash lease expires into reconciling; old fence cannot publish result and writer not reassigned before confirmation.
 - [ ] GREEN: event-driven workers, heartbeat10s/lease30s, transaction outbox/inbox, shared budgets4instances/64tasks/3attempts/60model/120tools/30min and verification reserve20%.
@@ -167,6 +171,7 @@ absence confirmation and optional-check safety gates have fault-injection regres
 **Interfaces:** isolated snapshot per writer, immutable patch hash, reviewer approval exact bytes, single integrator, current `VerificationVerdict` completion gate.
 
 - [ ] RED: user dirty/untracked files preserved; conflicting patches blocked; patch changes invalidate review; individually passing patches cannot finish failing integration.
+  Include selected subfolders inside a larger Git repository: snapshot inventory must not expose foreign paths from the parent repository.
 - [ ] RED: all rerun outcomes retained, flaky mandatory blocks pass, malformed/oversized report inconclusive; unsupported hostile sandbox blocked before subprocess.
 - [ ] GREEN: serialize integration, run required checks on integrated snapshot, persist partial artifacts and explicit blockers; versioned criteria immutable to model.
 - [ ] Verify semantic revision invalidates result, metadata revision preserves evidence, reopen/archive audit and review queue current assignee.

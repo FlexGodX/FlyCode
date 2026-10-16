@@ -2,6 +2,30 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Live single/dual model acceptance — 2026-10-16
+
+On runtime `18913d5`, a real CLI `--no-decision-model` repair completed in 134.65s
+wall time with 3 Qwen requests, 6 tools, no scorer construction and no model errors.
+The explicit opt-in dual test passed (1 test/93.60s; 94.43s wrapper wall time):
+missing `decision_model` preserved the Jev default, with 3 Qwen + 3 Jev requests,
+nonempty decision scores, real repair and local verify/STOP. Each cortex's observed
+model events were sequential. These are single-instance checks, not proof of a
+shared multi-agent endpoint pool.
+
+Both produced projects then passed the new owner-approved baseline negative control,
+target, full fixture regression and integration plan, exact add/subtract case IDs,
+unchanged original tests and current artifact checks. Public metadata/raw metrics:
+`docs/validation/2026-10-16-model-selection.json`. Retained external bundles:
+`~/.local/share/flycode/validation/model-selection-20261016-299afcda9b7b`.
+The relocated verdicts were checked current. Different prompts/budgets/cache states
+make the durations unsuitable for performance comparison; no research/orchestration
+admission is inferred. Earlier 5s timeout remains recorded below.
+
+Tasks1–3a are delivered for their supported scope. Next: canonical SQLite Task4,
+then the shared runtime/resource/review/completion work. Seven biological-graph
+cases remain opt-in/unrun in this increment; a fresh graph/research acceptance is
+still required on the final runtime.
+
 ## Trusted acceptance plans — 2026-10-16
 
 `AcceptanceContract` maps required criteria to exact check/case IDs. The external
