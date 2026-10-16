@@ -10,7 +10,7 @@ import stat
 import subprocess
 from pathlib import Path
 
-from ..domain.verification import SubjectSnapshot
+from ..domain.verification import SubjectRef, SubjectSnapshot
 from ..research.identity import implementation_fingerprint
 
 EXCLUDED_DIRS = {'.git', '.venv', 'venv', 'node_modules', '__pycache__', '.pytest_cache', '.mypy_cache',
@@ -72,7 +72,7 @@ def input_files(root: Path) -> tuple[dict[str, bytes], list[str]]:
     return files, sorted(excluded)
 
 
-def capture(root: Path, destination: Path | None = None) -> SubjectSnapshot:
+def capture(root: Path, destination: Path | None = None, *, ref: SubjectRef | None = None) -> SubjectSnapshot:
     root = root.resolve(strict=True)
     if destination is not None and destination.resolve().is_relative_to(root):
         raise ValueError('Snapshot storage must be outside the source project')
@@ -89,9 +89,11 @@ def capture(root: Path, destination: Path | None = None) -> SubjectSnapshot:
     hashes = {name: hashlib.sha256(data).hexdigest() for name, data in sorted(files.items())}
     modes = {name: stat.S_IMODE((root / name).stat().st_mode) for name in files}
     environment = environment_identity()
-    snapshot = SubjectSnapshot(subject_hash=digest({'files': hashes, 'modes': modes, 'base': base,
-                                                    'environment': environment}), files=hashes, modes=modes,
-                               excluded=excluded, base=base, inventory=inventory, environment=environment)
+    identity = {'files': hashes, 'modes': modes, 'base': base, 'environment': environment}
+    if ref is not None:
+        identity['ref'] = ref.model_dump()
+    snapshot = SubjectSnapshot(subject_hash=digest(identity), files=hashes, modes=modes,
+                               excluded=excluded, base=base, inventory=inventory, environment=environment, ref=ref)
     if destination is not None:
         destination.mkdir(parents=True, exist_ok=False)
         for name, data in files.items():

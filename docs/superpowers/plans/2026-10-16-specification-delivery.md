@@ -39,8 +39,9 @@
 371 passed/8 skipped, visual QA desktop/390/320. Живой single-Qwen repair остаётся
 непринятым (probe timeout), поэтому §102 не закрыт целиком.
 
-Следующая поставка: начальный trusted-local pytest engine и CLI. Она не закрывает
-всю фазу 21: перед ORC completion нужен дополнительный пункт 3a ниже.
+Trusted-local pytest engine/CLI опубликованы в `5d16b5a`; Task3a реализует
+owner-approved критерии, oracle bytes и составной план. Общий runtime completion
+по-прежнему требует очереди, review и integration (Tasks4–6).
 
 ### Task 1: Необязательный оценщик и раздельные панели (§102)
 
@@ -85,7 +86,7 @@
 
 **Interfaces:** `AcceptanceCriterion(id, check_ids, expected_case_ids)` и `AcceptanceContract(id, version, criteria)` принадлежат доверенному владельцу. `PlanBuilder.build(snapshot, contract, checks)` возвращает `VerificationPlan` с requirement→check→case mapping; `evaluate(attempts, invalidated, contract=None)` сохраняет старый suite-вызов и проверяет contract при его наличии. `CheckSpec` получает stage/targets/dependencies; `SubjectSnapshot` — server-owned project/workflow/task/attempt refs. `VerificationVerdict` явно различает registered-suite и acceptance-contract scope; ORC завершает задачу только вторым scope.
 
-- [ ] RED: критерий `R1` требует `test_api.py::test_regression`; suite с одним другим passed-тестом не закрывает `R1`.
+- [x] RED: критерий `R1` требует `test_api.py::test_regression`; suite с одним другим passed-тестом не закрывает `R1`.
 
 ```python
 criterion = AcceptanceCriterion(id='R1', check_ids=['regression'],
@@ -99,11 +100,16 @@ assert status == 'inconclusive'
 assert any('R1' in reason for reason in reasons)
 ```
 
-- [ ] RED: попытка удалить required check, цикл dependencies, foreign snapshot ref и изменение утверждённого contract hash отклоняются до запуска процесса.
-- [ ] GREEN: хранить утверждённый контракт вне изменяемой копии, связывать checks с точными snapshots и версиями oracle/profile. Предложение агента добавляет optional checks и не редактирует required.
-- [ ] RED→GREEN: дефект воспроизводится baseline negative control, patch закрывает target, полный regression и integrated snapshot проверяются отдельно; удачный target на сломанной базе не даёт общего pass.
-- [ ] Проверить actual case identities, неполный required coverage, semantic revision и новую базу; косметическое изменение заголовка не меняет контракт. Добавить lifecycle/error class попытки без выдуманных lease для одиночного процесса.
-- [ ] Запустить `.venv/bin/pytest tests/unit/verification/test_plan.py tests/integration/test_verification.py -q`, затем полный pytest; обновить TST/TV coverage и только после этого закрывать фазу 21.
+- [x] RED: попытка удалить required check, цикл dependencies, foreign snapshot ref и изменение утверждённого contract hash отклоняются до запуска процесса.
+- [x] GREEN: хранить утверждённый контракт вне изменяемой копии, связывать checks с точными snapshots и версиями oracle/profile. Предложение агента добавляет optional checks и не редактирует required.
+- [x] RED→GREEN: дефект воспроизводится baseline negative control, patch закрывает target, полный regression и integrated snapshot проверяются отдельно; удачный target на сломанной базе не даёт общего pass.
+- [x] Проверить actual case identities, неполный required coverage, semantic revision и новую базу; косметическое изменение заголовка не меняет контракт. Добавить lifecycle/error class попытки без выдуманных lease для одиночного процесса.
+- [x] Запустить `.venv/bin/pytest tests/unit/verification/test_plan.py tests/integration/test_verification.py -q`, затем полный pytest; обновить TST/TV coverage и только после этого закрывать фазу 21.
+
+Validation for Task3a: 452 passed/8 skipped (188.54s); targeted verification/identity62
+passed, Ruff/mypy passed. Extracted wheel CLI pass/empty outcomes and staged
+acceptance passed. Cleanup PermissionError uncertainty remains explicit; bounded
+absence confirmation and optional-check safety gates have fault-injection regressions.
 
 ### Task 4: Единые контракты и атомарная очередь (15/16/26/27)
 
@@ -116,6 +122,31 @@ assert any('R1' in reason for reason in reasons)
 - [ ] GREEN: parameterized SQL, unique active assignment indexes, persistent sequence/outbox, baseline priority and every-eighth aging; reserve before execution.
 - [ ] Verify restart durability, stale revision conflict, no eligibility/backoff reasons, budget exhaustion and paused queue; no second tracker status store.
 - [ ] Commit with phase coverage, not blanket phase completion.
+
+**Execution notes for Task4:**
+
+- Keep common Pydantic `WorkItem`, `WorkflowSpec`, `AgentProfile`, `AgentInstance`,
+  `AgentAttempt`, permissions and budget models in `domain/orchestration.py`.
+  IDs originate in the store; task revision and semantic contract revision are
+  separate. Tracker commands/projections consume these exact objects.
+- Use one SQLite file with tasks/workflows/profiles/instances/attempts,
+  reservations, commands and sequenced events/outbox. `BEGIN IMMEDIATE`, foreign
+  keys and unique active task/instance assignments enforce ownership across
+  connections. An event and reservation commit with the attempt, never later.
+- Replay matching idempotency keys before revision checks, while still enforcing
+  caller scope; a reused key with a different request is a conflict. Creation,
+  metadata commands and enqueue never construct a cortex or execute project tools.
+- Draft roots may coexist, but only one root workflow is active. Persist separate
+  root-start and internal-dispatch counters; each eighth successful assignment
+  ages the oldest eligible candidate. Failed claims and waits increment neither.
+- Preserve spent/reserved/free amounts independently. A developer cannot consume
+  the verification reserve. Active/uncertain ownership survives restart for
+  reconciliation; neither lease expiry nor retry grants a second writer.
+- First pin real two-connection races, restart/idempotency, stale revisions,
+  missing criteria/permissions/budget, foreign/cyclic dependencies, scope/profile
+  mismatch, root WIP, pause and exhausted budgets. The executor, message delivery,
+  heartbeat and actual model activity remain Task5; a persisted assignment alone
+  must not be presented as an executing agent.
 
 ### Task 5: Исполнение, сообщения и ресурсы (16/28)
 
@@ -162,6 +193,7 @@ assert any('R1' in reason for reason in reasons)
 - [ ] RED: API rejects missing token/foreign scope/stale revision; event reconnect returns snapshot+cursor without duplicate commands.
 - [ ] GREEN: board/list/agents from canonical projections, explicit blockers/last confirmed activity/actual model, shared review/check views; no invented percentage or hidden reasoning trace.
 - [ ] Browser verify desktop/390/320 before/after screenshots, keyboard/focus, primary action and Stop always reachable, model/settings independent.
+  Known visual regression to pin during this task: dark-theme selected project/chat labels lose contrast on their light selection fill (journal screenshot review).
 - [ ] Run `.venv/bin/pytest -q`, changed-file Ruff/mypy, opt-in real graph and real LM Studio smoke; build/extract wheel and exercise CLI.
 - [ ] Update Plan status, spec acceptance mapping, handoff, both READMEs; commit and push verified increments.
 

@@ -534,11 +534,18 @@ skipped/xfail, flaky results, timeout and incomplete evidence cannot pass.
 Evidence includes snapshot/plan, checksum manifest, verdict, JUnit and observed
 cases. Changed bytes, executable modes, environment or runtime invalidate approval.
 
-This is the initial phase21 pytest foundation, covering the registered suite
-rather than automatically proving every user acceptance criterion. Process copies
+A trusted Python host can separately approve an `AcceptanceContract` and oracle
+bytes, build baseline/target/regression/integration subjects with `PlanBuilder`,
+and call `VerificationEngine.verify_plan`. Its `acceptance-contract` verdict maps
+exact criteria/check/case IDs; newer owner approval invalidates previous results.
+The standalone CLI retains `registered-suite` scope. See the
+[verification specification](docs/specs/testing-module.md).
+
+The standalone command covers the registered suite rather than automatically
+proving every user acceptance criterion. Process copies
 are for trusted code and do not restrict host/network access. `--trust untrusted`
 blocks execution until a supported sandbox exists. Docker/HTTP/browser profiles,
-independent oracles, verification UI and the team completion gate remain in the
+external black-box oracles, verification UI and the team completion gate remain in the
 [delivery plan](docs/superpowers/plans/2026-10-16-specification-delivery.md).
 
 ```bash

@@ -2,6 +2,36 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Trusted acceptance plans — 2026-10-16
+
+`AcceptanceContract` maps required criteria to exact check/case IDs. The external
+`OracleRegistry` stores immutable owner-approved test bytes and semantic versions;
+agent proposals append optional checks only. `PlanBuilder` binds staged snapshots
+and subject refs; `VerificationEngine.verify_plan` runs baseline/target/regression/
+integration with real subprocesses, graph dependencies and isolated oracle overlays.
+Standalone `verify` remains `registered-suite`; acceptance has a distinct scope,
+criterion coverage and check outcomes. Raw negative-control failures remain raw.
+New owner approval, runtime/input changes and evidence tampering invalidate current
+results. JUnit and observer outcomes now agree as well as case identities.
+
+Verification: full suite 452 passed, 8 skipped (188.54s); targeted verification/
+identity62 passed. Ruff/mypy passed. Final wheel SHA256:
+`95612fb177e7b42b8134bac24111cf107429d2981c6bba1755b74529272e5c3a`.
+Extracted-package CLI pass/empty exit codes and a real staged acceptance plan
+passed outside the checkout. Seven graph-dependent and one dual-LM opt-in tests
+remain skipped in the default suite; they do not close live/research acceptance. This delivers the supported trusted-local pytest
+path; hostile sandbox, other runners, durable recovery and workflow completion
+remain later work. Next: canonical SQLite WorkItem/Profile/Instance/Attempt queue
+(Task4), followed by runtime/review/integration and its acceptance gate.
+
+Cleanup audit: one additional real subprocess test returned `PermissionError`
+during owned-group cleanup after pytest exited successfully; 20 instrumented
+repetitions did not reproduce it. The failure was retained as inconclusive.
+Signal-edge regressions now require confirmed absence after a permission race and
+SIGKILL; persistent permission failures remain interrupted/unconfirmed. Optional
+checks cannot bypass this global cleanup gate. This does not establish a kernel
+cause or hostile-process isolation.
+
 ## Searchable session journal — 2026-10-16
 
 The existing Journal tab now projects canonical run events with text search,
@@ -77,10 +107,9 @@ incomplete on its5s timeout. Stop prevented further work in a separate run; both
 and settings controls were disabled while active. History with a legacy pair left the
 personal single-model choice intact. These are smoke outcomes, not successful live repair.
 
-Next: finish phase21 Task3a (trusted criteria→checks→case IDs, baseline/target/regression/
-integration plans, subject refs/lifecycle/error classes), then canonical SQLite contracts/
-queue Task4. Phase21 is explicitly partial; the standalone pytest verdict is not yet a
-task/workflow completion gate. No ORC/TRK implementation or new scientific admission exists.
+The trusted criteria/check/case mapping and staged pytest plan are now implemented
+above. Next: canonical SQLite contracts/queue Task4; standalone suite verification
+is not a task/workflow completion gate. No ORC/TRK implementation or new scientific admission exists.
 
 The baseline MVP covers Phase 4 (§78). Phase 5 (§79) now runs the same tasks
 with a verified, sparse biological graph. Hermes in the roadmap means FlyCode

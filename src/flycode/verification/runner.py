@@ -7,10 +7,11 @@ import subprocess
 import sys
 import time
 import xml.etree.ElementTree as ET
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from datetime import datetime, timezone
 from pathlib import Path
 
-from ..domain.verification import CaseOutcome, CaseResult, CheckAttempt
+from ..domain.verification import AttemptError, CaseOutcome, CaseResult, CheckAttempt
 
 OUTPUT_LIMIT = 2 * 1024 * 1024
 REPORT_LIMIT = 8 * 1024 * 1024
@@ -52,28 +53,44 @@ def parse_junit(path: Path) -> list[CaseResult]:
         raise ValueError('Invalid or inconsistent JUnit report') from exc
 
 
-def _terminate(process: subprocess.Popen) -> None:
+def _group_gone(group_id: int) -> bool:
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        try:
+            os.killpg(group_id, 0)
+        except ProcessLookupError:
+            return True
+        except PermissionError:
+            pass  # Permission failure alone proves neither existence nor exit.
+        time.sleep(.05)
+    return False
+
+
+def _signal_group(group_id: int, sig: int) -> bool:
     try:
-        os.killpg(process.pid, signal.SIGTERM)
+        os.killpg(group_id, sig)
+        return True
     except ProcessLookupError:
+        return False
+    except PermissionError:
+        if _group_gone(group_id):
+            return False
+        raise
+
+
+def _terminate(process: subprocess.Popen) -> None:
+    if not _signal_group(process.pid, signal.SIGTERM):
         return
     try:
         process.wait(timeout=5)
     except subprocess.TimeoutExpired:
-        os.killpg(process.pid, signal.SIGKILL)
+        _signal_group(process.pid, signal.SIGKILL)
         process.wait(timeout=5)
-    # A test may exit while its child is still running in the owned group.
-    deadline = time.monotonic() + 5
-    while time.monotonic() < deadline:
-        try:
-            os.killpg(process.pid, 0)
-        except ProcessLookupError:
-            return
-        time.sleep(.05)
-    try:
-        os.killpg(process.pid, signal.SIGKILL)
-    except ProcessLookupError:
-        pass
+    # The leader can exit while children still hold the owned process group.
+    if not _group_gone(process.pid):
+        _signal_group(process.pid, signal.SIGKILL)
+        if not _group_gone(process.pid):
+            raise OSError('Owned process group termination is unconfirmed')
 
 
 def _junit_id(node_id: str) -> str:
@@ -85,26 +102,39 @@ def _junit_id(node_id: str) -> str:
 
 
 def run_pytest(sandbox: Path, output: Path, timeout: float, number: int,
-               should_stop: Callable[[], bool]) -> CheckAttempt:
+               should_stop: Callable[[], bool], *, targets: Sequence[str] = (),
+               on_state: Callable[[str], None] = lambda state: None) -> CheckAttempt:
+    from .plan import validate_target
+
+    for target in targets:
+        validate_target(target)
     output.mkdir()
     report = output / 'junit.xml'
     observer = output / 'cases.jsonl'
     argv = [sys.executable, '-m', 'pytest', '-q', '-p', 'pytest_observer',
             '-o', 'xfail_strict=true', f'--junitxml={report}', f'--basetemp={output / "tmp"}']
+    argv.extend(['--', *targets])
     environment = {name: os.environ[name] for name in ('PATH', 'LANG', 'LC_ALL', 'SYSTEMROOT') if name in os.environ}
     environment.update({'HOME': str(sandbox / '.home'), 'PYTEST_DISABLE_PLUGIN_AUTOLOAD': '1',
         'PYTHONPATH': os.pathsep.join([str(Path(__file__).parent), str(sandbox), str(sandbox / 'src')]),
         'FLYCODE_CASE_REPORT': str(observer), 'GIT_CEILING_DIRECTORIES': str(sandbox.parent)})
     reasons, cases, collected = [], [], []
     started = time.monotonic()
+    started_at = datetime.now(timezone.utc)
+    on_state('preparing')
     cancelled, complete, exit_code = False, False, None
+    process_started = False
     with (output / 'stdout.txt').open('wb') as stdout, (output / 'stderr.txt').open('wb') as stderr:
         if should_stop():
             return CheckAttempt(number=number, argv=argv, exit_code=None, duration=0, cancelled=True,
+                                state='cancelled', error_class='cancelled', started_at=started_at,
+                                ended_at=datetime.now(timezone.utc),
                                 reasons=['cancelled before process start'])
         try:
             process = subprocess.Popen(argv, cwd=sandbox, env=environment, stdout=stdout, stderr=stderr,
                                        start_new_session=True)
+            process_started = True
+            on_state('running')
             try:
                 while process.poll() is None:
                     cancelled = should_stop()
@@ -123,11 +153,13 @@ def run_pytest(sandbox: Path, output: Path, timeout: float, number: int,
             finally:
                 _terminate(process)
         except OSError as exc:
-            reasons.append(f'runner unavailable: {type(exc).__name__}')
+            label = 'owned process cleanup unconfirmed' if process_started else 'runner unavailable'
+            reasons.append(f'{label}: {type(exc).__name__}')
     if any(path.exists() and path.stat().st_size > limit for path, limit in (
         (output / 'stdout.txt', OUTPUT_LIMIT), (output / 'stderr.txt', OUTPUT_LIMIT),
         (observer, REPORT_LIMIT), (report, REPORT_LIMIT))):
         reasons.append('runner output exceeded size limit')
+    on_state('collecting')
     try:
         if not observer.is_file() or observer.stat().st_size > REPORT_LIMIT:
             raise ValueError('Missing or oversized observer report')
@@ -164,8 +196,24 @@ def run_pytest(sandbox: Path, output: Path, timeout: float, number: int,
         if (len(collected) != len(set(collected)) or set(collected) != set(observed)
                 or (not collection_results and {case.id for case in junit} != {_junit_id(key) for key in observed})):
             reasons.append('Observed/collected case mismatch')
+        priority = {'failed': 4, 'error': 3, 'xpass': 2, 'skipped': 1, 'xfail': 1, 'passed': 0}
+        reported: dict[str, CaseOutcome] = {}
+        for case in junit:
+            previous_outcome = reported.get(case.id, 'passed')
+            reported[case.id] = max((previous_outcome, case.outcome), key=lambda value: priority[value])
+        if any(reported.get(_junit_id(key)) != case.outcome for key, case in observed.items()):
+            reasons.append('JUnit/observer outcome mismatch')
         complete = not reasons
     except (OSError, ValueError, KeyError, TypeError) as exc:
         reasons.append(f'incomplete structured report: {type(exc).__name__}')
+    error_class: AttemptError | None = ('cleanup' if any('cleanup unconfirmed' in reason for reason in reasons) else
+        'cancelled' if cancelled else 'timeout' if 'runner timeout' in reasons else
+        'unavailable' if any('unavailable' in reason for reason in reasons) else
+        'collection' if any(diagnostic.startswith('collection:') for case in cases for diagnostic in case.diagnostics) else
+        'assertion' if any(case.outcome == 'failed' for case in cases) else
+        'setup' if any(case.outcome == 'error' for case in cases) else 'report' if reasons else None)
     return CheckAttempt(number=number, argv=argv, exit_code=exit_code, duration=time.monotonic() - started,
-                        cases=cases, collected=collected, reasons=reasons, cancelled=cancelled, complete=complete)
+                        cases=cases, collected=collected, reasons=reasons, cancelled=cancelled, complete=complete,
+                        state='interrupted' if error_class == 'cleanup' else
+                              'cancelled' if cancelled else 'blocked' if error_class == 'unavailable' else 'finished',
+                        error_class=error_class, started_at=started_at, ended_at=datetime.now(timezone.utc))

@@ -1,10 +1,11 @@
 # Модуль тестирования и доказуемой проверки результата
 
-Статус: частичная реализация начальной фазы 21; общий модуль ещё не принят.
-Доступны snapshot, зарегистрированный pytest runner, evidence/verdict и CLI
-`flycode verify --repo PATH`. Карта пользовательских критериев, baseline/target/
-integration планы, остальные runners, runtime recovery, API/UI и командный gate
+Статус: pytest-основа фазы 21 реализована для доверенного локального процесса.
+Доступны снимки, внешний owner-approved контракт/oracle, четыре стадии проверки,
+точные case IDs, evidence/verdict и standalone CLI `flycode verify --repo PATH`.
+Completion gate оркестрации, recovery/leases, остальные runners и API/UI проверок
 остаются в [плане поставки](../superpowers/plans/2026-10-16-specification-delivery.md).
+Общий модуль и фазы 22–25 ещё не приняты.
 Версия: 1.0 · 16 октября 2026.
 Нормативная связь: [Plan.md §101](../Plan.md#101-модуль-тестирования-и-проверки-результата).
 Интеграция: [оркестрация агентов](connectome-orchestration.md), ORC-07..13.
@@ -441,6 +442,42 @@ evaluator и используемые схемы/профили. Историч�
 ошибки учитываются раздельно и очищаются после успешного восстановления той же
 службы. Нельзя возвращать append-only смешанный recent_errors, из-за которого
 прошедшая исправленная задача никогда не сможет завершиться.
+
+### Реализованный контракт pytest-проверки
+
+Standalone `VerificationEngine.verify` сохраняет scope `registered-suite`: его
+pass подтверждает только зарегистрированный suite. Для scope `acceptance-contract`
+доверенный владелец регистрирует `AcceptanceContract` и версии `CheckSpec` через
+`engine.oracles.approve(contract, checks, oracle_root)`. Это Python-интерфейс
+доверенного хоста, не инструмент агента и не HTTP-команда пользователя модели.
+Registry хранит отдельные байты тестов, modes, semantic hash и актуальную owner
+версию. Изменение обязательных критериев требует новой версии; изменение заголовка
+не меняет hash. Новое утверждение отзывает актуальность прежнего verdict.
+
+`PlanBuilder.build(integrated_snapshot, contract, checks, subjects=...,
+approval_hash=...)` связывает baseline/target/regression/integration с точными
+снимками и project/workflow/task/attempt refs. Циклы, зависимости на более позднюю
+стадию, чужая область, неизвестный profile/oracle и удалённый required check
+отклоняются до subprocess. Предложение агента добавляет только optional check.
+
+`engine.verify_plan(plan, stage_roots)` выполняет граф через тот же зарегистрированный
+pytest adapter. Утверждённые тесты накладываются только в отдельной копии; правка
+одноимённого теста агента не заменяет oracle. Полные oracle bytes, исходные staged
+subjects, план, события и invocations входят в evidence. Expected-failure допускается
+только для baseline negative control; raw failure сохраняется и не называется repair.
+
+Evaluator связывает каждый criterion с check и точными collected/case IDs,
+сохраняет пропущенные требования в знаменателе и отличает optional failure от
+обязательного. JUnit сверяется с независимым observer по identities и outcomes.
+Ошибка baseline либо интеграции блокирует общий pass при зелёном target.
+`current(verdict, integrated_root, contract=current_owner_contract)` проверяет
+контракт, текущий registry head, артефакты, исполняемый runtime и байты предмета.
+`CheckAttempt` хранит реальные terminal state, error class, start/end и check/plan
+связи; событий queued/preparing/running/collecting/finished достаточно для этого
+одиночного процесса. Распределённые lease/fencing/reconciling здесь не заявляются.
+Очистка группы процессов требует подтверждённого отсутствия после SIGKILL.
+PermissionError сам по себе не доказывает завершение; неподтверждённая очистка
+остаётся interrupted/cleanup и блокирует общий pass даже для optional check.
 
 ## 15. Приёмка модуля — TST-15
 

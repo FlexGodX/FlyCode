@@ -8,15 +8,19 @@ from pathlib import Path
 from uuid import uuid4
 
 from ..domain.verification import (
+    AcceptanceContract,
     CheckAttempt,
     CheckSpec,
     EvidenceManifest,
+    SubjectSnapshot,
     TrustMode,
     VerdictStatus,
     VerificationPlan,
     VerificationVerdict,
 )
 from .evidence import artifact_hashes, atomic_json, sanitize_outputs
+from .oracle import OracleRegistry
+from .plan import contract_hash
 from .runner import run_pytest
 from .snapshot import capture, digest, input_files
 from .verdict import evaluate
@@ -26,6 +30,13 @@ class VerificationEngine:
     def __init__(self, data_dir: Path) -> None:
         self.data_dir = data_dir.resolve()
         self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.oracles = OracleRegistry(self.data_dir / 'oracles')
+
+    def verify_plan(self, plan: VerificationPlan, roots: dict[str, Path], *,
+                    should_stop: Callable[[], bool] = lambda: False) -> VerificationVerdict:
+        from .acceptance import verify_plan
+
+        return verify_plan(self, plan, roots, should_stop)
 
     def verify(self, repo: Path, *, timeout: float = 120., trust: TrustMode = 'trusted-local-process',
                reruns: int = 0, should_stop: Callable[[], bool] = lambda: False) -> VerificationVerdict:
@@ -84,7 +95,7 @@ class VerificationEngine:
         atomic_json(directory / 'verdict.json', verdict.model_dump_json())
         return verdict
 
-    def current(self, verdict: VerificationVerdict, repo: Path) -> bool:
+    def current(self, verdict: VerificationVerdict, repo: Path, *, contract: AcceptanceContract | None = None) -> bool:
         directory = self.data_dir / verdict.evidence_id
         if not directory.resolve().is_relative_to(self.data_dir):
             return False
@@ -100,6 +111,16 @@ class VerificationEngine:
                 path = (directory / name).resolve(strict=True)
                 if not path.is_relative_to(directory) or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
                     return False
-            return capture(repo).subject_hash == verdict.subject_hash
-        except (OSError, ValueError):
+            snapshot = SubjectSnapshot.model_validate_json((directory / 'snapshot.json').read_text())
+            if verdict.scope == 'acceptance-contract':
+                plan = VerificationPlan.model_validate_json((directory / 'plan.json').read_text())
+                self.oracles.validate(plan)
+                if (digest(plan.model_dump(mode='json')) != verdict.plan_hash
+                        or verdict.contract_hash != plan.contract_hash
+                        or (contract is not None and contract_hash(contract) != verdict.contract_hash)):
+                    return False
+            elif contract is not None:
+                return False
+            return capture(repo, ref=snapshot.ref).subject_hash == verdict.subject_hash
+        except (OSError, ValueError, KeyError):
             return False

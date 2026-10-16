@@ -537,11 +537,18 @@ skipped/xfail, flaky, timeout и неполное evidence не дают усп�
 наблюдённые cases. Изменение входных байтов, executable modes, среды или runtime
 инвалидирует прежнюю проверку. Тесты исполняются в отдельной копии.
 
-Это начальный pytest-модуль фазы 21: он проверяет зарегистрированный набор,
+Доверенный Python-хост может отдельно утвердить `AcceptanceContract` и oracle bytes,
+собрать `PlanBuilder` для baseline/target/regression/integration и вызвать
+`VerificationEngine.verify_plan`. Такой verdict имеет scope `acceptance-contract`,
+покрытие точных критериев и case IDs; новый owner contract отзывает старое одобрение.
+Standalone CLI сохраняет scope `registered-suite`. Подробности — в
+[спецификации проверок](docs/specs/testing-module.md).
+
+Standalone CLI проверяет зарегистрированный набор,
 а не автоматически все критерии пользовательской задачи. Процессная копия
 предназначена для доверенного кода и не ограничивает доступ к сети/хосту.
 `--trust untrusted` блокирует запуск до появления поддерживаемой песочницы.
-Профили Docker/HTTP/browser, независимые oracle, UI проверок и командный
+Профили Docker/HTTP/browser, внешние black-box oracle, UI проверок и командный
 completion gate остаются в [плане поставки](docs/superpowers/plans/2026-10-16-specification-delivery.md).
 
 ```bash
