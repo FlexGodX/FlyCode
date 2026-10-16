@@ -219,6 +219,22 @@ passed outside the checkout. These adapter checks do not close Task5 execution.
 
 **Runtime implementation constraints:**
 
+**Task5 cortex/capacity increment:** `AttemptCortex` now runs the existing
+`LMStudioCortex` protocol through the canonical request ledger. Objective,
+acceptance contract, profile instructions and allowed tool names come from the
+store. Local reset cannot refund durable spending. Native loaded-instance IDs,
+context length and configuration fingerprints are pinned at profile registration;
+missing/unloaded/changed metadata blocks inference, and changed configuration
+clears prior protocol roles until explicitly probed again. Discovery remains inert.
+The primary client uses a conservative UTF-8-byte/output bound before HTTP/debit;
+this is not an exact tokenizer or a complete context assembler. A real `run_agent`
+FSM step reads a copied project through the HTTP fixture and records actual token
+usage. This does not establish repaired/verified completion, worker supervision,
+tool argument permissions, scorer execution or global legacy/probe serialization.
+Verification: full default suite534 passed/8 skipped; catalogue/resources28
+passed both from source and the extracted wheel, CLI `brains` passed, changed-file
+Ruff/mypy passed. See handoff for timing and wheel fingerprint. Task5 stays open.
+
 1. Reuse `run_agent`/event sink/stop callback, but do not create a second lifecycle
    in legacy `RunManager.records`. Bind events to canonical instance/attempt/fence.
 2. `cortex.generate_candidates` is synchronous today, including network calls.

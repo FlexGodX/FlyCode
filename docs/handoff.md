@@ -2,6 +2,34 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Task5 canonical cortex and loaded capacity — 2026-10-16
+
+`AttemptCortex` binds the existing `run_agent`/`LMStudioCortex` to canonical
+objective, acceptance criteria, instructions and tool names. Every actual primary
+request uses `Resources`; local reset never refunds spending. An HTTP-fixture
+smoke executes one real FSM-controlled file read in a copied project and records
+actual request/token usage. It is not a repaired-task or verified-completion test.
+
+Explicit native metadata preflight pins loaded-instance ID, context length and
+configuration fingerprint. Missing/invalid/unloaded metadata sends no inference;
+changed loaded configuration clears measured protocol roles and invalidates old
+profiles. Requests use the actual loaded instance, including opaque aliases.
+Profile registration is HTTP-free and rejects requested context above capacity.
+A conservative UTF-8-byte/output guard rejects oversized primary input before
+HTTP/debit; exact tokenizer/template accounting and context assembly remain open.
+The adapter also rejects a surrounding SQLite transaction before metadata HTTP.
+
+Verification: full default suite534 passed/8 skipped in251.28s; catalogue/resource
+suite28 passed in15.27s; the earlier broader increment suite133 passed before
+the final eight cases were added. Changed-file Ruff and mypy6 source files pass.
+The same28 catalogue/resource cases passed against the extracted wheel outside
+the checkout (15.55s), as did CLI `brains`. Wheel SHA256:
+`f62c24ac62dcebf647af571bd0039e04d7b904fe15b984a303f8ea299f1a0d32`.
+No new live-model, graph or browser acceptance is claimed. Supervisor/process
+ownership, per-tool scopes/budgets, messages, isolated writer lifecycle and exact
+review/integration/completion remain open. Legacy/probe endpoint admission is
+still separate; this increment does not serialize every existing UI model call.
+
 ## Scoped snapshot inventory — 2026-10-16
 
 Fixed the confirmed shared `verification.snapshot.capture` subfolder defect:

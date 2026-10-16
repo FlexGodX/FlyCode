@@ -10,11 +10,25 @@ import pytest
 
 @pytest.fixture
 def model_server():
-    state = SimpleNamespace(requests=[], models=["reasoner", "decider"])
+    state = SimpleNamespace(requests=[], get_requests=[], models=["reasoner", "decider"], contexts=None,
+                            native_available=True, instance_ids={})
     state.respond = lambda request: completion("[]")
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
+            state.get_requests.append(self.path)
+            if self.path == '/api/v1/models':
+                if not state.native_available:
+                    self.reply((404, {'error': 'Native metadata unavailable'}))
+                    return
+                body = {'models': []}
+                for name in state.models:
+                    capacity = 8192 if state.contexts is None else state.contexts.get(name)
+                    body['models'].append({'key': name, 'type': 'llm', 'max_context_length': 262144,
+                        'loaded_instances': [{'id': state.instance_ids.get(name, name),
+                                              'config': {'context_length': capacity}}] if capacity else []})
+                self.reply(body)
+                return
             body = {"object": "list", "data": [
                 {"id": name, "object": "model", "owned_by": "local", "created": 0}
                 for name in state.models

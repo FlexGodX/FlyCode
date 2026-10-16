@@ -455,10 +455,14 @@ class Store:
             raise StoreError('scope', 'Profile includes an unauthorized project')
         role = 'scorer' if draft.role == 'decider' else 'primary'
         model = self.catalogue.resolve(draft.model_ref, role, draft.capability_version) if self.catalogue else None
+        reason = ('model_unavailable' if model is None else 'context_unavailable' if model.context_limit is None
+                  else 'context_limit' if draft.context_limit > model.context_limit else None)
         profile = AgentProfile(**draft.model_dump(), id=uuid4().hex,
-            instruction_hash=hashlib.sha256(draft.instructions.encode()).hexdigest(), available=model is not None,
+            instruction_hash=hashlib.sha256(draft.instructions.encode()).hexdigest(), available=reason is None,
             model_id=model.model_id if model else None, endpoint_ref=model.endpoint_ref if model else None,
-            model_revision=model.revision if model else None)
+            model_revision=model.revision if model else None, loaded_instance_id=model.loaded_instance_id if model else None,
+            context_capacity=model.context_limit if model else None, load_fingerprint=model.load_fingerprint if model else None,
+            unavailable_reason=reason)
         with self.transaction():
             self.db.execute('INSERT INTO profiles VALUES (?,?)', (profile.id, profile.model_dump_json()))
         return profile
@@ -485,7 +489,10 @@ class Store:
         role = 'scorer' if profile.role == 'decider' else 'primary'
         model = self.catalogue.resolve(profile.model_ref, role, profile.capability_version)
         return (model is not None and model.revision == profile.model_revision
-                and model.endpoint_ref == profile.endpoint_ref and model.model_id == profile.model_id)
+                and model.endpoint_ref == profile.endpoint_ref and model.model_id == profile.model_id
+                and model.loaded_instance_id == profile.loaded_instance_id and model.context_limit == profile.context_capacity
+                and model.load_fingerprint == profile.load_fingerprint and profile.context_capacity is not None
+                and profile.context_limit <= profile.context_capacity)
 
     def budget(self, scope, workflow_id):
         workflow = self.workflow(scope, workflow_id)

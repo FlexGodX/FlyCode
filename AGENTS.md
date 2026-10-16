@@ -176,6 +176,7 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Treat Hermes in this project’s plan as FlyCode itself: the host for connected agents orchestrated by the fly controller. Do not request a separate Hermes repository.
 - Verify helper reuse through observable delegation; passing numeric examples alone does not establish that an existing helper was used.
 - Read helper signatures and Pydantic fields before calling project APIs from experiment runners.
+- Locate source and test paths with `rg --files` before reading them; do not guess filenames.
 - Model UI projects as one local folder with multiple independent chats; also allow chats without a project, and do not require Git.
 - For UI-only tasks, run interface/browser tests only unless the user requests broader testing.
 - Folder selection must offer a native system dialog; do not require users to type local paths.

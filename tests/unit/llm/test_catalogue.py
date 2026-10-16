@@ -76,3 +76,64 @@ def test_resolution_requires_current_role_version_and_returns_detached_snapshot(
     finally:
         catalogue.lock.release()
     assert len(model_server.requests) == ready.probe_calls == 1
+
+
+def test_runtime_binding_requires_loaded_instance_and_records_its_actual_context(model_server):
+    from flycode.llm.catalogue import ModelCatalogue
+
+    model_server.contexts = {'reasoner': 8192, 'decider': None}
+    catalogue = ModelCatalogue(model_server.url)
+    entries = {entry.model_id: entry for entry in catalogue.discover()}
+    unloaded = catalogue.probe(entries['decider'].model_ref, 'primary')
+    assert unloaded.status == 'unavailable'
+    assert unloaded.loaded_instance_id is None and model_server.requests == []
+    model_server.respond = lambda request: model_server.completion(json.dumps({'candidates': [
+        {'tool': 'read_file', 'arguments': {'path': 'sample.py'}}]}))
+    ready = catalogue.probe(entries['reasoner'].model_ref, 'primary')
+    assert ready.loaded_instance_id == 'reasoner' and ready.context_limit == 8192
+    assert ready.load_fingerprint and len(model_server.requests) == 1
+    model_server.contexts['reasoner'] = 4096
+    changed = catalogue.refresh_runtime(ready.model_ref)
+    assert changed.context_limit == 4096 and changed.load_fingerprint != ready.load_fingerprint
+    assert changed.revision > ready.revision
+    assert len(model_server.requests) == 1
+
+
+def test_missing_native_metadata_does_not_guess_context_or_infer(model_server):
+    from flycode.llm.catalogue import ModelCatalogue
+
+    model_server.native_available = False
+    catalogue = ModelCatalogue(model_server.url)
+    entry = catalogue.discover()[0]
+    result = catalogue.probe(entry.model_ref, 'primary')
+    assert result.status == 'unavailable' and not result.roles
+    assert result.context_limit is None and not model_server.requests
+
+
+def test_retargeted_loaded_instance_loses_role_until_explicit_probe(model_server):
+    from flycode.llm.catalogue import ModelCatalogue
+
+    model_server.respond = lambda request: model_server.completion(json.dumps({'candidates': [
+        {'tool': 'read_file', 'arguments': {'path': 'sample.py'}}]}))
+    catalogue = ModelCatalogue(model_server.url)
+    entry = catalogue.probe(catalogue.discover()[0].model_ref, 'primary')
+    model_server.instance_ids[entry.model_id] = 'new-loaded-instance'
+    changed = catalogue.refresh_runtime(entry.model_ref)
+    assert changed.loaded_instance_id == 'new-loaded-instance'
+    assert not changed.roles and changed.status == 'discovered'
+    assert catalogue.resolve(entry.model_ref, 'primary', entry.capability_version) is None
+    assert len(model_server.requests) == 1
+    ready = catalogue.probe(entry.model_ref, 'primary')
+    assert ready.roles == ['primary'] and ready.status == 'ready'
+    assert model_server.requests[-1]['model'] == 'new-loaded-instance'
+
+
+@pytest.mark.parametrize('capacity', [None, 0, -1, True, '8192'])
+def test_missing_or_invalid_loaded_capacity_never_sends_probe(model_server, capacity):
+    from flycode.llm.catalogue import ModelCatalogue
+
+    model_server.contexts = {'reasoner': capacity, 'decider': capacity}
+    catalogue = ModelCatalogue(model_server.url)
+    entry = catalogue.probe(catalogue.discover()[0].model_ref, 'primary')
+    assert entry.status == 'unavailable' and entry.context_limit is None
+    assert model_server.requests == []

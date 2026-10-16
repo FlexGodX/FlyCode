@@ -52,7 +52,8 @@ class Resources:
                                 (profile.endpoint_ref,)).fetchone():
                 return None
             call = ModelCall(id=uuid4().hex, workflow_id=workflow.id, task_id=task.id, attempt_id=attempt.id,
-                instance_id=attempt.instance_id, fence=fence, endpoint_ref=profile.endpoint_ref, model_id=profile.model_id,
+                instance_id=attempt.instance_id, fence=fence, endpoint_ref=profile.endpoint_ref,
+                model_id=profile.loaded_instance_id or profile.model_id,
                 role='scorer' if profile.role == 'decider' else 'primary', started_at=store.clock())
             store._debit(scope, attempt, task, workflow, BudgetAmount(model_calls=1))
             store.db.execute('INSERT INTO model_calls VALUES (?,?,?,?,?)',

@@ -29,6 +29,7 @@ class OpenAICompatibleLLM:
         max_tokens: int | None = None,
         structured_output: bool = False,
         request_executor: Callable[[Callable[[], Any]], Any] | None = None,
+        context_limit: int | None = None,
     ) -> None:
         from openai import DefaultHttpxClient, OpenAI
 
@@ -40,8 +41,16 @@ class OpenAICompatibleLLM:
         self.structured_output = structured_output
         self.request_count = 0
         self.request_executor = request_executor
+        if context_limit is not None and context_limit <= 0:
+            raise ValueError('Context limit must be positive')
+        self.context_limit = context_limit
 
     def _complete(self, **options):
+        if self.context_limit is not None:
+            options.setdefault('max_tokens', self.max_tokens or 1536)
+            encoded = json.dumps(options['messages'], ensure_ascii=False).encode()
+            if len(encoded) + options['max_tokens'] > self.context_limit:
+                raise ValueError('context_limit: bounded UTF-8 request plus output exceeds the profile limit')
         def request():
             self.request_count += 1
             return self._client.chat.completions.create(**options)

@@ -26,7 +26,8 @@ from flycode.orchestration.store import Store, StoreError
 
 
 @pytest.fixture
-def active(tmp_path, model_server):
+def active(tmp_path, model_server, request):
+    model_server.instance_ids = getattr(request, 'param', {})
     model_server.respond = lambda request: model_server.completion(json.dumps({'candidates': [
         {'tool': 'read_file', 'arguments': {'path': 'sample.py'}}]}))
     catalogue = ModelCatalogue(model_server.url)
@@ -49,7 +50,7 @@ def active(tmp_path, model_server):
         draft.model_copy(update={'parent_id': workflow.root_task_id}), key=f'task-{i}')) for i in range(2)]
     store.start_next(owner, key='start')
     profile = store.register_profile(owner, AgentProfileDraft(role='developer', model_ref=model.model_ref,
-        instructions='Inspect only.', project_ids=('project',), permissions=permission, context_limit=4096))
+        instructions='Inspect only.', project_ids=('project',), permissions=permission, context_limit=8192))
     attempts = []
     for task in tasks:
         instance = store.register_instance(runtime, profile.id)
@@ -328,3 +329,110 @@ async def test_real_response_after_fence_revocation_is_audited_and_never_returne
     finally:
         release.set()
         await asyncio.gather(worker, return_exceptions=True)
+
+
+def test_attempt_cortex_binds_canonical_context_and_each_actual_request(active, model_server):
+    from flycode.domain import Observation
+    from flycode.llm.protocol import CortexContext
+    from flycode.orchestration.cortex import AttemptCortex
+
+    store, owner, runtime, _, workflow, attempts, _ = active
+    cortex = AttemptCortex(store, runtime, attempts[0].id, attempts[0].fence)
+    context = CortexContext(task='Injected unrelated task', behavior_mode='explore',
+        observation=Observation(task='Injected observation'), candidate_tools=['create_file'])
+    assert cortex.generate_candidates(context)[0].tool == 'read_file'
+    request = model_server.requests[-1]
+    serialized = json.dumps(request)
+    assert 'Inspect the parser.' in serialized and 'Inspect only.' in serialized
+    assert 'Injected unrelated task' not in serialized and 'Injected observation' not in serialized
+    assert set(request['response_format']['json_schema']['schema']['properties']['candidates']['items']
+               ['properties']['tool']['enum']) == {'read_file', 'stop'}
+    cortex.reset()
+    assert cortex.generate_candidates(context)
+    assert cortex.generate_candidates(context) == []
+    assert sum(cortex.model_calls.values()) == 1  # reset cannot reset the shared ledger
+    assert store.budget(owner, workflow.id).spent.model_calls == 2
+    assert len(model_server.requests) == 3  # one explicit probe, two admitted calls
+
+
+def test_attempt_cortex_rechecks_loaded_context_and_bounds_input_before_http(active, model_server):
+    from flycode.domain import Observation
+    from flycode.llm.protocol import CortexContext
+    from flycode.orchestration.cortex import AttemptCortex
+
+    store, owner, runtime, _, workflow, attempts, model = active
+    cortex = AttemptCortex(store, runtime, attempts[0].id, attempts[0].fence)
+    context = CortexContext(task='Inspect', behavior_mode='explore', observation=Observation(task='Inspect'),
+                            working_memory=['x' * 20000])
+    assert cortex.generate_candidates(context) == []
+    assert sum(cortex.model_calls.values()) == 0
+    assert store.budget(owner, workflow.id).spent.model_calls == 0
+    context.working_memory = []
+    model_server.contexts = {model.model_id: 2048}
+    assert cortex.generate_candidates(context) == []
+    assert sum(cortex.model_calls.values()) == 0
+    assert len(model_server.requests) == 1
+
+
+async def test_attempt_cortex_drives_actual_run_agent_on_copied_project(active, model_server, tmp_path):
+    from flycode.agent import run_agent
+    from flycode.brain import make_brain
+    from flycode.domain import TaskSpec
+    from flycode.environment import SoftwareEnvironment
+    from flycode.orchestration.cortex import AttemptCortex
+    from flycode.orchestration.resources import Resources
+    from flycode.verification.snapshot import capture
+
+    store, owner, runtime, _, workflow, attempts, _ = active
+    original = tmp_path / 'original'
+    original.mkdir()
+    (original / 'sample.py').write_text('VALUE = 1\n')
+    (original / 'untracked.txt').write_text('Keep this file.\n')
+    copied = tmp_path / 'copied'
+    capture(original, copied)
+    events = []
+    brain = make_brain('heuristic_fsm', seed=1)
+    brain.set_learning_mode(False)
+    try:
+        result = await run_agent(SoftwareEnvironment(copied), brain,
+            AttemptCortex(store, runtime, attempts[0].id, attempts[0].fence),
+            TaskSpec(id=attempts[0].task_id, task='Inspect the parser.', max_steps=1, max_tool_calls=1),
+            run_id=attempts[0].id, on_event=lambda kind, data: events.append((kind, data)))
+    finally:
+        brain.close()
+    assert result.tool_calls == 1 and not result.success
+    assert any(kind == 'tool_end' and data['action']['tool'] == 'read_file' for kind, data in events)
+    call = Resources(store).calls(owner, workflow.id)[0]
+    assert call.attempt_id == attempts[0].id and call.instance_id == attempts[0].instance_id
+    assert call.status == 'completed' and call.usage.total_tokens == 11
+    assert store.budget(owner, workflow.id).spent.model_calls == 1
+    assert (original / 'sample.py').read_text() == 'VALUE = 1\n'
+    assert (original / 'untracked.txt').read_text() == 'Keep this file.\n'
+
+
+@pytest.mark.parametrize('active', [{'decider': 'opaque-loaded-instance'}], indirect=True)
+def test_attempt_cortex_uses_loaded_identity_in_http_and_canonical_event(active, model_server):
+    from flycode.domain import Observation
+    from flycode.llm.protocol import CortexContext
+    from flycode.orchestration.cortex import AttemptCortex
+    from flycode.orchestration.resources import Resources
+
+    store, owner, runtime, _, workflow, attempts, _ = active
+    context = CortexContext(task='Inspect', behavior_mode='explore', observation=Observation(task='Inspect'))
+    assert AttemptCortex(store, runtime, attempts[0].id, attempts[0].fence).generate_candidates(context)
+    assert model_server.requests[-1]['model'] == 'opaque-loaded-instance'
+    assert Resources(store).calls(owner, workflow.id)[0].model_id == 'opaque-loaded-instance'
+
+
+def test_attempt_cortex_rejects_sql_transaction_before_native_metadata_or_inference(active, model_server):
+    from flycode.domain import Observation
+    from flycode.llm.protocol import CortexContext
+    from flycode.orchestration.cortex import AttemptCortex
+
+    store, _, runtime, _, _, attempts, _ = active
+    cortex = AttemptCortex(store, runtime, attempts[0].id, attempts[0].fence)
+    context = CortexContext(task='Inspect', behavior_mode='explore', observation=Observation(task='Inspect'))
+    reads, calls = len(model_server.get_requests), len(model_server.requests)
+    with store.transaction(), pytest.raises(RuntimeError, match='transaction'):
+        cortex.generate_candidates(context)
+    assert len(model_server.get_requests) == reads and len(model_server.requests) == calls

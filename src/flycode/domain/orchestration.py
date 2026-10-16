@@ -197,6 +197,10 @@ class AgentProfile(AgentProfileDraft):
     model_id: str | None = None
     endpoint_ref: str | None = None
     model_revision: int | None = None
+    loaded_instance_id: str | None = None
+    context_capacity: int | None = Field(default=None, gt=0)
+    load_fingerprint: str | None = None
+    unavailable_reason: str | None = None
     available: bool = False
 
 

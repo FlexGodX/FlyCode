@@ -739,3 +739,22 @@ def test_lease_expiration_is_scoped_durable_and_not_resurrected_by_other_connect
         assert len(events) == 1 and events[0].data['reason'] == 'lease_expired'
     finally:
         second.close()
+
+
+def test_profile_context_is_pinned_to_loaded_capacity_without_registration_http(setup, model_server):
+    from flycode.domain.orchestration import AgentProfileDraft
+
+    store, owner, runtime, original, instance, _, catalogue, permission = setup
+    calls = len(model_server.requests)
+    excessive = store.register_profile(owner, AgentProfileDraft(role='developer', model_ref=original.model_ref,
+        instructions='Inspect only.', project_ids=('p',), permissions=permission, context_limit=16384))
+    assert not excessive.available and excessive.unavailable_reason == 'context_limit'
+    assert original.context_capacity == 8192 and original.loaded_instance_id
+    assert original.load_fingerprint
+    assert len(model_server.requests) == calls
+    _, task = queued(setup)
+    model_server.contexts = {'reasoner': 2048, 'decider': 2048}
+    catalogue.refresh_runtime(original.model_ref)
+    result = store.claim(runtime, request(instance, task, key='reconfigured-load'))
+    assert result.attempt is None and 'model_unavailable' in result.reasons
+    assert len(model_server.requests) == calls

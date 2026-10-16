@@ -1,9 +1,11 @@
 """Endpoint-scoped discovery and explicit, bounded compatibility probes (§102)."""
 
 import hashlib
+import json
 import os
 from threading import Lock
 from typing import Literal
+from urllib.parse import urlsplit
 
 import httpx
 from openai import APIError
@@ -18,6 +20,10 @@ from .protocol import CortexContext
 ModelRole = Literal['primary', 'scorer']
 
 
+class CatalogueBusy(ValueError):
+    pass
+
+
 class ModelDescriptor(BaseModel):
     revision: int = 1
     model_ref: str
@@ -30,6 +36,9 @@ class ModelDescriptor(BaseModel):
     capability_version: str = 'structured-candidates+option-logprobs-v1'
     capability_source: str = 'not-probed'
     weights_revision: str | None = None
+    loaded_instance_id: str | None = None
+    context_limit: int | None = Field(default=None, gt=0)
+    load_fingerprint: str | None = None
     probe_calls: int = 0
     reason: str = 'Совместимость не проверена. Обнаружение не означает загрузку в память.'
 
@@ -55,6 +64,7 @@ class ModelCatalogue:
                     entry.status = 'unavailable'
                     entry.roles = []
                     entry.reason = 'Model unavailable at the configured endpoint'
+                    entry.loaded_instance_id = entry.context_limit = entry.load_fingerprint = None
             for model_id in sorted(ids):
                 ref = hashlib.sha256(f'{self.endpoint_ref}:{model_id}'.encode()).hexdigest()[:24]
                 if ref not in self.entries or self.entries[ref].status == 'unavailable':
@@ -76,6 +86,62 @@ class ModelCatalogue:
         finally:
             self.lock.release()
 
+    def _runtime(self, entry: ModelDescriptor) -> None:
+        previous = (entry.loaded_instance_id, entry.context_limit, entry.load_fingerprint)
+        instance = None
+        try:
+            address = urlsplit(self.base_url)
+            key = os.environ.get('LMSTUDIO_API_KEY') or 'lm-studio'
+            with httpx.Client(timeout=3, trust_env=False) as client:
+                response = client.get(f'{address.scheme}://{address.netloc}/api/v1/models',
+                                      headers={'Authorization': f'Bearer {key}'})
+                response.raise_for_status()
+                for model in response.json()['models']:
+                    if model.get('type') not in {'llm', 'decision'}:
+                        continue
+                    matches = [item for item in model['loaded_instances'] if item['id'] == entry.model_id]
+                    if not matches and model['key'] == entry.model_id and len(model['loaded_instances']) == 1:
+                        matches = model['loaded_instances']
+                    if matches:
+                        candidate = matches[0]
+                        capacity = candidate['config']['context_length']
+                        if not isinstance(capacity, int) or isinstance(capacity, bool) or capacity <= 0:
+                            raise ValueError('Invalid loaded context capacity')
+                        if not isinstance(candidate['id'], str) or not 0 < len(candidate['id']) <= 200:
+                            raise ValueError('Invalid loaded instance identifier')
+                        instance = candidate
+                        break
+        except (httpx.HTTPError, ValueError, KeyError, TypeError):
+            entry.reason = 'Runtime model metadata unavailable; no inference sent'
+        entry.loaded_instance_id = instance['id'] if instance else None
+        entry.context_limit = instance['config']['context_length'] if instance else None
+        entry.load_fingerprint = hashlib.sha256(json.dumps(instance, sort_keys=True).encode()).hexdigest() if instance else None
+        if previous != (entry.loaded_instance_id, entry.context_limit, entry.load_fingerprint):
+            entry.revision += 1
+        if previous[2] is not None and previous[2] != entry.load_fingerprint:
+            entry.roles = []
+            entry.capability_source = 'not-probed'
+            entry.status = 'discovered'
+        if instance is None:
+            entry.roles = []
+            entry.status = 'unavailable'
+            entry.reason = 'No unambiguous loaded instance/capacity; no inference sent'
+        elif entry.status == 'unavailable':
+            entry.status = 'discovered'
+
+    def refresh_runtime(self, model_ref: str) -> ModelDescriptor:
+        """Read loaded configuration explicitly; this never loads or invokes a model."""
+        if not self.lock.acquire(blocking=False):
+            raise CatalogueBusy('Model catalogue is busy')
+        try:
+            if model_ref not in self.entries:
+                raise ValueError('Unknown model reference')
+            entry = self.entries[model_ref]
+            self._runtime(entry)
+            return entry.model_copy(deep=True)
+        finally:
+            self.lock.release()
+
     def probe(self, model_ref: str, role: ModelRole) -> ModelDescriptor:
         if role not in {'primary', 'scorer'}:
             raise ValueError('Unknown model role')
@@ -86,6 +152,9 @@ class ModelCatalogue:
             entry = self.entries.get(model_ref)
             if entry is None or entry.status == 'unavailable':
                 raise ValueError('Model unavailable; refresh the catalogue')
+            self._runtime(entry)
+            if entry.loaded_instance_id is None:
+                return entry.model_copy(deep=True)
             key = os.environ.get('LMSTUDIO_API_KEY') or 'lm-studio'
             context = CortexContext(task='Inspect sample.py without editing it', behavior_mode='explore',
                                     observation=Observation(task='compatibility probe'))
@@ -93,12 +162,12 @@ class ModelCatalogue:
             entry.revision += 1
             try:
                 if role == 'primary':
-                    client = OpenAICompatibleLLM(model=entry.model_id, base_url=self.base_url, api_key=key,
+                    client = OpenAICompatibleLLM(model=entry.loaded_instance_id, base_url=self.base_url, api_key=key,
                         structured_output=True, max_tokens=1536, timeout=30)
                     if not client.generate_candidates(context):
                         raise ValueError('No valid structured candidates')
                 else:
-                    scorer = JevStyleDecisionClient(entry.model_id, self.base_url, key, timeout=30)
+                    scorer = JevStyleDecisionClient(entry.loaded_instance_id, self.base_url, key, timeout=30)
                     scorer.score(context, [CandidateAction(id='a', tool='read_file', arguments={'path': 'sample.py'}),
                                            CandidateAction(id='b', tool='list_files')])
                 if role not in entry.roles:

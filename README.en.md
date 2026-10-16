@@ -102,6 +102,13 @@ before HTTP, records available token usage and retains unknown timeout outcomes.
 Waiting can be cancelled without sending a request. Supervisor, legacy-run and
 probe wiring remains unfinished; all UI calls do not yet share this admission.
 
+`AttemptCortex` binds the existing `run_agent` to the canonical attempt's objective,
+acceptance criteria and model budget. Admission pins the actual loaded LM Studio
+instance and its context capacity; configuration changes require another probe.
+A conservative request-size bound rejects oversized input before HTTP, but does
+not replace an exact tokenizer. One read step in a project copy is checked;
+supervision, tool-argument enforcement and verified completion remain unfinished.
+
 ## First run without an API key
 
 ```bash
