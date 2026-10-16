@@ -417,6 +417,52 @@ def test_retry_limit_and_uncertain_spend_need_explicit_reconciliation(setup):
     assert len(store.attempts(owner, wf.id)) == 3
 
 
+def test_reopen_cannot_capture_slot_after_original_attempt_limit(setup):
+    store, owner, runtime, _profile, instance, *_ = setup
+    wf, task = queued(setup)
+    for number in range(3):
+        current_instance = store.instance(runtime, instance.id)
+        attempt = store.claim(runtime, request(current_instance, task, key='attempt-'+str(number))).attempt
+        assert attempt is not None
+        store.confirm_started(runtime, attempt.id, attempt.fence)
+        store.confirm_stopped(runtime, attempt.id, attempt.fence, outcome='failed', expenditure_confirmed=True)
+        task = store.task(owner, task.id)
+        if number < 2:
+            task = command(store, owner, task, 'retry')
+    original = store.workflow(owner, wf.id)
+    task = command(store, owner, task, 'reopen')
+    command(store, owner, task, 'enqueue')
+    assert store.start_next(owner, key='restart-exhausted-attempts') is None
+    assert not store.workflow(owner, wf.id).active_slot
+    assert store.workflow(owner, wf.id).state == 'incomplete'
+    assert store.workflow(owner, wf.id).deadline_at == original.deadline_at
+    assert len(store.attempts(owner, wf.id)) == 3
+
+
+@pytest.mark.parametrize('new_budget', [None, {'model_calls': 0, 'tool_calls': 60}])
+def test_reopen_cannot_capture_slot_after_original_task_budget(setup, new_budget):
+    from flycode.domain.orchestration import BudgetAmount, ClaimRequest
+
+    store, owner, runtime, _profile, instance, *_ = setup
+    wf, task = queued(setup)
+    amount = BudgetAmount(model_calls=10, tool_calls=20)
+    attempt = store.claim(runtime, ClaimRequest(instance_id=instance.id, expected_instance_revision=instance.revision,
+        task_id=task.id, expected_task_revision=task.revision, reserve=amount, idempotency_key='all-task-budget')).attempt
+    assert attempt is not None
+    store.confirm_started(runtime, attempt.id, attempt.fence)
+    store.spend(runtime, attempt.id, attempt.fence, amount, key='actual-spend')
+    store.confirm_stopped(runtime, attempt.id, attempt.fence, outcome='failed', expenditure_confirmed=True)
+    before = store.budget(owner, wf.id)
+    task = command(store, owner, store.task(owner, task.id), 'reopen')
+    if new_budget is not None:
+        task = command(store, owner, task, 'revise', budget=new_budget)
+    command(store, owner, task, 'enqueue')
+    assert store.start_next(owner, key='restart-exhausted-budget') is None
+    assert not store.workflow(owner, wf.id).active_slot
+    assert store.workflow(owner, wf.id).state == 'incomplete'
+    assert store.budget(owner, wf.id) == before
+
+
 def test_global_pause_requires_global_authority(setup):
     from flycode.domain.orchestration import AccessScope
     from flycode.orchestration.store import StoreError

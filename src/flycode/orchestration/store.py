@@ -35,9 +35,14 @@ from ..domain.orchestration import (
     WorkflowSpec,
     WorkItem,
 )
+from ..domain.results import IntegrationRecord
 from .scheduler import ordered
 
 ACTIVE = ('assigned', 'running', 'stopping', 'reconciling')
+
+
+def required_task(task: WorkItem) -> bool:
+    return task.retired_by_result is None
 
 
 class StoreError(ValueError):
@@ -66,7 +71,7 @@ class Store:
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=FULL')
         version = self.db.execute('PRAGMA user_version').fetchone()[0]
-        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8):
+        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9):
             self.db.close()
             raise StoreError('schema_version', str(version))
         self.db.executescript('''
@@ -148,7 +153,8 @@ class Store:
             CREATE TABLE IF NOT EXISTS execution_lanes (
                 attempt_id TEXT PRIMARY KEY REFERENCES attempts(id),
                 mode TEXT NOT NULL CHECK(mode IN ('worker','review','integration')));
-            PRAGMA user_version=8;
+            CREATE UNIQUE INDEX IF NOT EXISTS current_integration ON integrations(workflow_id) WHERE state='completed';
+            PRAGMA user_version=9;
         ''')
 
     def close(self):
@@ -265,6 +271,50 @@ class Store:
         self.workflow(scope, workflow_id)
         return [WorkItem.model_validate_json(row['data']) for row in self.db.execute(
             'SELECT data FROM tasks WHERE workflow_id=? ORDER BY rowid', (workflow_id,))]
+
+    def _invalidate_result(self, scope, identity, reason, *, expected=None):
+        if not self.db.in_transaction:
+            raise RuntimeError('Result invalidation must be atomic')
+        record = self._load('integrations', identity, IntegrationRecord)
+        workflow = self.workflow(scope, record.workflow_id)
+        if record.state != 'completed' or (expected is not None and record != expected):
+            return record
+        record = changed(record, state='invalidated', error=reason)
+        self.db.execute('UPDATE integrations SET state=?,data=? WHERE id=?',
+            (record.state, record.model_dump_json(), record.id))
+        for task in self.tasks(scope, workflow.id):
+            if (task.state == 'succeeded' and (task.result_id == record.id
+                    or (task.result_id is None and task.id in record.contracts))):
+                task = changed(task, state='blocked', result_id=record.id, blocked_reason='result_invalidated',
+                    revision=task.revision + 1, updated_at=self.clock())
+                self._save_task(task)
+                self._event(scope, workflow, 'result_invalidated', task=task, integration_id=record.id, reason=reason)
+        active = any(attempt.state in ACTIVE for attempt in self.attempts(scope, workflow.id))
+        state = workflow.state if workflow.state in {'cancelled', 'cancelling', 'failed'} else 'incomplete'
+        self._save_workflow(changed(workflow, state=state, active_slot=workflow.active_slot if active else False,
+            revision=workflow.revision + 1))
+        return record
+
+    def refresh_results(self, scope, workflow_id=None):
+        """Refresh external facts before admission/projection, never under a SQL lock."""
+        if self.db.in_transaction:
+            raise RuntimeError('Result inspection cannot run in a SQLite transaction')
+        if workflow_id is not None:
+            self.workflow(scope, workflow_id)
+        from .integration import Integration
+
+        records = [IntegrationRecord.model_validate_json(row['data']) for row in self.db.execute(
+            "SELECT data FROM integrations WHERE state='completed'")]
+        results = []
+        for record in records:
+            if record.project_id not in scope.project_ids or (workflow_id is not None and record.workflow_id != workflow_id):
+                continue
+            if record.runtime_root is None or not (Path(record.runtime_root) / 'verification').is_dir():
+                with self.transaction():
+                    results.append(self._invalidate_result(scope, record.id, 'result_location_missing', expected=record))
+            else:
+                results.append(Integration(self, Path(record.runtime_root)).refresh(scope, record.id))
+        return results
 
     def attempts(self, scope, workflow_id):
         self.workflow(scope, workflow_id)
@@ -399,6 +449,40 @@ class Store:
             self._save_instance(changed(instance, state='reconciling', revision=instance.revision + 1))
         return changed(task, fence=task.fence + 1)
 
+    def _reopen(self, scope, task, workflow):
+        if task.state not in {'succeeded', 'blocked', 'failed', 'cancelled', 'retry_wait'}:
+            raise StoreError('state', 'Only completed or stopped work can be reopened')
+        if any(item.current_attempt_id for item in self.tasks(scope, workflow.id)):
+            raise StoreError('ownership', 'Stop all assignments before reopening their result')
+        record = self._load('integrations', task.result_id, IntegrationRecord) if task.result_id else next((
+            IntegrationRecord.model_validate_json(row['data']) for row in self.db.execute(
+                "SELECT data FROM integrations WHERE workflow_id=? AND state IN ('completed','invalidated') ORDER BY rowid DESC",
+                (workflow.id,)) if task.id in json.loads(row['data'])['contracts']), None)
+        if record is not None:
+            self._invalidate_result(scope, record.id, 'owner_reopened')
+            auxiliary = {self._attempt(record.attempt_id).task_id}
+            for identity in record.review_ids:
+                row = self.db.execute('SELECT attempt_id FROM reviews WHERE id=?', (identity,)).fetchone()
+                if row:
+                    auxiliary.add(self._attempt(row['attempt_id']).task_id)
+            for identity in auxiliary - set(record.author_attempts) - {workflow.root_task_id, task.id}:
+                old = self._task(identity)
+                if (old.kind == 'review' and old.current_attempt_id is None
+                        and record.contracts.get(old.id) == old.contract_hash
+                        and record.semantic_revisions.get(old.id) == old.semantic_revision
+                        and (old.result_id is None or old.result_id == record.id)):
+                    old = changed(old, retired_by_result=record.id, archived=True, blocked_reason='historical_result',
+                        revision=old.revision + 1, updated_at=self.clock())
+                    self._save_task(old)
+                    self._event(scope, workflow, 'review_retired', task=old, integration_id=record.id)
+            task, workflow = self._task(task.id), self._workflow(workflow.id)
+        if task.id != workflow.root_task_id:
+            root = self._task(workflow.root_task_id)
+            self._save_task(changed(root, state='planned', result_id=None, blocked_reason=None,
+                semantic_revision=root.semantic_revision + 1, revision=root.revision + 1, updated_at=self.clock()))
+        return (changed(task, state='planned', result_id=None, blocked_reason=None),
+                changed(workflow, state='draft', active_slot=False, semantic_revision=workflow.semantic_revision + 1))
+
     def command(self, scope, task_id, command: TaskCommand):
         command = TaskCommand.model_validate(command.model_dump())
         with self.transaction():
@@ -413,6 +497,8 @@ class Store:
                 raise StoreError('revision', 'Stale task revision', task)
             op, values = command.operation, command.changes
             original_hash = task.contract_hash
+            if not required_task(task) and op not in {'set_metadata', 'set_priority', 'archive'}:
+                raise StoreError('historical_result', 'This review belongs to a previous result')
             if op == 'enqueue':
                 if values or task.state != 'planned':
                     raise StoreError('state', 'Only planned tasks can be enqueued')
@@ -483,13 +569,23 @@ class Store:
                 if task.id == workflow.root_task_id:
                     active = any(a.state in ACTIVE for a in self.attempts(scope, workflow.id))
                     workflow = changed(workflow, state='cancelling' if active else 'cancelled', active_slot=active)
+            elif op == 'reopen':
+                if values:
+                    raise StoreError('command', 'Unexpected change fields')
+                task, workflow = self._reopen(scope, task, workflow)
             else:
-                raise StoreError('completion_gate', 'Reopen requires verified-result invalidation and is not a status override')
+                raise StoreError('command')
             task = changed(task, revision=task.revision + 1, updated_at=self.clock(),
-                           semantic_revision=task.semantic_revision + int(task.contract_hash != original_hash))
+                           semantic_revision=task.semantic_revision + int(task.contract_hash != original_hash or op == 'reopen'))
             workflow = changed(workflow, revision=workflow.revision + 1)
             self._save_task(task)
             self._save_workflow(workflow)
+            if task.contract_hash != original_hash:
+                for row in self.db.execute("SELECT id,data FROM integrations WHERE workflow_id=? AND state='completed'", (workflow.id,)).fetchall():
+                    record = IntegrationRecord.model_validate_json(row['data'])
+                    if task.id in record.contracts:
+                        self._invalidate_result(scope, record.id, 'contract_changed')
+                task, workflow = self._task(task.id), self._workflow(workflow.id)
             self._event(scope, workflow, 'task_' + op, task=task, revision=task.revision,
                         semantic_revision=task.semantic_revision, changes=values)
             self._remember(scope, command.idempotency_key, task.project_id, digest, task)
@@ -584,6 +680,27 @@ class Store:
                     task = self._task(workflow.root_task_id)
                     if workflow.state == 'draft' and task.state == 'ready' and not task.paused and not task.archived:
                         self._ready(task, workflow)
+                        reason = None
+                        if workflow.deadline_at is not None and (self.clock() >= workflow.deadline_at or self.clock() < workflow.started_at):
+                            reason = 'wall_deadline'
+                        ledger = self.budget(scope, workflow.id)
+                        if not ledger.free.model_calls + ledger.free.tool_calls:
+                            reason = reason or 'budget_exhausted'
+                        children = [item for item in self.tasks(scope, workflow.id) if item.parent_id == task.id and required_task(item)]
+                        if not children:
+                            previous = [attempt for attempt in self.attempts(scope, workflow.id) if attempt.task_id == task.id]
+                            if len(previous) >= workflow.budget.max_attempts:
+                                reason = reason or 'attempt_limit'
+                            models = task.budget.model_calls - sum(attempt.spent.model_calls + attempt.reserved.model_calls for attempt in previous)
+                            tools = task.budget.tool_calls - sum(attempt.spent.tool_calls + attempt.reserved.tool_calls for attempt in previous)
+                            if models < 0 or tools < 0 or models + tools == 0:
+                                reason = reason or 'task_budget'
+                        if reason:
+                            task = changed(task, state='blocked', blocked_reason=reason, revision=task.revision + 1, updated_at=self.clock())
+                            self._save_task(task)
+                            self._save_workflow(changed(workflow, state='incomplete', active_slot=False, revision=workflow.revision + 1))
+                            self._event(scope, workflow, 'workflow_blocked', task=task, reason=reason)
+                            continue
                         candidates.append(task)
                 ranked = ordered(candidates, self.clock(), self._counter('root_starts'), root=True)
                 if ranked:
@@ -602,6 +719,8 @@ class Store:
             reasons.append('paused')
         if not workflow.active_slot or workflow.state != 'running':
             reasons.append('root_not_active')
+        if not required_task(task):
+            reasons.append('historical_result')
         if task.state != 'ready' or task.archived or task.current_attempt_id:
             reasons.append('task_not_ready')
         if instance.state != 'idle' or instance.current_attempt_id:
@@ -621,10 +740,10 @@ class Store:
         if not self._binding_current(profile):
             reasons.append('model_unavailable')
         tasks = self.tasks(scope, workflow.id)
-        if any(item.parent_id == task.id for item in tasks):
+        if any(item.parent_id == task.id and required_task(item) for item in tasks):
             reasons.append('aggregate_parent')
         by_id = {item.id: item for item in tasks}
-        if any(by_id[identity].state != 'succeeded' for identity in task.dependencies):
+        if any(by_id[identity].state != 'succeeded' or not required_task(by_id[identity]) for identity in task.dependencies):
             reasons.append('dependency')
         attempts = self.attempts(scope, workflow.id)
         active = [attempt for attempt in attempts if attempt.state in ACTIVE]
@@ -663,6 +782,7 @@ class Store:
     def claim(self, scope, request: ClaimRequest) -> ClaimResult:
         self._role(scope, ('runtime',))
         request = ClaimRequest.model_validate(request.model_dump())
+        self.refresh_results(scope, self.task(scope, request.task_id).workflow_id if request.task_id else None)
         with self.transaction():
             instance = self.instance(scope, request.instance_id)
             profile = self._profile(instance.profile_id)

@@ -459,10 +459,45 @@ Hardening in this slice: native object-preserving exchange/exclusive rename,
 durable execution lanes (schema8), safe release of stopped published authors,
 late-descriptor-write and owner-cancel completion gates, root-assignment checks,
 and rerun-policy replay binding. Real filesystem/worker/check tests cover these
-paths. Coordinator crash recovery, post-completion refresh/invalidation,
-idempotent integration lookup, multi-writer conflict resolution and connected
-UI/API remain open. Native rename is exercised on macOS; Linux support remains
+paths. Post-completion refresh/invalidation and idempotent integration lookup
+are implemented in the lifecycle slice below. Coordinator crash recovery,
+multi-writer conflict resolution and connected UI/API remain open. Native rename is exercised on macOS; Linux support remains
 unexecuted here.
+
+**Result lifecycle slice:** bind completed integrations to their server runtime
+root, semantic revisions, approval hashes and rerun policy. Validate exact
+source/recovery objects, artifacts, independent reviews and every current
+acceptance verdict outside SQL transactions. Persist invalidation atomically
+without rewriting historical attempts or refunding spend; refresh before
+dependency admission and tracker projections. Owner reopen creates a new semantic
+revision on the same task, retires only the previous result's auxiliary review
+tasks only when their saved contract and semantic generation still match,
+and preserves workflow deadline and all limits. The selected reopened review
+remains required. Explicit `previous_result_id` re-verifies a compatible already
+applied source with fresh independent reviews and acceptance checks; it never
+reapplies the patch or rewrites old author attempts. The installed/recovery object
+chain remains checked. Owner pause/cancel/revoked permission blocks completion.
+Schema8 records lacking freshness pins invalidate safely after restart. Ordinary
+archive remains reversible hiding, never an eligibility/completion bypass.
+
+1. RED→GREEN real completed delivery: metadata/archive preserve validity;
+   source, criteria, patch and evidence changes revoke it; replay spends nothing.
+2. RED→GREEN tracker/dependency refresh and owner reopen: historical artifacts
+   survive, old reviews cannot be claimed, retry uses remaining original budgets,
+   expired/exhausted workflows cannot capture the only active slot.
+3. RED→GREEN real host interruption: retain journal/unknown effects, revoke late
+   completion, and reconcile without replaying source writes or losing user edits.
+4. Freeze source; full tests, relevant Ruff/mypy, extracted wheel and required
+   real smoke; publish checked changes with accurate Plan/handoff/README RU/EN.
+
+Lifecycle verification:732 passed/8 skipped full default;74 extracted-wheel
+checks;5 actual FlyWire checks; Ruff/mypy23 pass. Actual Qwen repair used3 model
+calls/26 tools; continuing its reopened review used20 additional checks and no
+model calls or source replacement. The harness's earlier duplicate-key rejection
+is retained alongside the successful continuation. Frozen identity, wheel hash,
+durations and evidence archive are in
+`docs/validation/2026-10-16-result-lifecycle.md`. Step3 coordinator crash recovery
+above remains unimplemented; this lifecycle increment does not close Task6.
 
 - [x] RED→GREEN: an actual worker repair produces a pinned patch only after
   recorded group absence; original dirty/untracked bytes and modes survive.

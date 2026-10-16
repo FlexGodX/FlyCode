@@ -2,6 +2,55 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Task6 result freshness and reopened generations — 2026-10-16
+
+The increment after `8cb1083` adds schema9 result pins: runtime location,
+semantic revisions, approvals and rerun policy. `Integration.current/refresh`
+checks installed and retained file objects, immutable artifacts, independent
+reviews and every source verdict outside SQLite transactions. Tracker task/board/
+agent reads and claim admission refresh completed results. Semantic contract
+changes invalidate atomically; metadata/archive preserve valid evidence. Missing
+legacy schema8 pins fail closed after restart. Historical attempts, actual spend,
+user bytes and another workflow's active slot remain unchanged.
+
+Owner `reopen` creates a new semantic generation on the same task and preserves
+the original workflow deadline, spend and attempt limits. Only auxiliary reviews
+matching the old record's exact contract and semantic generation retire; changed
+owner requirements and the selected reopened review remain required. Retirement
+is host-derived, distinct from reversible archive, and cannot be supplied through
+task drafts/commands. Expired or exhausted standalone roots cannot capture the
+only workflow slot after reopening.
+
+A real second author generation passes a new approved baseline policy and fresh
+review/integration checks. A separate `Integration.run(previous_result_id=...)`
+path re-verifies an already applied result only when current source bytes/modes/
+Git base remain compatible. It requires new independent review and fresh candidate/
+source acceptance checks, writes no source delta and preserves old author attempts.
+Its current check follows retained installation objects through the prior-result
+chain. Owner pause, cancellation or revoked permission blocks completion, including
+a historical child author paused after passing candidate checks. Replay binds the
+prior result, fence, artifacts, reviews, approvals and reruns and spends nothing.
+
+Task6 and the overall goal remain open: coordinator crash reconciliation, actual
+multi-writer conflicts/resolution, the remaining stop/deadline/rerun matrix and
+shared API/UI wiring. Task5 dispatcher/shared legacy endpoint admission and
+Tasks7–8 remain open. No UI surface or scientific admission is added by this slice.
+For the next recovery RED: host `run_pytest` keeps its Popen only in memory;
+ToolCall/evidence contain no durable PGID/session/start identity. Restart must
+retain uncertain ownership until actual group absence is proved. A saved PID
+alone must not authorize signals or rollback because of PID reuse and spawn races.
+
+Frozen-source validation:732 passed/8 skipped full default (558.12s),74 extracted
+wheel delivery/application/runtime checks (238.28s),5 actual FlyWire checks
+(5.84s), relevant Ruff and mypy23 passed. All130 packaged Python files and README
+match the checkout; extracted CLI lists all ten controllers. Real Qwen repair
+used3 model calls/26 tools. Its harness then hit the expected duplicate-command
+key rejection; the negative report remains preserved. A new script continued the
+same workflow with fresh keys: review/reverification passed in5.75s,20 additional
+checks,0 new model calls, no source replacement, no refund or outstanding reserves.
+Details, frozen identity, wheel hash and artifact archive:
+[validation report](validation/2026-10-16-result-lifecycle.md).
+
 ## Task6 exact artifacts, host review and verified integration — 2026-10-16
 
 The increment after `8395e5f` adds frozen `domain/results.py` contracts and

@@ -31,6 +31,8 @@ class AgentCard(QueueModel):
 def task_card(task: WorkItem, workflow: WorkflowSpec, tasks: list[WorkItem], attempt: AgentAttempt | None,
               event: QueueEvent | None) -> TaskCard:
     blockers = []
+    if task.blocked_reason:
+        blockers.append(task.blocked_reason)
     if task.paused or workflow.state in {'paused', 'pausing'}:
         blockers.append('paused')
     if task.state == 'ready' and not workflow.active_slot:
@@ -44,7 +46,7 @@ def task_card(task: WorkItem, workflow: WorkflowSpec, tasks: list[WorkItem], att
             blockers.append('permission')
         if task.budget is None or workflow.budget is None:
             blockers.append('missing_budget')
-        states = {item.id: item.state for item in tasks}
+        states = {item.id: item.state for item in tasks if item.retired_by_result is None}
         if any(states.get(dependency) != 'succeeded' for dependency in task.dependencies):
             blockers.append('dependency')
     if attempt and task.current_attempt_id == attempt.id and attempt.state in {'stopping', 'reconciling'}:

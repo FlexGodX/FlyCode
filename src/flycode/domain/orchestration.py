@@ -138,6 +138,9 @@ class WorkItem(TaskDraft):
     created_at: float
     updated_at: float
     queued_at: float | None = None
+    result_id: str | None = None
+    blocked_reason: str | None = None
+    retired_by_result: str | None = None
 
     @property
     def contract_hash(self) -> str:

@@ -80,6 +80,524 @@ def delivery(owned, model_server, tmp_path):
     return runtime, artifact, review, approval
 
 
+@pytest.fixture
+def completed(owned, delivery):
+    from flycode.orchestration.integration import Integration
+
+    store, _, host, _, task, _, _ = owned
+    runtime, artifact, review, approval = delivery
+    integrator = reviewer(owned, [artifact])
+    service = Integration(store, runtime.root)
+    result = service.run(host, integrator.id, integrator.fence, (artifact.id,), (review.id,),
+        approval_hashes={task.id: approval, integrator.task_id: approval})
+    return service, result, integrator
+
+
+def test_completed_result_is_current_across_metadata_archive_and_replay(owned, delivery, completed):
+    store, owner, host, workflow, task, _, _ = owned
+    service, result, integrator = completed
+    _, artifact, review, approval = delivery
+    before = store.budget(owner, workflow.id)
+    assert service.current(owner, result.id)
+    original = store.task(owner, task.id)
+    metadata = store.command(owner, task.id, TaskCommand(operation='set_metadata', expected_revision=original.revision,
+        idempotency_key='cosmetic-title', changes={'title': 'Reviewed repair', 'tags': ('checked',)}))
+    assert metadata.semantic_revision == original.semantic_revision
+    for hidden in (True, False):
+        current = store.task(owner, task.id)
+        store.command(owner, task.id, TaskCommand(operation='archive', expected_revision=current.revision,
+            idempotency_key='archive-'+str(hidden), changes={'archived': hidden}))
+        assert service.current(owner, result.id)
+    replay = service.run(host, integrator.id, integrator.fence, (artifact.id,), (review.id,),
+        approval_hashes={task.id: approval, integrator.task_id: approval})
+    assert replay.id == result.id and service.current(owner, replay.id)
+    assert store.budget(owner, workflow.id) == before
+
+
+@pytest.mark.parametrize('change', ['source', 'untracked', 'criteria', 'evidence', 'patch', 'retained-original'])
+def test_completed_result_changes_invalidate_without_refund_or_rewriting_history(owned, completed, change):
+    from flycode.domain.verification import AcceptanceContract
+
+    store, owner, _, workflow, task, author, source = owned
+    service, result, _ = completed
+    before = store.budget(owner, workflow.id)
+    history = store.attempts(owner, workflow.id)
+    if change == 'source':
+        (source / 'src/example.py').write_bytes(b'user changed source\n')
+    elif change == 'untracked':
+        (source / 'new-user-file.bin').write_bytes(b'new user bytes')
+    elif change == 'criteria':
+        current = store.task(owner, task.id)
+        acceptance = AcceptanceContract.model_validate({**current.acceptance.model_dump(), 'version': 2})
+        store.command(owner, task.id, TaskCommand(operation='revise', expected_revision=current.revision,
+            idempotency_key='revise-criteria', changes={'acceptance': acceptance.model_dump()}))
+        assert service.get(owner, result.id).state == 'invalidated'
+    elif change == 'evidence':
+        verdict = result.applied_verdicts[task.id]
+        (service.engine.data_dir / verdict.evidence_id / 'manifest.json').write_bytes(b'changed evidence')
+    elif change == 'patch':
+        artifact_id = next(iter(result.artifact_hashes))
+        (service.artifacts.directory / artifact_id / 'target/src/example.py').write_bytes(b'changed patch')
+    else:
+        (service.root / 'integrations' / result.id / 'recovery/0').write_bytes(b'late user bytes\n')
+    assert not service.current(owner, result.id)
+    invalidated = service.refresh(owner, result.id)
+    assert invalidated.state == 'invalidated'
+    assert store.task(owner, task.id).state == 'blocked'
+    assert store.task(owner, task.id).current_attempt_id is None
+    assert store.workflow(owner, workflow.id).state == 'incomplete'
+    assert not store.workflow(owner, workflow.id).active_slot
+    assert store.budget(owner, workflow.id) == before
+    assert store.attempts(owner, workflow.id) == history
+    assert store._attempt(author.id).state == 'succeeded'
+    assert any(event.kind == 'result_invalidated' for event in store.events(owner, workflow.id))
+    assert service.refresh(owner, result.id) == invalidated
+    assert (source / 'user-dirty.bin').read_bytes() == b'\x00\xff user bytes\r\n'
+
+
+def test_tracker_refreshes_stale_result_without_model_calls(owned, completed, model_server):
+    from flycode.domain.orchestration import AccessScope
+    from flycode.tracker.service import TrackerService
+
+    store, _, _, workflow, task, _, source = owned
+    _, result, _ = completed
+    reader = AccessScope(actor_id='reader', project_ids={'project'}, role='reader')
+    before = len(model_server.requests), store.budget(reader, workflow.id)
+    (source / 'src/example.py').write_bytes(b'new user bytes\n')
+    tracker = TrackerService(store)
+    card = tracker.task(reader, task.id)
+    assert card.column == 'blocked' and 'result_invalidated' in card.blockers
+    assert card.task.result_id == result.id
+    assert card.attempt.state == 'succeeded'
+    assert all(card.column == 'blocked' for card in tracker.board(reader, workflow.id))
+    assert (len(model_server.requests), store.budget(reader, workflow.id)) == before
+
+
+def test_replay_with_changed_policy_never_reexecutes_completed_integration(owned, delivery, completed):
+    from flycode.orchestration.store import StoreError
+
+    store, owner, host, workflow, task, _, _ = owned
+    _, artifact, review, approval = delivery
+    service, result, integrator = completed
+    before = store.budget(owner, workflow.id)
+    for arguments in ({'reruns': 2}, {'approval_hashes': {task.id: approval}}, {'fence': integrator.fence + 1}):
+        kwargs = {'approval_hashes': {task.id: approval, integrator.task_id: approval}, **arguments}
+        fence = kwargs.pop('fence', integrator.fence)
+        with pytest.raises(StoreError, match='idempotency'):
+            service.run(host, integrator.id, fence, (artifact.id,), (review.id,), **kwargs)
+    assert service.current(owner, result.id)
+    assert store.budget(owner, workflow.id) == before
+
+
+def test_result_inspection_cannot_hold_sql_transaction_or_cross_scope(owned, completed):
+    from flycode.domain.orchestration import AccessScope
+    from flycode.orchestration.store import StoreError
+
+    store, owner, _, _, _, _, _ = owned
+    service, result, _ = completed
+    foreign = AccessScope(actor_id='foreign', project_ids={'other'}, role='owner')
+    with pytest.raises(StoreError, match='scope'):
+        service.refresh(foreign, result.id)
+    with store.transaction():
+        with pytest.raises(RuntimeError, match='transaction'):
+            service.current(owner, result.id)
+        with pytest.raises(RuntimeError, match='transaction'):
+            store.refresh_results(owner)
+    assert service.current(owner, result.id)
+
+
+def test_reopen_retires_exact_old_checks_and_claims_same_task_with_remaining_budget(owned, completed):
+    from flycode.orchestration.store import StoreError
+    from flycode.tracker.service import TrackerService
+
+    store, owner, host, workflow, task, author, _ = owned
+    service, result, _ = completed
+    original = store.task(owner, task.id)
+    before = store.budget(owner, workflow.id)
+    times = store.workflow(owner, workflow.id)
+    attempts = store.attempts(owner, workflow.id)
+    command = TaskCommand(operation='reopen', expected_revision=original.revision, idempotency_key='reopen-result')
+    opened = store.command(owner, task.id, command)
+    assert opened.id == task.id and opened.state == 'planned'
+    assert opened.semantic_revision == original.semantic_revision + 1
+    assert opened.result_id is None
+    assert service.get(owner, result.id).state == 'invalidated' and not service.current(owner, result.id)
+    assert store.workflow(owner, workflow.id).state == 'draft'
+    assert not store.workflow(owner, workflow.id).active_slot
+    assert store.workflow(owner, workflow.id).started_at == times.started_at
+    assert store.workflow(owner, workflow.id).deadline_at == times.deadline_at
+    assert store.attempts(owner, workflow.id) == attempts
+    assert store.budget(owner, workflow.id) == before
+    assert store.command(owner, task.id, command) == opened
+    historical = [item for item in store.tasks(owner, workflow.id) if item.id != task.id]
+    assert len(historical) == 2
+    assert all(item.retired_by_result == result.id and item.archived for item in historical)
+    tracker = TrackerService(store)
+    assert [card.task.id for card in tracker.board(owner, workflow.id)] == [task.id]
+    assert len(tracker.board(owner, workflow.id, archived=True)) == 3
+    for old in historical:
+        with pytest.raises(StoreError, match='historical_result'):
+            store.command(owner, old.id, TaskCommand(operation='reopen', expected_revision=old.revision,
+                idempotency_key='reopen-old-'+old.id))
+    ready = store.command(owner, task.id, TaskCommand(operation='enqueue', expected_revision=opened.revision, idempotency_key='reenqueue'))
+    assert store.start_next(owner, key='restart').id == workflow.id
+    instance = store.instance(host, author.instance_id)
+    claim = store.claim(host, ClaimRequest(instance_id=instance.id, expected_instance_revision=instance.revision,
+        task_id=task.id, expected_task_revision=ready.revision, reserve=BudgetAmount(tool_calls=1), idempotency_key='reclaim'))
+    assert claim.attempt is not None, claim.reasons
+    assert claim.attempt.task_id == author.task_id and claim.attempt.id != author.id
+    assert store.budget(owner, workflow.id).spent == before.spent
+    assert len([attempt for attempt in store.attempts(owner, workflow.id) if attempt.task_id == task.id]) == 2
+
+
+def test_root_reopen_preserves_owner_revised_review_generation(owned, delivery, completed):
+    store, owner, _, _, task, _, source = owned
+    service, result, _ = completed
+    _, _, review, _ = delivery
+    (source / 'owner-note.txt').write_text('New owner requirement\n')
+    service.refresh(owner, result.id)
+    checker = store.task(owner, store._attempt(review.reviewer_attempt_id).task_id)
+    revised = store.command(owner, checker.id, TaskCommand(operation='revise', expected_revision=checker.revision,
+        idempotency_key='revise-old-review', changes={'objective': 'Verify the new owner requirement as well.'}))
+    root = store.task(owner, task.id)
+    store.command(owner, root.id, TaskCommand(operation='reopen', expected_revision=root.revision, idempotency_key='reopen-with-new-review'))
+    current = store.task(owner, checker.id)
+    assert current.retired_by_result is None and not current.archived
+    assert current.semantic_revision == revised.semantic_revision
+    assert current.objective == revised.objective
+
+
+@pytest.mark.parametrize('source_changed', [False, True])
+def test_reopen_selected_review_requires_fresh_checks_without_reapplying_patch(owned, delivery, completed, source_changed):
+    from flycode.orchestration.review import Reviews
+    from flycode.orchestration.store import StoreError
+
+    store, owner, host, workflow, task, author, source = owned
+    service, result, _ = completed
+    runtime, artifact, review, approval = delivery
+    author = store._attempt(author.id)
+    checker = store._attempt(review.reviewer_attempt_id)
+    old = store.task(owner, checker.task_id)
+    opened = store.command(owner, old.id, TaskCommand(operation='reopen', expected_revision=old.revision, idempotency_key='reopen-checker'))
+    assert opened.retired_by_result is None and not opened.archived
+    assert opened.semantic_revision == old.semantic_revision + 1
+    assert opened.state == 'planned' and opened.result_id is None
+    assert store._attempt(checker.id) == checker
+    assert store.task(owner, task.id).state == 'planned'
+    ready = store.command(owner, opened.id, TaskCommand(operation='enqueue', expected_revision=opened.revision, idempotency_key='enqueue-checker-again'))
+    root = store.task(owner, task.id)
+    store.command(owner, root.id, TaskCommand(operation='enqueue', expected_revision=root.revision, idempotency_key='enqueue-aggregate'))
+    assert store.start_next(owner, key='restart-checker').id == workflow.id
+    instance = store.instance(host, checker.instance_id)
+    claim = store.claim(host, ClaimRequest(instance_id=instance.id, expected_instance_revision=instance.revision,
+        task_id=ready.id, expected_task_revision=ready.revision, reserve=BudgetAmount(tool_calls=4), idempotency_key='claim-checker-again'))
+    assert claim.attempt is not None, claim.reasons
+    assert claim.attempt.task_id == old.id and claim.attempt.id != checker.id
+    assert all(item.retired_by_result == result.id for item in store.tasks(owner, workflow.id)
+        if item.id not in {task.id, old.id})
+    second = store.confirm_started(host, claim.attempt.id, claim.attempt.fence)
+    fresh = Reviews(store, runtime.root).run(host, second.id, second.fence, artifact.id, approval_hash=approval)
+    assert fresh.status == 'approved' and fresh.id != review.id
+    integrator = reviewer(owned, [artifact])
+    before = store.budget(owner, workflow.id).spent
+    installed = (source / 'src/example.py').stat().st_ino
+    if source_changed:
+        (source / 'owner-change.txt').write_text('Preserve this change\n')
+        with pytest.raises(StoreError, match='integration_conflict'):
+            service.run(host, integrator.id, integrator.fence, (artifact.id,), (fresh.id,),
+                approval_hashes={task.id: approval, integrator.task_id: approval}, previous_result_id=result.id)
+        assert (source / 'owner-change.txt').read_text() == 'Preserve this change\n'
+        assert store.budget(owner, workflow.id).spent == before
+    else:
+        with pytest.raises(StoreError, match='review_changed'):
+            service.run(host, integrator.id, integrator.fence, (artifact.id,), (review.id,),
+                approval_hashes={task.id: approval, integrator.task_id: approval}, previous_result_id=result.id)
+        assert store.budget(owner, workflow.id).spent == before
+        renewed = service.run(host, integrator.id, integrator.fence, (artifact.id,), (fresh.id,),
+            approval_hashes={task.id: approval, integrator.task_id: approval}, previous_result_id=result.id)
+        assert renewed.id != result.id and renewed.previous_result_id == result.id
+        assert service.current(owner, renewed.id) and not service.current(owner, result.id)
+        assert service.get(owner, result.id).state == 'invalidated'
+        assert store.budget(owner, workflow.id).spent.model_calls == before.model_calls
+        assert store.budget(owner, workflow.id).spent.tool_calls == before.tool_calls + 16
+        assert store.task(owner, old.id).state == 'succeeded'
+        assert store.task(owner, task.id).result_id == renewed.id
+        replay = service.run(host, integrator.id, integrator.fence, (artifact.id,), (fresh.id,),
+            approval_hashes={task.id: approval, integrator.task_id: approval}, previous_result_id=result.id)
+        assert replay.model_dump(mode='json') == renewed.model_dump(mode='json')
+        assert store.budget(owner, workflow.id).spent.tool_calls == before.tool_calls + 16
+        with pytest.raises(StoreError, match='idempotency'):
+            service.run(host, integrator.id, integrator.fence, (artifact.id,), (fresh.id,),
+                approval_hashes={task.id: approval, integrator.task_id: approval})
+        original = runtime.root / 'integrations' / result.id / 'recovery/0'
+        original.write_bytes(b'late owner write to the retained original\n')
+        assert service.refresh(owner, renewed.id).state == 'invalidated'
+        assert not service.current(owner, renewed.id)
+        assert original.read_bytes() == b'late owner write to the retained original\n'
+    assert (source / 'src/example.py').stat().st_ino == installed
+    assert (source / 'src/example.py').read_text() == 'answer = 1\n'
+    assert store._attempt(author.id) == author
+    assert store._attempt(checker.id) == checker
+
+
+@pytest.mark.parametrize('operation', ['cancel', 'pause'])
+def test_reverification_preserves_owner_stop_of_historical_child(owned, model_server, tmp_path, monkeypatch, operation):
+    import shutil
+
+    from flycode.orchestration.artifacts import Artifacts
+    from flycode.orchestration.integration import Integration
+    from flycode.orchestration.review import Reviews
+    from flycode.orchestration.store import StoreError
+
+    store, owner, host, workflow, root, original, source = owned
+    store.confirm_stopped(host, original.id, original.fence, outcome='retry_wait', expenditure_confirmed=True)
+    child = store.create_task(owner, workflow.id, TaskDraft(title='Child repair', objective=root.objective,
+        parent_id=root.id, acceptance=root.acceptance, permissions=root.permissions, budget=root.budget), key='child-for-reverify')
+    child = store.command(owner, child.id, TaskCommand(operation='enqueue', expected_revision=child.revision, idempotency_key='enqueue-child'))
+    instance = store.instance(host, original.instance_id)
+    claim = store.claim(host, ClaimRequest(instance_id=instance.id, expected_instance_revision=instance.revision,
+        task_id=child.id, expected_task_revision=child.revision, reserve=child.budget, idempotency_key='claim-child'))
+    assert claim.attempt is not None, claim.reasons
+    author = store.confirm_started(host, claim.attempt.id, claim.attempt.fence)
+    child_owned = store, owner, host, workflow, child, author, source
+    runtime = repair(child_owned, model_server, tmp_path)
+    artifact = Artifacts(store, runtime.root).for_attempt(owner, author.id)
+    service = Integration(store, runtime.root)
+    oracle = tmp_path / 'owner-oracle'
+    shutil.copytree(source / 'tests', oracle / 'tests')
+    approval = service.engine.oracles.approve(root.acceptance, checks(), oracle)
+    checker = reviewer(child_owned, [artifact])
+    review = Reviews(store, runtime.root).run(host, checker.id, checker.fence, artifact.id, approval_hash=approval)
+    integrator = reviewer(child_owned, [artifact], tools=32)
+    result = service.run(host, integrator.id, integrator.fence, (artifact.id,), (review.id,),
+        approval_hashes={root.id: approval, child.id: approval, integrator.task_id: approval})
+    current = store.task(owner, root.id)
+    opened = store.command(owner, root.id, TaskCommand(operation='reopen', expected_revision=current.revision, idempotency_key='reopen-root'))
+    store.command(owner, root.id, TaskCommand(operation='enqueue', expected_revision=opened.revision, idempotency_key='enqueue-root'))
+    assert store.start_next(owner, key='restart-root').id == workflow.id
+    checker = reviewer(child_owned, [artifact])
+    review = Reviews(store, runtime.root).run(host, checker.id, checker.fence, artifact.id, approval_hash=approval)
+    integrator = reviewer(child_owned, [artifact], tools=32)
+
+    def stop_child():
+        current = store.task(owner, child.id)
+        store.command(owner, child.id, TaskCommand(operation=operation, expected_revision=current.revision, idempotency_key='stop-child'))
+
+    if operation == 'cancel':
+        stop_child()
+    else:
+        verify = service._verify
+
+        def verify_then_pause(*args, **kwargs):
+            record = verify(*args, **kwargs)
+            if not kwargs['applied']:
+                stop_child()
+            return record
+        monkeypatch.setattr(service, '_verify', verify_then_pause)
+    historical = store._attempt(author.id)
+    with pytest.raises(StoreError, match='completion_blocked'):
+        service.run(host, integrator.id, integrator.fence, (artifact.id,), (review.id,),
+            approval_hashes={root.id: approval, child.id: approval, integrator.task_id: approval}, previous_result_id=result.id)
+    assert store.task(owner, child.id).state != 'succeeded'
+    assert store.task(owner, child.id).paused is (operation == 'pause')
+    assert store._attempt(author.id) == historical
+    assert store.workflow(owner, workflow.id).state != 'succeeded'
+    assert (source / 'src/example.py').read_text() == 'answer = 1\n'
+
+
+def test_expired_reopen_cannot_capture_the_only_workflow_slot(owned, completed):
+    store, owner, _, workflow, task, _, _ = owned
+    times = store.workflow(owner, workflow.id)
+    store.clock = lambda: times.deadline_at + 1
+    current = store.task(owner, task.id)
+    opened = store.command(owner, task.id, TaskCommand(operation='reopen', expected_revision=current.revision, idempotency_key='reopen-expired'))
+    store.command(owner, task.id, TaskCommand(operation='enqueue', expected_revision=opened.revision, idempotency_key='enqueue-expired'))
+    assert store.start_next(owner, key='start-expired') is None
+    assert store.workflow(owner, workflow.id).state == 'incomplete'
+    assert not store.workflow(owner, workflow.id).active_slot
+    assert store.workflow(owner, workflow.id).deadline_at == times.deadline_at
+
+
+def test_cancel_completed_result_preserves_owner_cancellation(owned, completed):
+    store, owner, _, workflow, task, _, _ = owned
+    service, result, _ = completed
+    before = store.budget(owner, workflow.id)
+    current = store.task(owner, task.id)
+    store.command(owner, task.id, TaskCommand(operation='cancel', expected_revision=current.revision, idempotency_key='cancel-completed'))
+    assert service.get(owner, result.id).state == 'invalidated'
+    assert store.workflow(owner, workflow.id).state == 'cancelled'
+    assert store.task(owner, task.id).state == 'cancelled'
+    assert store.budget(owner, workflow.id) == before
+
+
+def test_reopened_generation_requires_new_real_checks_and_preserves_prior_result(owned, delivery, completed, model_server):
+    from flycode.orchestration.artifacts import Artifacts
+    from flycode.orchestration.review import Reviews
+
+    store, owner, host, workflow, task, author, source = owned
+    runtime, _, _, _ = delivery
+    service, old_result, _ = completed
+    before = store.budget(owner, workflow.id).spent
+    times = store.workflow(owner, workflow.id)
+    current = store.task(owner, task.id)
+    current = store.command(owner, task.id, TaskCommand(operation='reopen', expected_revision=current.revision, idempotency_key='reopen-second-generation'))
+    acceptance = {**current.acceptance.model_dump(), 'version': 2}
+    current = store.command(owner, task.id, TaskCommand(operation='revise', expected_revision=current.revision,
+        idempotency_key='owner-extends-task-budget', changes={'acceptance': acceptance, 'budget': {'model_calls': 4, 'tool_calls': 6}}))
+    current = store.command(owner, task.id, TaskCommand(operation='enqueue', expected_revision=current.revision, idempotency_key='enqueue-second-generation'))
+    store.start_next(owner, key='start-second-generation')
+    instance = store.instance(host, author.instance_id)
+    claim = store.claim(host, ClaimRequest(instance_id=instance.id, expected_instance_revision=instance.revision,
+        task_id=task.id, expected_task_revision=current.revision, reserve=BudgetAmount(model_calls=1, tool_calls=1), idempotency_key='claim-second-generation'))
+    assert claim.attempt is not None, claim.reasons
+    second = store.confirm_started(host, claim.attempt.id, claim.attempt.fence)
+    model_server.respond = lambda request: model_server.completion(json.dumps({'candidates': [
+        {'tool': 'read_file', 'arguments': {'path': 'src/example.py'}}]}))
+    handle = runtime.launch(host, second.id, second.fence, source, brain='heuristic_fsm')
+    try:
+        assert handle.finished.wait(15), handle.error
+        assert handle.error is None and handle.process_stopped.is_set()
+    finally:
+        handle.close()
+    artifact = Artifacts(store, runtime.root).for_attempt(owner, second.id)
+    assert artifact.changes == ()
+    assert not service.current(owner, old_result.id)
+    revised = store.task(owner, task.id)
+    new_owned = store, owner, host, workflow, revised, second, source
+    # The already repaired baseline now must pass; its owner-approved policy
+    # belongs to acceptance version2 and cannot reuse the old green verdict.
+    # Use the unchanged fixture oracle retained by the delivery fixture.
+    oracle = runtime.root.parent / 'owner-oracle'
+    specs = [check.model_copy(update={'expected_outcome': 'passed'}) for check in checks()]
+    approval = service.engine.oracles.approve(revised.acceptance, specs, oracle)
+    assert approval != old_result.approval_hashes[task.id]
+    checker = reviewer(new_owned, [artifact])
+    review = Reviews(store, runtime.root).run(host, checker.id, checker.fence, artifact.id, approval_hash=approval)
+    assert review.status == 'approved'
+    integrator = reviewer(new_owned, [artifact])
+    new_result = service.run(host, integrator.id, integrator.fence, (artifact.id,), (review.id,),
+        approval_hashes={task.id: approval, integrator.task_id: approval})
+    assert new_result.id != old_result.id and service.current(owner, new_result.id)
+    assert service.get(owner, old_result.id).state == 'invalidated'
+    assert store.task(owner, task.id).result_id == new_result.id
+    assert store._attempt(author.id).state == store._attempt(second.id).state == 'succeeded'
+    assert store.workflow(owner, workflow.id).deadline_at == times.deadline_at
+    assert store.budget(owner, workflow.id).spent.model_calls == before.model_calls + 1
+    assert store.budget(owner, workflow.id).spent.tool_calls == before.tool_calls + 22
+    assert (source / 'user-dirty.bin').read_bytes() == b'\x00\xff user bytes\r\n'
+
+
+def test_two_connections_invalidate_once_and_restart_retains_fact(owned, completed):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    from flycode.orchestration.integration import Integration
+    from flycode.orchestration.store import Store
+    from flycode.tracker.service import TrackerService
+
+    store, owner, _, workflow, task, _, source = owned
+    service, result, _ = completed
+    before = store.budget(owner, workflow.id)
+    (source / 'src/example.py').write_bytes(b'user concurrent update\n')
+    barrier = Barrier(2)
+
+    def refresh():
+        other = Store(store.path)
+        try:
+            checker = Integration(other, service.root)
+            barrier.wait(timeout=5)
+            return checker.refresh(owner, result.id)
+        finally:
+            other.close()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda _: refresh(), range(2)))
+    assert all(record.state == 'invalidated' for record in results)
+    events = [event for event in store.events(owner, workflow.id) if event.kind == 'result_invalidated']
+    assert len(events) == len(result.contracts)
+    restarted = Store(store.path)
+    try:
+        card = TrackerService(restarted).task(owner, task.id)
+        assert card.column == 'blocked' and 'result_invalidated' in card.blockers
+        assert restarted.budget(owner, workflow.id) == before
+        assert len([event for event in restarted.events(owner, workflow.id) if event.kind == 'result_invalidated']) == len(events)
+    finally:
+        restarted.close()
+
+
+def test_invalidating_old_result_never_releases_another_active_workflow(owned, completed):
+    from flycode.domain.orchestration import WorkflowDraft
+
+    store, owner, _, workflow, task, _, source = owned
+    service, result, _ = completed
+    other = store.create_workflow(owner, WorkflowDraft(project_id=task.project_id, task=TaskDraft(
+        title='Next explicit task', objective=task.objective, acceptance=task.acceptance, permissions=task.permissions,
+        budget=task.budget), budget=workflow.budget), key='other-workflow')
+    root = store.task(owner, other.root_task_id)
+    store.command(owner, root.id, TaskCommand(operation='enqueue', expected_revision=root.revision, idempotency_key='enqueue-other'))
+    assert store.start_next(owner, key='start-other').id == other.id
+    before = store.workflow(owner, other.id)
+    (source / 'src/example.py').write_bytes(b'user changed old project\n')
+    assert service.refresh(owner, result.id).state == 'invalidated'
+    assert store.workflow(owner, other.id) == before
+    assert store.workflow(owner, other.id).active_slot
+    assert not store.workflow(owner, workflow.id).active_slot
+
+
+def test_claim_refreshes_stale_result_before_revision_or_admission(owned, completed):
+    from flycode.orchestration.store import StoreError
+
+    store, owner, host, workflow, task, author, source = owned
+    _, result, _ = completed
+    previous = store.task(owner, task.id)
+    instance = store.instance(host, author.instance_id)
+    (source / 'src/example.py').write_bytes(b'user changed dependency\n')
+    with pytest.raises(StoreError, match='revision'):
+        store.claim(host, ClaimRequest(instance_id=instance.id, expected_instance_revision=instance.revision,
+            task_id=task.id, expected_task_revision=previous.revision, reserve=BudgetAmount(tool_calls=1), idempotency_key='stale-result-claim'))
+    assert store.task(owner, task.id).state == 'blocked'
+    assert store.task(owner, task.id).result_id == result.id
+    assert not store.workflow(owner, workflow.id).active_slot
+
+
+def test_schema8_result_without_freshness_pins_invalidates_after_restart(owned, completed):
+    from flycode.orchestration.store import Store
+    from flycode.tracker.service import TrackerService
+
+    store, owner, _, workflow, task, _, _ = owned
+    _, result, _ = completed
+    before = store.budget(owner, workflow.id)
+    attempts = store.attempts(owner, workflow.id)
+    legacy = result.model_dump(mode='json', exclude={
+        'runtime_root', 'previous_result_id', 'semantic_revisions', 'approval_hashes', 'reruns'})
+    store.db.execute('UPDATE integrations SET data=? WHERE id=?', (json.dumps(legacy), result.id))
+    store.db.execute('DROP INDEX current_integration')
+    store.db.execute('PRAGMA user_version=8')
+    restarted = Store(store.path, catalogue=store.catalogue)
+    try:
+        card = TrackerService(restarted).task(owner, task.id)
+        assert card.task.state == 'blocked' and card.task.result_id == result.id
+        assert restarted.workflow(owner, workflow.id).state == 'incomplete'
+        assert not restarted.workflow(owner, workflow.id).active_slot
+        assert restarted.budget(owner, workflow.id) == before
+        assert restarted.attempts(owner, workflow.id) == attempts
+        assert json.loads(restarted.db.execute('SELECT data FROM integrations WHERE id=?', (result.id,)).fetchone()['data'])['state'] == 'invalidated'
+    finally:
+        restarted.close()
+
+
+@pytest.mark.parametrize('field', ['result_id', 'retired_by_result', 'blocked_reason'])
+def test_owner_command_cannot_supply_host_result_fields(owned, field):
+    from flycode.orchestration.store import StoreError
+
+    store, owner, _, _, task, _, _ = owned
+    current = store.task(owner, task.id)
+    with pytest.raises(StoreError, match='command'):
+        store.command(owner, task.id, TaskCommand(operation='revise', expected_revision=current.revision,
+            idempotency_key='forge-'+field, changes={field: 'forged-result'}))
+    assert store.task(owner, task.id) == current
+
+
 @pytest.mark.parametrize('operation', ['pause', 'cancel', 'release_assignment'])
 def test_published_assignment_can_stop_without_touching_a_reused_instance(owned, model_server, tmp_path, operation):
     from flycode.orchestration.artifacts import Artifacts

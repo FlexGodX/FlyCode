@@ -81,14 +81,19 @@ class IntegrationRecord(QueueModel):
     attempt_id: str
     fence: int
     source_root: str
+    runtime_root: str | None = None
+    previous_result_id: str | None = None
     source_before: SubjectSnapshot
     artifact_hashes: dict[str, str]
     review_ids: tuple[str, ...]
     contracts: dict[str, str]
+    semantic_revisions: dict[str, int] = Field(default_factory=dict)
+    approval_hashes: dict[str, str] = Field(default_factory=dict)
+    reruns: int = Field(default=0, ge=0, le=2)
     author_attempts: dict[str, str]
     changes: tuple[FileChange, ...] = ()
     candidate: SubjectSnapshot | None = None
-    state: Literal['preparing', 'verifying', 'applying', 'reconciling', 'completed', 'failed', 'conflict'] = 'preparing'
+    state: Literal['preparing', 'verifying', 'applying', 'reconciling', 'completed', 'failed', 'conflict', 'invalidated'] = 'preparing'
     verdicts: dict[str, VerificationVerdict] = Field(default_factory=dict)
     applied_verdicts: dict[str, VerificationVerdict] = Field(default_factory=dict)
     error: str | None = None

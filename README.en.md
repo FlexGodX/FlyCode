@@ -124,9 +124,15 @@ each actual pytest invocation charges the shared budget. A single host integrato
 checks the merged copy, applies the permitted patch and rechecks the original
 source before `succeeded`. Application requires native atomic exchange/exclusive
 rename and retains original file objects outside the project, including concurrent
-edits. Worker and host verification cannot share an attempt. This is an internal
-foundation: integrator recovery, completed-result invalidation, reopen, conflict
-resolution and CLI/API/UI wiring remain unfinished.
+edits. Worker and host verification cannot share an attempt. Completed results
+bind exact source files, criteria, reviews and evidence: changes revoke `succeeded`
+before tracker reads or new assignments. Titles, tags and archive preserve valid
+evidence. `reopen` creates a new verifiable version while retaining attempts,
+spending and the original workflow deadline. Repeated review requires fresh
+checks; compatible previously applied results are verified without rewriting
+source files or historical attempts. Older databases without freshness pins
+retain their history but require new verification. This is an internal foundation:
+integrator crash recovery, conflict resolution and CLI/API/UI wiring remain open.
 
 Addressed messages use the same SQLite database, with durable redelivery and
 atomic receipts/correlated answers. Workflow limits are200 deliveries,16KiB per

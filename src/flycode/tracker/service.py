@@ -17,6 +17,10 @@ class TrackerService:
         return execute(self.store, scope, task_id, data)
 
     def task(self, scope: AccessScope, task_id: str) -> TaskCard:
+        self.store.refresh_results(scope, self.store.task(scope, task_id).workflow_id)
+        return self._card(scope, task_id)
+
+    def _card(self, scope: AccessScope, task_id: str) -> TaskCard:
         task = self.store.task(scope, task_id)
         workflow = self.store.workflow(scope, task.workflow_id)
         attempts = [attempt for attempt in self.store.attempts(scope, workflow.id) if attempt.task_id == task.id]
@@ -25,9 +29,11 @@ class TrackerService:
                          current or (attempts[-1] if attempts else None), self.store.last_event(scope, workflow.id, task.id))
 
     def board(self, scope: AccessScope, workflow_id: str, *, archived: bool = False) -> list[TaskCard]:
-        return [self.task(scope, task.id) for task in self.store.tasks(scope, workflow_id) if archived or not task.archived]
+        self.store.refresh_results(scope, workflow_id)
+        return [self._card(scope, task.id) for task in self.store.tasks(scope, workflow_id) if archived or not task.archived]
 
     def agents(self, scope: AccessScope) -> list[AgentCard]:
+        self.store.refresh_results(scope)
         result = []
         for instance in self.store.instances(scope):
             attempt = self.store._attempt(instance.current_attempt_id) if instance.current_attempt_id else None
