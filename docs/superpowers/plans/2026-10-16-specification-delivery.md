@@ -438,6 +438,39 @@ lease timeout is not sufficient ownership/absence proof.
 
 ### Task 6: Review, интеграция и completion (17/22/29)
 
+Next multi-writer increment (does not close Task6):
+
+1. In `tests/unit/orchestration/test_result_delivery.py`, run two real isolated
+   workers from the same source snapshot. Approve each exact patch independently.
+   An overlapping edit must retain a canonical conflict and exactly one inert
+   resolution draft; independent edits that each pass but fail when merged must
+   fail candidate verification without applying anything to the user's folder.
+2. Extend `IntegrationRecord` in `domain/results.py` with conflict paths,
+   resolution task ID and a durable capacity blocker. `Integration.run` must
+   validate stopped ownership, permissions, contracts, exact reviews and approval
+   scope before recording the conflict. Persist the conflict, execution lane,
+   planned draft and event atomically. The runtime creates no owner scope and
+   supplies no permission or budget to the draft. Replays spend nothing and
+   return the same record after restart; task/child limits retain the blocker.
+3. Verify foreign scope, stale fence, changed inputs/reviews/criteria, duplicate
+   delivery, restart and task capacity. Preserve both immutable patches, stopped
+   author attempts and dirty/untracked user bytes. No source application or
+   verification subprocess is admitted for the overlapping candidate.
+4. Keep the executable resolution path open until owner approval, bounded reads
+   of both pinned versions, a new isolated patch, fresh independent review and
+   combined/source verification fulfill every original acceptance contract.
+   Do not mark original interrupted author attempts successful or remove their
+   requirements to make the workflow appear complete.
+
+Steps1–3 verified on frozen source:763 passed/8 skipped across the full771-case
+collection in3 shards (803.42s),135 distinct extracted-package checks and12 new
+paths repeated on final wheel,5 actual FlyWire checks, relevant Ruff/mypy39 pass.
+Actual Qwen: ordinary delivery3 calls/26 tools in54.01s; two-writer conflict6 calls/
+18 tools in100.31s. The compatible two-writer integration reaches current verified
+completion with25 integrator tools; the hidden combined regression never applies.
+Negative baseline, explicit failures/limits, identity and wheel hash:
+`docs/validation/2026-10-16-multi-writer-conflicts.md`. Step4 and Task6 remain open.
+
 **Files:** create `src/flycode/orchestration/{workspaces,integration}.py`, verification oracle/sandbox adapters; tests actual two-writer conflicts/integration/verification.
 
 **Interfaces:** isolated snapshot per writer, immutable patch hash, reviewer approval exact bytes, single integrator, current `VerificationVerdict` completion gate.

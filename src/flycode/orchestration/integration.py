@@ -8,6 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from ..domain import ToolAction
+from ..domain.orchestration import TaskDraft
 from ..domain.results import IntegrationRecord
 from ..domain.verification import SubjectRef
 from ..verification.acceptance import input_identity
@@ -121,6 +122,8 @@ class Integration:
             raise RuntimeError('Integration reconciliation cannot run in a SQLite transaction')
         record = self.get(scope, identity)
         attempt = store._attempt(record.attempt_id)
+        if record.state == 'conflict':
+            return record
         if record.state in {'completed', 'invalidated'}:
             return self.refresh(scope, identity)
         if record.state == 'failed' and attempt.stop_confirmed:
@@ -279,7 +282,7 @@ class Integration:
                     or record.reruns != reruns or record.previous_result_id != previous_result_id):
                 raise StoreError('idempotency')
             record = self.refresh(scope, record.id)
-            if record.state != 'completed':
+            if record.state not in {'completed', 'conflict'}:
                 raise StoreError('reconcile_required' if record.state != 'invalidated' else 'result_invalidated', current=record)
             return record
         store._execution_available(scope, attempt_id)
@@ -287,7 +290,8 @@ class Integration:
         if any(item.state in ACTIVE and item.id != attempt.id for item in store.attempts(scope, workflow.id)):
             raise StoreError('incomplete_workflow', 'Every other executor must be stopped before integration')
         artifacts = [self.artifacts.get(scope, identity) for identity in artifact_ids]
-        if not artifacts or len(set(artifact_ids)) != len(artifact_ids) or len(set(review_ids)) != len(review_ids):
+        if (not artifacts or len(set(artifact_ids)) != len(artifact_ids) or len(set(review_ids)) != len(review_ids)
+                or len({artifact.task_id for artifact in artifacts}) != len(artifacts)):
             raise StoreError('integration_scope')
         hashes = {artifact.id: artifact.patch_hash for artifact in artifacts}
         if task.input_artifacts != hashes or any(artifact.workflow_id != workflow.id for artifact in artifacts):
@@ -319,11 +323,13 @@ class Integration:
             raise StoreError('incomplete_workflow', 'An unselected root assignment cannot be completed as an aggregate')
         if any(item.state != 'succeeded' and item.id not in {*author_attempts, task.id, workflow.root_task_id} for item in tasks):
             raise StoreError('incomplete_workflow')
-        changes = {}
+        if set(approval_hashes) != set(author_attempts) | {workflow.root_task_id, task.id}:
+            raise StoreError('approval_scope')
+        changes, conflicts = {}, set()
         for artifact in artifacts:
             for change in artifact.changes:
                 if change.path in changes and change != changes[change.path]:
-                    raise StoreError('integration_conflict', 'Overlapping reviewed patches require resolution')
+                    conflicts.add(change.path)
                 if root_task.permissions is None or not root_task.permissions.approved or not covers(root_task.permissions.write_scopes, (change.path,)):
                     raise StoreError('permission')
                 changes[change.path] = change
@@ -332,15 +338,54 @@ class Integration:
             previous_result_id=previous_result_id,
             artifact_hashes=hashes, review_ids=tuple(review_ids), contracts={item.id: item.contract_hash for item in tasks},
             semantic_revisions={item.id: item.semantic_revision for item in tasks}, approval_hashes=approval_hashes, reruns=reruns,
-            author_attempts=author_attempts, changes=() if previous_result is not None else tuple(changes[path] for path in sorted(changes)),
+            author_attempts=author_attempts, changes=() if previous_result is not None or conflicts else tuple(changes[path] for path in sorted(changes)),
+            conflict_paths=tuple(sorted(conflicts)),
             created_at=store.clock())
         self._guard(scope, record, deep=True)
+        if conflicts:
+            for identity, approval in approval_hashes.items():
+                self.engine.oracles.resolve(approval, store.task(scope, identity).acceptance)
+            return self._conflict(scope, record)
         directory = self.root / 'integrations' / record.id
         directory.mkdir(parents=True, mode=0o700)
         with locked(directory / 'coordinator.lock', create=True) as descriptor:
             info = os.fstat(descriptor)
             record = changed(record, coordinator_identity=(info.st_dev, info.st_ino))
             return self._execute(scope, record)
+
+    def _conflict(self, scope, record):
+        store = self.store
+        with store.transaction():
+            attempt, task, workflow = self._guard(scope, record)
+            store._claim_execution(scope, attempt.id, attempt.fence, 'integration')
+            draft = store._new_task(workflow, TaskDraft(title='Resolve reviewed patch conflict',
+                objective=f'Resolve integration {record.id} using both pinned artifact versions. '
+                    'Preserve every original acceptance requirement and return a new patch for independent review.',
+                parent_id=workflow.root_task_id, input_artifacts=record.artifact_hashes,
+                base_snapshot_hash=record.source_before.subject_hash))
+            blocker = None
+            try:
+                store._validate_graph(scope, workflow, draft)
+            except StoreError as error:
+                if error.code not in {'task_limit', 'children', 'depth'}:
+                    raise
+                blocker = error.code
+            if blocker is None:
+                store._save_task(draft)
+                workflow = changed(workflow, revision=workflow.revision + 1, semantic_revision=workflow.semantic_revision + 1)
+                store._save_workflow(workflow)
+                store._event(scope, workflow, 'task_created', task=draft, revision=draft.revision, integration_id=record.id)
+            record = changed(record, state='conflict', error='integration_conflict',
+                resolution_task_id=draft.id if blocker is None else None, resolution_blocker=blocker)
+            store.db.execute('INSERT INTO integrations VALUES (?,?,?,?,?)',
+                (record.id, workflow.id, attempt.id, record.state, record.model_dump_json()))
+            store._confirm_stopped(scope, attempt.id, attempt.fence, outcome='failed', expenditure_confirmed=True)
+            stopped_task = store.task(scope, task.id)
+            store._save_task(changed(stopped_task, blocked_reason=blocker or 'integration_conflict'))
+            store._event(scope, workflow, 'integration_conflict', task=stopped_task, attempt=attempt,
+                integration_id=record.id, resolution_task_id=record.resolution_task_id,
+                blocker=blocker, conflict_paths=record.conflict_paths, artifact_hashes=record.artifact_hashes)
+            return record
 
     def _execute(self, scope, record):
         store = self.store

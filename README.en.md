@@ -140,6 +140,13 @@ old descriptors survive; owner file replacement blocks rollback. This is an
 internal trusted-local foundation: conflict resolution and CLI/API/UI wiring
 remain open.
 
+Conflicting reviewed patches retain both immutable versions and create one
+resolution draft with pinned hashes and base. Owner criteria, permissions and
+budget are required before enqueue; replay after restart creates no duplicate
+task or model spending. Task capacity retains an explicit blocker. A failing
+merge of individually green patches is rejected before writing to the source
+folder. Executing resolution into a new patch and fresh review remains open.
+
 Addressed messages use the same SQLite database, with durable redelivery and
 atomic receipts/correlated answers. Workflow limits are200 deliveries,16KiB per
 envelope, up to3 explicit recipients,5minute TTL and4 forwarding hops. Late

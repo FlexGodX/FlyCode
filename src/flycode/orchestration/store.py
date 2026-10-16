@@ -969,47 +969,54 @@ class Store:
         return expired
 
     def confirm_stopped(self, scope, attempt_id, fence, *, outcome, expenditure_confirmed=False):
+        with self.transaction():
+            return self._confirm_stopped(scope, attempt_id, fence, outcome=outcome,
+                expenditure_confirmed=expenditure_confirmed)
+
+    def _confirm_stopped(self, scope, attempt_id, fence, *, outcome, expenditure_confirmed=False):
+        """Settle a known stop inside the caller's atomic host operation."""
+        if not self.db.in_transaction:
+            raise RuntimeError('Stop settlement must be atomic')
         self._role(scope, ('runtime',))
         if outcome not in {'retry_wait', 'failed', 'cancelled'}:
             raise StoreError('completion_gate', 'A result needs immutable artifacts and review')
-        with self.transaction():
-            attempt = self._attempt(attempt_id)
-            task = self.task(scope, attempt.task_id)
-            workflow = self._workflow(attempt.workflow_id)
-            key = 'stop:' + attempt_id
-            found, result, digest = self._replay(scope, key, {'stop': attempt_id, 'fence': fence,
-                'outcome': outcome, 'expenditure_confirmed': expenditure_confirmed})
-            if found:
-                return AgentAttempt.model_validate(result)
-            if attempt.fence != fence or task.current_attempt_id != attempt_id or attempt.state not in ACTIVE:
-                raise StoreError('fence', 'Stop acknowledgement does not own the current attempt')
-            if self.db.execute("SELECT 1 FROM integrations WHERE attempt_id=? AND state IN ('preparing','verifying','applying','reconciling')",
-                               (attempt_id,)).fetchone():
-                raise StoreError('reconcile_required', 'Resolve the integration journal before releasing its assignment')
-            if self.db.execute("SELECT 1 FROM model_calls WHERE attempt_id=? AND state IN ('running','uncertain')",
-                               (attempt_id,)).fetchone():
-                raise StoreError('resource_busy', 'Confirm the model transport outcome before releasing ownership')
-            if self.db.execute("SELECT 1 FROM tool_calls WHERE attempt_id=? AND state IN ('running','uncertain')",
-                               (attempt_id,)).fetchone():
-                raise StoreError('resource_busy', 'Confirm the tool outcome before releasing ownership')
-            uncertain = self.db.execute('SELECT uncertain FROM reservations WHERE attempt_id=?', (attempt_id,)).fetchone()[0]
-            if uncertain and not expenditure_confirmed:
-                raise StoreError('uncertain', 'Reconcile unknown spending before releasing the reservation')
-            terminal = 'cancelled' if workflow.state == 'cancelling' or (task.permissions and not task.permissions.approved) else outcome
-            attempt_state = 'interrupted' if terminal == 'retry_wait' else terminal
-            attempt = changed(attempt, state=attempt_state, stop_confirmed=True)
-            self._save_attempt(attempt)
-            self.db.execute('UPDATE reservations SET model_reserved=0,tool_reserved=0,uncertain=0 WHERE attempt_id=?', (attempt_id,))
-            self._save_task(changed(task, state=terminal, current_attempt_id=None, fence=task.fence + 1,
-                                    revision=task.revision + 1, updated_at=self.clock()))
-            instance = self._instance(attempt.instance_id)
-            self._save_instance(changed(instance, state='idle', current_attempt_id=None, revision=instance.revision + 1))
-            active = any(a.state in ACTIVE for a in self.attempts(scope, workflow.id))
-            if not active and workflow.state in {'cancelling', 'pausing', 'incomplete'}:
-                state = {'cancelling': 'cancelled', 'pausing': 'paused', 'incomplete': 'incomplete'}[workflow.state]
-                workflow = changed(workflow, state=state, active_slot=state == 'paused', revision=workflow.revision + 1)
-                self._save_workflow(workflow)
-            self._event(scope, workflow, 'attempt_stopped', task=task, attempt=attempt, outcome=terminal)
-            result = self._attempt(attempt_id)
-            self._remember(scope, key, task.project_id, digest, result)
-            return result
+        attempt = self._attempt(attempt_id)
+        task = self.task(scope, attempt.task_id)
+        workflow = self._workflow(attempt.workflow_id)
+        key = 'stop:' + attempt_id
+        found, result, digest = self._replay(scope, key, {'stop': attempt_id, 'fence': fence,
+            'outcome': outcome, 'expenditure_confirmed': expenditure_confirmed})
+        if found:
+            return AgentAttempt.model_validate(result)
+        if attempt.fence != fence or task.current_attempt_id != attempt_id or attempt.state not in ACTIVE:
+            raise StoreError('fence', 'Stop acknowledgement does not own the current attempt')
+        if self.db.execute("SELECT 1 FROM integrations WHERE attempt_id=? AND state IN ('preparing','verifying','applying','reconciling')",
+                           (attempt_id,)).fetchone():
+            raise StoreError('reconcile_required', 'Resolve the integration journal before releasing its assignment')
+        if self.db.execute("SELECT 1 FROM model_calls WHERE attempt_id=? AND state IN ('running','uncertain')",
+                           (attempt_id,)).fetchone():
+            raise StoreError('resource_busy', 'Confirm the model transport outcome before releasing ownership')
+        if self.db.execute("SELECT 1 FROM tool_calls WHERE attempt_id=? AND state IN ('running','uncertain')",
+                           (attempt_id,)).fetchone():
+            raise StoreError('resource_busy', 'Confirm the tool outcome before releasing ownership')
+        uncertain = self.db.execute('SELECT uncertain FROM reservations WHERE attempt_id=?', (attempt_id,)).fetchone()[0]
+        if uncertain and not expenditure_confirmed:
+            raise StoreError('uncertain', 'Reconcile unknown spending before releasing the reservation')
+        terminal = 'cancelled' if workflow.state == 'cancelling' or (task.permissions and not task.permissions.approved) else outcome
+        attempt_state = 'interrupted' if terminal == 'retry_wait' else terminal
+        attempt = changed(attempt, state=attempt_state, stop_confirmed=True)
+        self._save_attempt(attempt)
+        self.db.execute('UPDATE reservations SET model_reserved=0,tool_reserved=0,uncertain=0 WHERE attempt_id=?', (attempt_id,))
+        self._save_task(changed(task, state=terminal, current_attempt_id=None, fence=task.fence + 1,
+                                revision=task.revision + 1, updated_at=self.clock()))
+        instance = self._instance(attempt.instance_id)
+        self._save_instance(changed(instance, state='idle', current_attempt_id=None, revision=instance.revision + 1))
+        active = any(a.state in ACTIVE for a in self.attempts(scope, workflow.id))
+        if not active and workflow.state in {'cancelling', 'pausing', 'incomplete'}:
+            state = {'cancelling': 'cancelled', 'pausing': 'paused', 'incomplete': 'incomplete'}[workflow.state]
+            workflow = changed(workflow, state=state, active_slot=state == 'paused', revision=workflow.revision + 1)
+            self._save_workflow(workflow)
+        self._event(scope, workflow, 'attempt_stopped', task=task, attempt=attempt, outcome=terminal)
+        result = self._attempt(attempt_id)
+        self._remember(scope, key, task.project_id, digest, result)
+        return result

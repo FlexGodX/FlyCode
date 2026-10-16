@@ -107,13 +107,19 @@ class OracleRegistry:
         except OSError as exc:
             raise ValueError('Approved oracle is unavailable') from exc
 
+    def resolve(self, key: str, contract: AcceptanceContract) -> ApprovedOracle:
+        approved = self.read(key)
+        if self._heads().get(approved.contract.id) != key:
+            raise ValueError('A newer owner approval superseded this plan')
+        if contract_hash(contract) != contract_hash(approved.contract):
+            raise ValueError('Acceptance contract changed')
+        return approved
+
     def validate(self, plan: VerificationPlan) -> ApprovedOracle:
         if plan.scope != 'acceptance-contract' or plan.acceptance is None or plan.approval_hash is None:
             raise ValueError('An owner-approved acceptance plan is required')
-        approved = self.read(plan.approval_hash)
-        if self._heads().get(approved.contract.id) != plan.approval_hash:
-            raise ValueError('A newer owner approval superseded this plan')
-        if plan.contract_hash != contract_hash(approved.contract) or contract_hash(plan.acceptance) != plan.contract_hash:
+        approved = self.resolve(plan.approval_hash, plan.acceptance)
+        if plan.contract_hash != contract_hash(approved.contract):
             raise ValueError('Acceptance contract changed')
         by_id = {check.id: check for check in plan.checks}
         known = {check.id for check in approved.checks}

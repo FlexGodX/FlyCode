@@ -97,5 +97,8 @@ class IntegrationRecord(QueueModel):
     state: Literal['preparing', 'verifying', 'applying', 'reconciling', 'completed', 'failed', 'conflict', 'invalidated'] = 'preparing'
     verdicts: dict[str, VerificationVerdict] = Field(default_factory=dict)
     applied_verdicts: dict[str, VerificationVerdict] = Field(default_factory=dict)
+    conflict_paths: tuple[str, ...] = ()
+    resolution_task_id: str | None = None
+    resolution_blocker: str | None = None
     error: str | None = None
     created_at: float

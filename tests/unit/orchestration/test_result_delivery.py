@@ -93,6 +93,277 @@ def completed(owned, delivery):
     return service, result, integrator
 
 
+@pytest.fixture
+def multi_writer(owned, model_server, tmp_path, request):
+    import shutil
+
+    from flycode.orchestration.artifacts import Artifacts
+    from flycode.orchestration.review import Reviews
+    from flycode.orchestration.runtime import Runtime
+    from flycode.verification import VerificationEngine
+
+    store, owner, host, workflow, task, author, source = owned
+    mode = getattr(request, 'param', 'overlap')
+    overlap = mode == 'overlap'
+    comparison = '== 1' if mode == 'independent' else '>= 1'
+    expression = 'runpy.run_path("src/example.py")["answer"] > 0' if overlap else (
+        f'runpy.run_path("src/example.py")["answer"] + runpy.run_path("src/other.py")["answer"] {comparison}')
+    (source / 'tests/test_example.py').write_text(f'import runpy\ndef test_example():\n    assert {expression}\n')
+    (source / 'src/other.py').write_text('answer = 0\n')
+    (source / 'user-dirty.bin').write_bytes(b'\x00\xff user bytes\r\n')
+    oracle = tmp_path / 'owner-oracle'
+    shutil.copytree(source / 'tests', oracle / 'tests')
+    runtime = Runtime(store, tmp_path / 'runtime')
+    engine = VerificationEngine(runtime.root / 'verification')
+    approval = engine.oracles.approve(task.acceptance, checks(), oracle)
+    artifacts, reviews = [], []
+    for index in range(2):
+        if index:
+            child = store.create_task(owner, workflow.id, TaskDraft(title='Independent second repair',
+                objective='Repair the approved example without changing tests.', parent_id=task.id,
+                acceptance=task.acceptance, permissions=task.permissions, budget=task.budget), key='second-writer')
+            child = store.command(owner, child.id, TaskCommand(operation='enqueue',
+                expected_revision=child.revision, idempotency_key='enqueue-second'))
+            instance = store.register_instance(host, author.profile_snapshot.id)
+            claim = store.claim(host, ClaimRequest(instance_id=instance.id, expected_instance_revision=instance.revision,
+                task_id=child.id, expected_task_revision=child.revision, reserve=child.budget, idempotency_key='claim-second'))
+            assert claim.attempt is not None, claim.reasons
+            active = store.confirm_started(host, claim.attempt.id, claim.attempt.fence)
+        else:
+            active = author
+        path = 'src/example.py' if overlap or not index else 'src/other.py'
+        value = str(index + 1) if overlap else '1'
+        model_server.respond = lambda request, path=path, value=value: model_server.completion(json.dumps({'candidates': [
+            {'tool': 'edit_file', 'arguments': {'path': path, 'old_text': '0', 'new_text': value}}]}))
+        handle = runtime.launch(host, active.id, active.fence, source, brain='heuristic_fsm')
+        try:
+            assert handle.finished.wait(15), handle.error
+            assert handle.error is None
+            assert handle.process_stopped.is_set() and runtime.worker(owner, active.id).stop_confirmed
+        finally:
+            handle.close()
+        artifact = Artifacts(store, runtime.root).for_attempt(owner, active.id)
+        assert artifact is not None
+        checker = reviewer(owned, [artifact], tools=4)
+        review = Reviews(store, runtime.root).run(host, checker.id, checker.fence, artifact.id, approval_hash=approval)
+        assert review.status == 'approved'
+        artifacts.append(artifact)
+        reviews.append(review)
+    assert artifacts[0].base.subject_hash == artifacts[1].base.subject_hash
+    integrator = reviewer(owned, artifacts, tools=50)
+    approvals = {item.task_id: approval for item in artifacts}
+    approvals[integrator.task_id] = approval
+    return runtime, artifacts, reviews, integrator, approvals
+
+
+def test_overlapping_reviewed_writers_retain_one_inert_resolution_draft(owned, multi_writer):
+    from flycode.orchestration.integration import Integration
+    from flycode.orchestration.store import Store, StoreError
+
+    store, owner, host, workflow, _, _, source = owned
+    runtime, artifacts, reviews, integrator, approvals = multi_writer
+    service = Integration(store, runtime.root)
+    before = store.budget(owner, workflow.id)
+    result = service.run(host, integrator.id, integrator.fence, tuple(item.id for item in artifacts),
+        tuple(item.id for item in reviews), approval_hashes=approvals)
+    assert result.state == 'conflict' and result.conflict_paths == ('src/example.py',)
+    assert result.artifact_hashes == {item.id: item.patch_hash for item in artifacts}
+    assert result.candidate is None and not result.changes and not result.verdicts and not result.applied_verdicts
+    draft = store.task(owner, result.resolution_task_id)
+    assert draft.state == 'planned' and draft.permissions is None and draft.budget is None
+    assert draft.input_artifacts == result.artifact_hashes and not draft.dependencies
+    assert draft.base_snapshot_hash == artifacts[0].base.subject_hash
+    with pytest.raises(StoreError, match='incomplete'):
+        store.command(owner, draft.id, TaskCommand(operation='enqueue', expected_revision=draft.revision,
+            idempotency_key='unapproved-resolution'))
+    assert store._attempt(integrator.id).stop_confirmed
+    assert store.task(owner, integrator.task_id).current_attempt_id is None
+    assert store.budget(owner, workflow.id).spent == before.spent
+    assert store.budget(owner, workflow.id).reserved == BudgetAmount()
+    restarted = Store(store.path, catalogue=store.catalogue)
+    try:
+        replay = Integration(restarted, runtime.root).run(host, integrator.id, integrator.fence,
+            tuple(item.id for item in artifacts), tuple(item.id for item in reviews), approval_hashes=approvals)
+        assert replay.model_dump(mode='json') == result.model_dump(mode='json')
+        assert len([event for event in restarted.events(owner, workflow.id) if event.kind == 'integration_conflict']) == 1
+        assert len([item for item in restarted.tasks(owner, workflow.id) if item.id == draft.id]) == 1
+        assert Integration(restarted, runtime.root).reconcile(host, result.id).model_dump(mode='json') == result.model_dump(mode='json')
+    finally:
+        restarted.close()
+    assert (source / 'src/example.py').read_text() == 'answer = 0\n'
+    assert (source / 'user-dirty.bin').read_bytes() == b'\x00\xff user bytes\r\n'
+    for item in artifacts:
+        assert service.artifacts.get(owner, item.id) == item
+        assert store._attempt(item.attempt_id).state == 'awaiting_review'
+
+
+@pytest.mark.parametrize('multi_writer', ['independent'], indirect=True)
+def test_individually_green_patches_fail_combined_checks_before_source_apply(owned, multi_writer):
+    from flycode.orchestration.integration import Integration
+    from flycode.orchestration.store import StoreError
+    from flycode.orchestration.tools import Tools
+
+    store, owner, host, workflow, _, _, source = owned
+    runtime, artifacts, reviews, integrator, approvals = multi_writer
+    service = Integration(store, runtime.root)
+    before = store.budget(owner, workflow.id)
+    with pytest.raises(StoreError, match='verification_failed'):
+        service.run(host, integrator.id, integrator.fence, tuple(item.id for item in artifacts),
+            tuple(item.id for item in reviews), approval_hashes=approvals)
+    identity = store.db.execute('SELECT id FROM integrations WHERE attempt_id=?', (integrator.id,)).fetchone()['id']
+    record = service.get(owner, identity)
+    assert record.state == 'failed' and record.verdicts and not record.applied_verdicts
+    assert all(verdict.status != 'passed' for verdict in record.verdicts.values())
+    assert not any(call.tool == 'integrate' for call in Tools(store).calls(owner, workflow.id))
+    assert not service.current(owner, record.id)
+    assert (source / 'src/example.py').read_text() == (source / 'src/other.py').read_text() == 'answer = 0\n'
+    assert (source / 'user-dirty.bin').read_bytes() == b'\x00\xff user bytes\r\n'
+    assert store.budget(owner, workflow.id).spent.tool_calls > before.spent.tool_calls
+    assert store.budget(owner, workflow.id).reserved == BudgetAmount()
+
+
+@pytest.mark.parametrize('multi_writer', ['compatible'], indirect=True)
+def test_two_compatible_writers_reach_current_verified_completion(owned, multi_writer):
+    from flycode.orchestration.integration import Integration
+    from flycode.orchestration.tools import Tools
+
+    store, owner, host, workflow, task, _, source = owned
+    runtime, artifacts, reviews, integrator, approvals = multi_writer
+    service = Integration(store, runtime.root)
+    record = service.run(host, integrator.id, integrator.fence, tuple(item.id for item in artifacts),
+        tuple(item.id for item in reviews), approval_hashes=approvals)
+    assert record.state == 'completed' and service.current(owner, record.id)
+    assert set(record.applied_verdicts) == {task.id, artifacts[1].task_id, integrator.task_id}
+    assert len([call for call in Tools(store).calls(owner, workflow.id) if call.attempt_id == integrator.id]) == 25
+    assert (source / 'src/example.py').read_text() == (source / 'src/other.py').read_text() == 'answer = 1\n'
+    assert (source / 'user-dirty.bin').read_bytes() == b'\x00\xff user bytes\r\n'
+    assert all(store._attempt(item.attempt_id).state == 'succeeded' for item in artifacts)
+    assert store.workflow(owner, workflow.id).state == 'succeeded'
+    assert store.budget(owner, workflow.id).reserved == BudgetAmount()
+
+
+@pytest.mark.parametrize('invalid', ['review', 'artifact', 'approval_scope', 'approval', 'fence', 'foreign_scope'])
+def test_conflict_cannot_create_a_draft_from_unapproved_or_unowned_inputs(owned, multi_writer, invalid):
+    from flycode.domain.orchestration import AccessScope
+    from flycode.orchestration.integration import Integration
+
+    store, owner, host, workflow, _, _, _ = owned
+    runtime, artifacts, reviews, integrator, approvals = multi_writer
+    service = Integration(store, runtime.root)
+    scope, fence = host, integrator.fence
+    if invalid == 'review':
+        verdict = reviews[0].verdict
+        (service.engine.data_dir / verdict.evidence_id / 'manifest.json').write_bytes(b'changed evidence')
+    elif invalid == 'artifact':
+        (service.artifacts.directory / artifacts[0].id / 'target/src/example.py').write_text('answer = 99\n')
+    elif invalid == 'approval_scope':
+        approvals.pop(artifacts[1].task_id)
+    elif invalid == 'approval':
+        approvals[integrator.task_id] = '0' * 64
+    elif invalid == 'fence':
+        fence += 1
+    else:
+        scope = AccessScope(actor_id='foreign', project_ids={'elsewhere'}, role='runtime')
+    before = store.budget(owner, workflow.id), store.tasks(owner, workflow.id)
+    with pytest.raises(ValueError):
+        service.run(scope, integrator.id, fence, tuple(item.id for item in artifacts),
+            tuple(item.id for item in reviews), approval_hashes=approvals)
+    assert store.db.execute('SELECT COUNT(*) FROM integrations').fetchone()[0] == 0
+    assert (store.budget(owner, workflow.id), store.tasks(owner, workflow.id)) == before
+
+
+def test_conflict_retains_both_inputs_when_resolution_child_limit_is_reached(owned, multi_writer):
+    from flycode.orchestration.integration import Integration
+    from flycode.orchestration.review import Reviews
+
+    store, owner, host, workflow, _, _, source = owned
+    runtime, artifacts, reviews, integrator, approvals = multi_writer
+    for _ in range(4):
+        checker = reviewer(owned, artifacts[:1], tools=4)
+        review = Reviews(store, runtime.root).run(host, checker.id, checker.fence, artifacts[0].id,
+            approval_hash=approvals[artifacts[0].task_id])
+        assert review.status == 'approved'
+    before = store.budget(owner, workflow.id)
+    service = Integration(store, runtime.root)
+    record = service.run(host, integrator.id, integrator.fence, tuple(item.id for item in artifacts),
+        tuple(item.id for item in reviews), approval_hashes=approvals)
+    assert record.state == 'conflict' and record.resolution_task_id is None
+    assert record.resolution_blocker == 'children'
+    assert record.artifact_hashes == {item.id: item.patch_hash for item in artifacts}
+    assert len(store.tasks(owner, workflow.id)) == 9
+    assert store.task(owner, integrator.task_id).blocked_reason == 'children'
+    assert store.budget(owner, workflow.id).spent == before.spent
+    assert store.budget(owner, workflow.id).reserved == BudgetAmount()
+    assert (source / 'src/example.py').read_text() == 'answer = 0\n'
+
+
+def test_conflict_draft_and_stop_settlement_roll_back_together(owned, multi_writer, monkeypatch):
+    from flycode.orchestration.integration import Integration
+
+    store, owner, host, workflow, _, _, _ = owned
+    runtime, artifacts, reviews, integrator, approvals = multi_writer
+    service = Integration(store, runtime.root)
+    before = store.tasks(owner, workflow.id), store.budget(owner, workflow.id), store.events(owner, workflow.id)
+    settle = store._confirm_stopped
+
+    def interrupted(*args, **kwargs):
+        settle(*args, **kwargs)
+        raise RuntimeError('interrupted before commit')
+
+    with monkeypatch.context() as patch:
+        patch.setattr(store, '_confirm_stopped', interrupted)
+        with pytest.raises(RuntimeError, match='before commit'):
+            service.run(host, integrator.id, integrator.fence, tuple(item.id for item in artifacts),
+                tuple(item.id for item in reviews), approval_hashes=approvals)
+    assert store.db.execute('SELECT COUNT(*) FROM integrations').fetchone()[0] == 0
+    assert store.db.execute('SELECT COUNT(*) FROM execution_lanes WHERE attempt_id=?', (integrator.id,)).fetchone()[0] == 0
+    assert (store.tasks(owner, workflow.id), store.budget(owner, workflow.id), store.events(owner, workflow.id)) == before
+    assert store._attempt(integrator.id).state == 'running'
+    record = service.run(host, integrator.id, integrator.fence, tuple(item.id for item in artifacts),
+        tuple(item.id for item in reviews), approval_hashes=approvals)
+    assert record.state == 'conflict' and store.task(owner, record.resolution_task_id).state == 'planned'
+
+
+def test_two_host_connections_cannot_duplicate_a_conflict_or_its_draft(owned, multi_writer, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    from flycode.orchestration.integration import Integration
+    from flycode.orchestration.store import Store, StoreError
+
+    store, owner, host, workflow, _, _, _ = owned
+    runtime, artifacts, reviews, integrator, approvals = multi_writer
+    boundary = Barrier(2)
+    persist = Integration._conflict
+
+    def concurrent(service, scope, record):
+        boundary.wait(timeout=10)
+        return persist(service, scope, record)
+
+    def run():
+        connection = Store(store.path, catalogue=store.catalogue)
+        try:
+            return Integration(connection, runtime.root).run(host, integrator.id, integrator.fence,
+                tuple(item.id for item in artifacts), tuple(item.id for item in reviews), approval_hashes=approvals)
+        except StoreError as error:
+            return error.code
+        finally:
+            connection.close()
+
+    before = len(store.tasks(owner, workflow.id)), store.budget(owner, workflow.id).spent
+    with monkeypatch.context() as patch:
+        patch.setattr(Integration, '_conflict', concurrent)
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(lambda _: run(), range(2)))
+    assert len([item for item in results if not isinstance(item, str)]) == 1
+    assert [item for item in results if isinstance(item, str)] == ['fence']
+    assert store.db.execute('SELECT COUNT(*) FROM integrations').fetchone()[0] == 1
+    assert len(store.tasks(owner, workflow.id)) == before[0] + 1
+    assert store.budget(owner, workflow.id).spent == before[1]
+    assert store.budget(owner, workflow.id).reserved == BudgetAmount()
+    assert run().state == 'conflict'
+
+
 def test_completed_result_is_current_across_metadata_archive_and_replay(owned, delivery, completed):
     store, owner, host, workflow, task, _, _ = owned
     service, result, integrator = completed

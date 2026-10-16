@@ -2,6 +2,56 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Task6 reviewed multi-writer conflicts — 2026-10-16
+
+The increment after `084e114` retains an exact canonical conflict and one planned
+resolution task with both immutable inputs and the source base. Admission checks
+ownership, unique author tasks, exact independent reviews, current owner oracle,
+all write scopes and contract revisions. Conflict/draft or capacity blocker,
+execution lane, stopped integrator and events commit together. `_confirm_stopped`
+reuses the existing fencing/resource/ledger checks inside the transaction;
+public stop behavior is preserved. No model/tools run for conflict registration.
+Unused reservation is freed, spent remains, and published authors stay required.
+Restart replay and reconciliation return the same conflict audit record.
+
+Actual two-writer fixtures now cover compatible verified completion (25 integrator
+tools), individually green but failing combined checks before source apply,
+overlap, invalid inputs, child capacity, transaction rollback and two-connection
+admission. A separate actual-Qwen conflict uses 6 model calls / 18 tools in100.31s;
+the ordinary real delivery still passes with3 calls /26 tools in54.01s. Dirty
+binary bytes survive. Source identity, validation and evidence:
+[report](validation/2026-10-16-multi-writer-conflicts.md).
+
+Final frozen identity:
+`92f957b5a0f425c8903ee6caab1f28ee3b6aa95120481126e4ccb0020acf4345`.
+Full default:763 passed/8 skipped in803.42s across3 isolated shards; all771 exact
+case IDs covered once. Extracted package:135 distinct passed;12 new paths repeated
+on final wheel;5 actual FlyWire checks; relevant Ruff/mypy39 pass. All131 Python
+files match final wheel/source, updated README matches metadata, extracted CLI
+lists ten controllers. Eight default skips remain opt-in cases. Broader Ruff
+found the unchanged domain export ordering issue (RUF022); report retains this
+and the failed no-isolation build. Archive:
+`~/.cache/flycode/validation/flycode-multi-writer-xvt6yk27`.
+
+Task6 and the goal remain open. Next executable RED: owner revises/enqueues the
+inert resolution draft, a real worker reads both pinned artifact versions through
+host-authorized bounded reads, returns a new patch, receives fresh independent
+review and integrates under all original criteria. Runtime has no artifact-read
+tool/context yet. Prefer host-routed `read_file` with an explicit artifact ID over
+copying mutable input files into the writer repository; preserve normal path
+escape protection and debit one canonical tool call per read. Do not silently
+drop oversized/binary required inputs from context.
+
+Original author tasks and the stopped integrator task must remain requirements.
+Use server-derived resolution lineage, not archive/retired_by_result or succeeded
+dependencies on awaiting_review authors. Owner release of stopped author
+assignments can use existing `_stop`; their historical attempts must remain
+interrupted. Apply only the fresh resolved patch, verify every original contract
+and preserve original deadline/spend. Root+child+old integrator+resolver+new
+integrator require41 tools for two phases of four checks plus apply without
+reruns; fund the new integrator accordingly within120 workflow tools. Keep
+capacity blockers explicit; never create a second workflow to reset the budget.
+
 ## Task6 coordinator custody and interrupted integration — 2026-10-16
 
 The increment after `37b7f53` adds versioned ProcessRef/Receipt, an independent
