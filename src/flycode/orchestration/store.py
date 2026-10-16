@@ -66,7 +66,7 @@ class Store:
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=FULL')
         version = self.db.execute('PRAGMA user_version').fetchone()[0]
-        if version not in (0, 1, 2, 3, 4, 5, 6):
+        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8):
             self.db.close()
             raise StoreError('schema_version', str(version))
         self.db.executescript('''
@@ -135,7 +135,20 @@ class Store:
                 workflow_id TEXT NOT NULL REFERENCES workflows(id), correlation_id TEXT NOT NULL,
                 batch_id TEXT NOT NULL, expires_at REAL NOT NULL, answer_id TEXT REFERENCES messages(id),
                 PRIMARY KEY(workflow_id,correlation_id));
-            PRAGMA user_version=6;
+            CREATE TABLE IF NOT EXISTS artifacts (
+                id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL UNIQUE REFERENCES attempts(id), data TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS reviews (
+                id TEXT PRIMARY KEY, artifact_id TEXT NOT NULL REFERENCES artifacts(id),
+                attempt_id TEXT NOT NULL UNIQUE REFERENCES attempts(id), data TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS integrations (
+                id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL REFERENCES workflows(id),
+                attempt_id TEXT NOT NULL UNIQUE REFERENCES attempts(id), state TEXT NOT NULL, data TEXT NOT NULL);
+            CREATE UNIQUE INDEX IF NOT EXISTS active_integration ON integrations(workflow_id)
+                WHERE state IN ('preparing','verifying','applying','reconciling');
+            CREATE TABLE IF NOT EXISTS execution_lanes (
+                attempt_id TEXT PRIMARY KEY REFERENCES attempts(id),
+                mode TEXT NOT NULL CHECK(mode IN ('worker','review','integration')));
+            PRAGMA user_version=8;
         ''')
 
     def close(self):
@@ -369,10 +382,17 @@ class Store:
                 or task.budget.tool_calls > workflow.budget.max_tool_calls):
             raise StoreError('budget', 'Task budget exceeds workflow limits')
 
-    def _stop(self, task):
+    def _stop(self, task, *, outcome='retry_wait'):
         if task.current_attempt_id is None:
             return task
         attempt = self._attempt(task.current_attempt_id)
+        if attempt.state == 'awaiting_review':
+            if not attempt.stop_confirmed:
+                raise StoreError('stop_unconfirmed')
+            self._save_attempt(changed(attempt, state='cancelled' if outcome == 'cancelled' else 'interrupted'))
+            # Publication released this instance and reservation already. The
+            # instance may now belong to a completely different assignment.
+            return changed(task, state=outcome, current_attempt_id=None, fence=task.fence + 1)
         if attempt.state in ACTIVE:
             self._save_attempt(changed(attempt, state='stopping'))
             instance = self._instance(attempt.instance_id)
@@ -451,7 +471,7 @@ class Store:
                 targets = self.tasks(scope, workflow.id) if task.id == workflow.root_task_id else [task]
                 for target in targets:
                     before_hash = target.contract_hash
-                    target = self._stop(target)
+                    target = self._stop(target, outcome='cancelled')
                     target = changed(target, state=target.state if target.current_attempt_id else 'cancelled',
                         permissions=changed(target.permissions, approved=False) if target.permissions else None,
                         revision=target.revision + int(target.id != task.id), updated_at=self.clock())
@@ -705,6 +725,21 @@ class Store:
         if workflow.deadline_at is not None and (self.clock() >= workflow.deadline_at or self.clock() < workflow.started_at):
             raise StoreError('wall_deadline')
         return attempt, task, workflow
+
+    def _execution_available(self, scope, attempt_id):
+        self.task(scope, self._attempt(attempt_id).task_id)
+        if self.db.execute('SELECT 1 FROM workers WHERE attempt_id=?', (attempt_id,)).fetchone():
+            raise StoreError('worker_exists', 'A recorded worker session cannot be shared or replayed')
+        if self.db.execute('SELECT 1 FROM execution_lanes WHERE attempt_id=?', (attempt_id,)).fetchone():
+            raise StoreError('execution_busy', 'This attempt already has a durable execution admission')
+
+    def _claim_execution(self, scope, attempt_id, fence, mode):
+        if not self.db.in_transaction:
+            raise RuntimeError('Execution admission must be atomic')
+        attempt, task, workflow = self._owned(scope, attempt_id, fence, running=mode != 'worker')
+        self._execution_available(scope, attempt_id)
+        self.db.execute('INSERT INTO execution_lanes VALUES (?,?)', (attempt_id, mode))
+        self._event(scope, workflow, 'execution_admitted', task=task, attempt=attempt, mode=mode)
 
     def confirm_started(self, scope, attempt_id, fence):
         with self.transaction():

@@ -118,8 +118,15 @@ host thread serves model HTTP. Heartbeat10s/lease30s remain independent of model
 waits. Stop terminates the owned group, while unfinished HTTP or unknown pytest
 effects retain attempt ownership until reconciliation. `Workspaces` fixes dirty/
 untracked bytes and modes in an independent checkout without user settings/hooks.
-Raw results are retained, but still require patch/review/integration and current
-verification; they cannot establish `succeeded`.
+After confirmed group absence, `Artifacts` publishes a patch binding exact bytes
+and modes. An independent reviewer attempt executes owner-registered checks;
+each actual pytest invocation charges the shared budget. A single host integrator
+checks the merged copy, applies the permitted patch and rechecks the original
+source before `succeeded`. Application requires native atomic exchange/exclusive
+rename and retains original file objects outside the project, including concurrent
+edits. Worker and host verification cannot share an attempt. This is an internal
+foundation: integrator recovery, completed-result invalidation, reopen, conflict
+resolution and CLI/API/UI wiring remain unfinished.
 
 Addressed messages use the same SQLite database, with durable redelivery and
 atomic receipts/correlated answers. Workflow limits are200 deliveries,16KiB per

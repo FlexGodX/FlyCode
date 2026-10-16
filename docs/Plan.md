@@ -2686,7 +2686,7 @@ MOD-01..07 и MS-01..12 задают поведение и приёмку. Эт�
 | 1 | §102, выбор моделей | Single/dual и generic HTTP контракты, CLI, catalogue/probes и две панели проверены; live single/dual repair и отдельный acceptance plan прошли | Single/dual/generic, независимые панели и совместимость истории проверены |
 | 2 | Фаза 21 | Pytest-основа готова: owner contract/oracle, exact case IDs, baseline/target/regression/integration и evidence; runtime completion gate открыт | Снимок → реальный pytest → структурированное evidence → текущий verdict |
 | 3 | Фазы 15/16 и 26/27 | SQLite-контракты, атомарное назначение/резервирование, fencing, restart и tracker projection проверены; executor/API/UI ещё не подключены | Единые задачи/попытки, транзакционная очередь и назначение без дублей |
-| 4 | Фазы 22/17 и 28/29 | Не реализовано | Изоляция, восстановление, review, интеграция и verified completion |
+| 4 | Фазы 22/17 и 28/29 | Внутренний worker→patch→review→integration→source verification e2e реализован; recovery, result invalidation/reopen и остальные acceptance ещё открыты | Изоляция, восстановление, review, интеграция и verified completion |
 | 5 | Фазы 18/23 | Не реализовано | Реальные события командного исполнения, shadow и проверки отказов |
 | 6 | Фазы 19/24 | Не реализовано | Новый scoped admission после измеренных вмешательств и сравнений |
 | 7 | Фазы 20/25 | Не реализовано | Единый интерфейс tracker/agents/verification, CLI/API и browser acceptance |
@@ -2726,6 +2726,16 @@ worker проверяет передачу активности в HTTP-конт
 отозванный отправитель блокируют кандидатов, сохраняя фактический расход модели.
 Dispatcher, ожидание дочерних задач и UI ещё требуют подключения; review/cancel остаются данными,
 а не обходом канонических команд и completion gate.
+
+Срез Task6: schema8 сохраняет точные artifact/review/integration records и
+единственный способ исполнения каждой попытки. Отдельный reviewer выполняет
+owner-проверки, интегратор проверяет объединённую копию и исходную папку перед
+атомарным `succeeded`. Применение сохраняет реально вытесненные файлы для отката
+и обнаруживает позднюю запись через старый дескриптор. Проверен реальный Qwen
+repair→review→integration→fresh source verification:3 модельных вызова и26
+инструментов,49.01с, без утраты посторонних байтов. Recovery интегратора,
+инвалидирование завершённого результата/reopen, конфликты нескольких writer и
+подключение к API/UI остаются открыты; фазы17/22/29 целиком не завершены.
 
 Исследовательский срез 2026-10-16: [benchmark обратной связи](validation/2026-10-16-feedback-benchmark.md)
 выполнил 296 запусков с английскими запросами и обучил отдельные checkpoints

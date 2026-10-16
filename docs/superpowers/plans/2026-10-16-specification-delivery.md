@@ -442,6 +442,48 @@ lease timeout is not sufficient ownership/absence proof.
 
 **Interfaces:** isolated snapshot per writer, immutable patch hash, reviewer approval exact bytes, single integrator, current `VerificationVerdict` completion gate.
 
+**Verified-delivery execution slice:** `domain/results.py` defines file versions,
+patch/review/integration records. `orchestration/artifacts.py` derives a manifest
+and exact changed blobs from the stopped worker's registered baseline, validates
+write scopes and records `awaiting_review` in the common Store. `review.py` binds
+an independent reviewer task and approved oracle to those bytes. `integration.py`
+serializes one retained merge per workflow, rejects incompatible bases/overlaps,
+checks the merged copy, applies only the approved delta to a still-current source,
+and requires a fresh acceptance verdict on that source before canonical success.
+`verification.py` charges every registered pytest invocation through the same
+tool ledger and observes Stop/deadline without holding a SQL transaction during
+subprocess execution. Shared verification gains a host-only invocation callback;
+model/browser data cannot supply verdicts, approvals or completion flags.
+
+Hardening in this slice: native object-preserving exchange/exclusive rename,
+durable execution lanes (schema8), safe release of stopped published authors,
+late-descriptor-write and owner-cancel completion gates, root-assignment checks,
+and rerun-policy replay binding. Real filesystem/worker/check tests cover these
+paths. Coordinator crash recovery, post-completion refresh/invalidation,
+idempotent integration lookup, multi-writer conflict resolution and connected
+UI/API remain open. Native rename is exercised on macOS; Linux support remains
+unexecuted here.
+
+- [x] RED→GREEN: an actual worker repair produces a pinned patch only after
+  recorded group absence; original dirty/untracked bytes and modes survive.
+- [ ] RED→GREEN: tampered manifests/blobs, outside-scope changes, stale attempt,
+  changed contract/base and unresolved transports cannot publish or integrate.
+- [x] RED→GREEN: a separate reviewer executes real approved checks on exact
+  artifact bytes; each check consumes its actual verification reservation.
+- [ ] RED→GREEN: single-integrator claim, combined regression, source freshness,
+  apply/recovery journal and current verdict gate prevent unsafe completion.
+- [x] RED→GREEN: actual worker → immutable patch → independent verification →
+  merged verification → application → source verification → canonical success.
+- [x] Freeze source bytes, run full pytest, relevant Ruff/mypy and extracted
+  wheel tests; update accurate handoff/Plan/README RU/EN and publish only after
+  the real end-to-end gate passes. This slice does not close dispatcher/UI,
+  orchestration admission or unimplemented Task6 acceptance cases.
+  Verified slice:703 passed/8 skipped full default; relevant Ruff/mypy21;
+  48 extracted-wheel checks;5 real FlyWire checks. The real Qwen workflow
+  completed repair/review/integration/source verification in49.01s using3 model
+  calls and26 tools. Immutable-source identity and retained validation artifacts
+  are recorded in `docs/handoff.md`.
+
 - [ ] RED: user dirty/untracked files preserved; conflicting patches blocked; patch changes invalidate review; individually passing patches cannot finish failing integration.
   Include selected subfolders inside a larger Git repository: snapshot inventory must not expose foreign paths from the parent repository.
   Shared capture scope is now fixed and checked against real Git dirty/untracked

@@ -27,6 +27,7 @@ from ..llm.protocol import CortexContext
 from ..verification.evidence import atomic_json
 from ..verification.runner import _group_gone, _terminate
 from . import wire
+from .artifacts import Artifacts
 from .cortex import AttemptCortex
 from .messages import Messages
 from .store import Store, StoreError, changed
@@ -53,6 +54,7 @@ class Runtime:
         if os.name != 'posix':
             raise StoreError('unsupported_platform', 'Owned process groups require POSIX')
         attempt, task, _ = self.store._owned(scope, attempt_id, fence)
+        self.store._execution_available(scope, attempt_id)
         if (task.permissions is None or task.permissions.read_scopes != ('.',)
                 or set(task.permissions.tools) - (SUPPORTED | {'stop'}) or attempt.profile_snapshot.role == 'decider'):
             raise StoreError('unsupported_profile')
@@ -67,9 +69,7 @@ class Runtime:
         directory = self.workspaces.root / workspace.id
         record = WorkerRecord(id=uuid4().hex, attempt_id=attempt_id, fence=fence, created_at=self.store.clock())
         with self.store.transaction():
-            self.store._owned(scope, attempt_id, fence)
-            if self.store.db.execute('SELECT 1 FROM workers WHERE attempt_id=?', (attempt_id,)).fetchone():
-                raise StoreError('worker_exists', 'A recorded session cannot be launched again')
+            self.store._claim_execution(scope, attempt_id, fence, 'worker')
             self.store.db.execute('INSERT INTO workers VALUES (?,?,?)', (record.id, attempt_id, record.model_dump_json()))
         task_spec = TaskSpec(id=task.id, task=task.objective, seed=seed, max_steps=attempt.reserved.tool_calls + 1,
             max_tool_calls=attempt.reserved.tool_calls + 1)
@@ -253,7 +253,10 @@ class WorkerHandle:
                     try:
                         self.control.sendall(b'.')
                     except OSError:
-                        self.stopping.set()
+                        # A terminal worker closes control after its accepted
+                        # result. That close is not an owner cancellation.
+                        if self.result is None and not self.rpc_done.is_set():
+                            self.stopping.set()
                     pulse = now
                 if self.stopping.is_set() or self.error:
                     with connection.transaction():
@@ -273,10 +276,8 @@ class WorkerHandle:
             task, workflow = connection.task(self.scope, attempt.task_id), connection.workflow(self.scope, attempt.workflow_id)
             if task.fence != attempt.fence or attempt.state != 'running' or workflow.state != 'running':
                 self.stopping.set()
-            if self.result is not None and not self.stopping.is_set():
-                with connection.transaction():
-                    connection._reconcile(self.scope, workflow, attempt, 'review_artifact_pending')
-            else:
+            publish = self.result is not None and not self.stopping.is_set()
+            if not publish:
                 # Group absence settles only local file tools. Unknown pytest effects need host reconciliation.
                 for call in Tools(connection).calls(self.scope, workflow.id):
                     if call.attempt_id == attempt.id and call.status in {'running', 'uncertain'}:
@@ -297,6 +298,15 @@ class WorkerHandle:
                 connection.db.execute('UPDATE workers SET data=? WHERE id=?', (self.record.model_dump_json(), self.record.id))
                 connection._event(self.scope, workflow, 'worker_stopped', task=task, attempt=attempt,
                     worker_id=self.record.id, exit_code=self.process.returncode, result_hash=self.result)
+            if publish:
+                try:
+                    Artifacts(connection, self.runtime.root).publish(self.scope, attempt.id, attempt.fence)
+                except StoreError as error:
+                    with connection.transaction():
+                        attempt = connection._attempt(attempt.id)
+                        if attempt.state == 'running':
+                            connection._reconcile(self.scope, workflow, attempt, 'artifact_' + error.code)
+                        connection._event(self.scope, workflow, 'artifact_blocked', task=task, attempt=attempt, reason=error.code)
         except (OSError, ValueError, sqlite3.Error, subprocess.SubprocessError) as error:
             self.error = type(error).__name__ + ':' + str(getattr(error, 'code', 'supervision'))
             self.stopping.set()

@@ -2,6 +2,85 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Task6 exact artifacts, host review and verified integration — 2026-10-16
+
+The increment after `8395e5f` adds frozen `domain/results.py` contracts and
+Store schema8: artifacts, reviews, integrations and durable execution lanes.
+A stopped real worker's byte/mode delta becomes an immutable artifact only
+after recorded group absence and settled model/tool calls. Scope violations
+retain the raw result and an explicit blocker. Publication frees unused reserves
+and the instance, keeps actual spending, and leaves the author awaiting review.
+Pause/cancel/release now settle that already-stopped author without modifying
+an instance that has since been assigned elsewhere.
+
+`Reviews.run` uses a separate reviewer attempt/instance, exact input artifact
+hash and an owner-approved four-stage oracle. This is actual registered-check
+review, not a claimed semantic/model review. Every subprocess is charged through
+`CheckExecutor` in the shared ledger. Exhausted/unstarted checks cannot approve;
+owner cancellation after passing checks retains the evidence but produces an
+inconclusive review and settles the cancelled attempt. Changing reruns on replay
+is an idempotency conflict. Durable execution lanes prevent concurrent/replayed
+worker, host-review and integration execution for one attempt, including restart.
+They preserve unknown work; they do not automatically recover or replay it.
+
+`Integration.run` binds exact reviews, author ownership and all workflow task
+contracts; serializes an integration record; checks the merged copy; applies the
+approved delta; and performs fresh registered source verification before atomic
+canonical task/workflow success. No filesystem check or subprocess runs inside
+the final SQL transaction. Other active attempts, unselected published root
+assignments, changed source bases, artifact/contract changes and unresolved
+resources block completion. Root aggregation cannot hide a current assignment.
+
+`Application` uses native exchange/exclusive rename with no-follow directory
+descriptors. The actual displaced objects stay outside the subject, preserving
+concurrent replacements and late writes through open descriptors. Rollback uses
+those objects rather than recreating stale baseline bytes; uncertain races retain
+both versions for reconciliation. The persisted intent journal supports local
+rollback after reconstruction. A final current-object check prevents passing
+source tests from hiding changes to retained originals. No unsafe rename fallback
+is allowed. These real filesystem checks ran on macOS; Linux uses renameat2 but
+has not been executed here.
+
+An actual terminal-channel race also appeared during negative testing: normal
+control closure after an accepted worker result could be classified as runtime
+Stop. A deterministic RPC/control-boundary test reproduced it. Terminal closure
+now preserves the raw result, while fencing, cleanup errors and group absence
+still gate publication.
+
+Task6 remains open. Next: coordinator recovery/reconciliation after host crash;
+current-result invalidation and reopen/archive audit; idempotent integration
+lookup; actual two-writer conflict/combined-regression scenarios and canonical
+resolution tasks; full cancellation/deadline/rerun matrix; shared API/UI wiring.
+The completion path above is an internal host service, not a new UI workflow or
+completion authority for model/browser input. Task5 dispatcher/shared legacy
+endpoint admission and Tasks7–8 also remain open. No biological/scientific or
+orchestration admission follows from these HTTP-fixture/process tests.
+
+A fresh bounded live check also passed on the same frozen implementation
+`ce5bf96e533bccb295ee4a79db2b209051223862bd5019fb5292f6c0379d8385`.
+The loaded Qwen primary probe passed in19.99s (one request,8192 context).
+Its separate actual canonical repair completed in49.01s:3 primary model calls,
+5 author tools,4 independent review checks and17 integrator tools,26 tools total.
+The workflow reached succeeded with current source acceptance, no outstanding
+reserves/uncertainty, unchanged test files and preserved user-dirty binary bytes.
+There was no scorer, fallback or model loading. This is one small repair smoke,
+not a generalization, semantic-review or orchestration-admission claim. The old
+Task5 timeout below remains a retained negative result of its earlier run.
+
+Frozen-source full default suite:703 passed/8 skipped in394.79s. Relevant Ruff
+and mypy pass (21 source files for mypy). An isolated pip build produced
+`flycode-0.1.0-py3-none-any.whl`; all130 packaged Python files and README match
+the checkout byte-for-byte. Extracted CLI lists all ten registered controllers.
+Wheel SHA256:
+`514d1a14b5322ac288eef004e146973cc601c4c3dd675e3e07042fbbfd1f3461`.
+All48 extracted-package application/delivery/runtime checks pass in65.97s;
+all5 opt-in real FlyWire checks pass in5.15s. Source identity remains unchanged.
+Full JUnit/logs, wheel, live scripts, real workflow ledger, oracle, snapshots and
+evidence are archived under
+`~/.cache/flycode/validation/flycode-task6-validation-d603178d` (269 retained
+files plus the checksum manifest). This is a historical measurement archive;
+absolute subject/evidence references retain the original execution paths.
+
 ## Task5 model-selected communication — 2026-10-16
 
 The increment after `5889867` connects the existing typed broker to actual

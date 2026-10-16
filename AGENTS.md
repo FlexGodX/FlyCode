@@ -184,6 +184,7 @@ When the user corrects your approach, append a one-line rule here before ending 
 - For UI-only tasks, run interface/browser tests only unless the user requests broader testing.
 - Folder selection must offer a native system dialog; do not require users to type local paths.
 - Read `model_end.error` and request timestamps before reporting a model timeout; polling duration and event counts alone do not prove failure.
+- After an accepted terminal worker result, control-channel closure alone is not owner cancellation; still confirm group absence and current ownership before publishing.
 
 ## 12. How this file was built
 

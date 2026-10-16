@@ -103,8 +103,9 @@ def verify_plan(engine: 'VerificationEngine', plan: VerificationPlan, roots: dic
                     # Use the same registered adapter as standalone suite verification.
                     from .engine import run_pytest
 
-                    attempt = run_pytest(sandbox, output, check.timeout, number, should_stop, targets=check.targets,
-                        on_state=partial(event, check_id=check.id, attempt_id=attempt_id))
+                    attempt = engine._invoke(check, number, partial(run_pytest,
+                        sandbox, output, check.timeout, number, should_stop, targets=check.targets,
+                        on_state=partial(event, check_id=check.id, attempt_id=attempt_id)))
                     attempt = attempt.model_copy(update={'id': attempt_id, 'check_id': check.id, 'plan_id': plan.id,
                         'subject_hash': check.subject_hash, 'cases': [case.model_copy(update={
                             'check_id': check.id, 'subject_hash': check.subject_hash}) for case in attempt.cases]})

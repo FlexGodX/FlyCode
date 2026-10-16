@@ -4,6 +4,7 @@ import hashlib
 import shutil
 import stat
 from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 from uuid import uuid4
 
@@ -27,10 +28,15 @@ from .verdict import evaluate
 
 
 class VerificationEngine:
-    def __init__(self, data_dir: Path) -> None:
+    def __init__(self, data_dir: Path, *, invocation_executor: Callable[
+            [CheckSpec, int, Callable[[], CheckAttempt]], CheckAttempt] | None = None) -> None:
         self.data_dir = data_dir.resolve()
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.oracles = OracleRegistry(self.data_dir / 'oracles')
+        self.invocation_executor = invocation_executor
+
+    def _invoke(self, check: CheckSpec, number: int, invocation: Callable[[], CheckAttempt]) -> CheckAttempt:
+        return self.invocation_executor(check, number, invocation) if self.invocation_executor else invocation()
 
     def verify_plan(self, plan: VerificationPlan, roots: dict[str, Path], *,
                     should_stop: Callable[[], bool] = lambda: False) -> VerificationVerdict:
@@ -61,7 +67,8 @@ class VerificationEngine:
                 shutil.copytree(subject, sandbox)
                 output = directory / f'attempt-{number}'
                 try:
-                    attempt = run_pytest(sandbox, output, timeout, number, should_stop)
+                    attempt = self._invoke(plan.checks[0], number,
+                        partial(run_pytest, sandbox, output, timeout, number, should_stop))
                     attempts.append(attempt)
                     try:
                         files, _ = input_files(sandbox)

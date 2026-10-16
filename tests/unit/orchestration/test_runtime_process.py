@@ -47,7 +47,9 @@ def test_real_worker_runs_agent_in_private_copy_without_claiming_completion(owne
         assert record.pid == handle.process.pid and record.exit_code is not None
         assert (source / 'src/example.py').read_text() == 'answer = 0\n'
         assert store.task(owner, task.id).state != 'succeeded'
-        assert store._attempt(attempt.id).state == 'reconciling'
+        assert store._attempt(attempt.id).state == 'awaiting_review'
+        from flycode.orchestration.artifacts import Artifacts
+        assert Artifacts(store, runtime.root).for_attempt(owner, attempt.id).result_hash == record.result_hash
         assert Resources(store).calls(owner, workflow.id)[0].status == 'completed'
         assert any(call.tool == 'read_file' and call.status == 'completed' for call in Tools(store).calls(owner, workflow.id))
         events = store.events(owner, workflow.id)
@@ -55,6 +57,47 @@ def test_real_worker_runs_agent_in_private_copy_without_claiming_completion(owne
         assert any(event.kind == 'agent_activity' for event in events)
         assert any(event.kind == 'worker_stopped' for event in events)
     finally:
+        handle.close()
+
+
+def test_terminal_worker_control_close_does_not_revoke_accepted_result(owned, tmp_path, monkeypatch):
+    from flycode.orchestration import runtime as module
+
+    store, owner, host, _, task, attempt, source = owned
+    runtime = module.Runtime(store, tmp_path / 'runtime')
+    release, injected = Event(), Event()
+    send = module.wire.send
+    handle = None
+
+    def hold_result_reply(channel, payload):
+        if handle is not None and handle.result is not None and channel is handle.rpc:
+            assert release.wait(5)
+        return send(channel, payload)
+
+    monkeypatch.setattr(module.wire, 'send', hold_result_reply)
+    handle = runtime.launch(host, attempt.id, attempt.fence, source, brain='heuristic_fsm')
+    control = handle.control
+
+    class TerminalControl:
+        def sendall(self, data):
+            if handle.result is not None:
+                release.set()
+                assert handle.rpc_done.wait(5)
+                injected.set()
+                raise BrokenPipeError('Terminal worker closed its control channel')
+            return control.sendall(data)
+
+        def close(self):
+            control.close()
+
+    handle.control = TerminalControl()
+    try:
+        assert handle.finished.wait(10), handle.error
+        assert injected.is_set() and handle.error is None
+        assert runtime.worker(owner, attempt.id).stop_confirmed
+        assert store.task(owner, task.id).state == 'awaiting_review'
+    finally:
+        release.set()
         handle.close()
 
 

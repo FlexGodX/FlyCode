@@ -16,6 +16,8 @@ from ..domain.orchestration import (
     MessageDraft,
     ToolCall,
 )
+from ..domain.verification import CheckSpec
+from ..verification.plan import validate_target
 from .store import Store, StoreError, changed, covers
 
 SUPPORTED = {'read_file', 'list_files', 'search', 'edit_file', 'create_file', 'run_tests', 'send_message'}
@@ -111,6 +113,26 @@ class Tools:
             raise RuntimeError('Tool authorization cannot run in a SQLite transaction')
         _, task, workflow = store._owned(scope, attempt_id, fence, running=True)
         action = authorize(root, action, task.permissions, workflow.deadline_at - store.clock())
+        return self._begin(scope, attempt_id, fence, action)
+
+    def begin_check(self, scope, attempt_id, fence, check: CheckSpec, number: int) -> ToolCall:
+        """Host-only admission of an already registered pytest invocation."""
+        if self.store.db.in_transaction:
+            raise RuntimeError('Check admission cannot run in a SQLite transaction')
+        attempt, task, _ = self.store._owned(scope, attempt_id, fence, running=True)
+        if (task.kind != 'review' or attempt.profile_snapshot.role != 'reviewer' or task.permissions is None
+                or not task.permissions.approved or task.permissions.read_scopes != ('.',)
+                or 'run_tests' not in task.permissions.tools or not 1 <= number <= 3):
+            raise StoreError('permission')
+        check = CheckSpec.model_validate(check.model_dump())
+        for target in check.targets:
+            validate_target(target)
+        action = ToolAction(id=uuid4().hex, tool='run_tests', source='host',
+            arguments={'registered_check': check.model_dump(mode='json'), 'number': number})
+        return self._begin(scope, attempt_id, fence, action)[0]
+
+    def _begin(self, scope, attempt_id, fence, action):
+        store = self.store
         digest = hashlib.sha256(json.dumps(action.arguments, sort_keys=True, allow_nan=False).encode()).hexdigest()
         with store.transaction():
             attempt, task, workflow = store._owned(scope, attempt_id, fence, running=True)
