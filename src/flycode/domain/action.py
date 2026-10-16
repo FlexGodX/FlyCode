@@ -1,5 +1,6 @@
 """Action models: concrete tool calls and LLM-generated candidates."""
 
+import json
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -76,6 +77,11 @@ class ToolAction(BaseModel):
     def is_mutating(self) -> bool:
         return self.tool in MUTATING_TOOLS
 
+    @property
+    def is_pinned_read(self) -> bool:
+        artifact = self.arguments.get("artifact_id")
+        return self.tool == "read_file" and isinstance(artifact, str) and bool(artifact)
+
     def fingerprint(self, mode: str = "execute") -> str:
         """Coarse identity of this action for habituation tracking."""
         target = (
@@ -86,6 +92,10 @@ class ToolAction(BaseModel):
             or ""
         )
         key = self.arguments.get("key") or ""
+        if self.is_pinned_read:
+            return "pinned-read-v1:" + json.dumps(
+                [mode, self.tool, target, key, self.arguments["artifact_id"]], separators=(",", ":")
+            )
         return f"{mode}:{self.tool}:{target}:{key}"
 
 

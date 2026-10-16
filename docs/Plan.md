@@ -2811,3 +2811,16 @@ Ruff/mypy45. Отдельный простой Qwen smoke прошёл за95.86
 16 ответах; одинаковая identity и отсутствие habituation для бесполезного
 успешного чтения требуют отдельного regression. Обучение и promotion из этого
 не следуют; Task5–8 остаются открытыми.
+
+Срез pinned-read feedback 2026-10-17 различает immutable inputs по artifact ID,
+сохраняет фактический success отдельно от полезности и снижает вес бесполезных
+повторов вычитанием, включая нулевой/отрицательный bias. Проверены837 passed/
+8 skipped (845 ID),150 extracted-wheel,5 FlyWire, Ruff/canonical mypy45;3 прежних
+ошибки типизации Functional совпадают с неизменённой базой. Новый Qwen-сценарий
+всё ещё FAIL:285.625s,9 моделей/23 tools. Resolver читает только A дважды и угадывает
+patch3 без B/рабочего файла; local verified_completion не заменяет требуемые
+наблюдения. Canonical проверка отвергает его до review/integration, source0
+сохранён. Все вызовы/группы завершены, резерв0, owner cancellation сохраняет
+patch/history/spend. Нативный выигрыш habituation не доказан; нужен host gate
+обязательных входов. Топология/checkpoints/defaults не меняются, Task5–8 открыты.
+[Отчёт обратной связи](validation/2026-10-17-pinned-read-feedback.md).

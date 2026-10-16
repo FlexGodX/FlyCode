@@ -219,7 +219,9 @@ class FunctionalFlyBackend(BrainBackend):
             base = self._state.action_bias.get(candidate.tool, 0.0)
             credit = self.mushroom_body.value(code, candidate.tool) if code is not None else 0.0
             discount = self.habituation.discount(candidate, mode)
-            scores[candidate.id] = float(np.clip(base + 0.3 * credit, -1.0, 1.0)) * discount
+            score = float(np.clip(base + 0.3 * credit, -1.0, 1.0))
+            # Immutable rereads must lose weight even when their bias is zero or negative.
+            scores[candidate.id] = max(-1.0, score - (1.0 - discount)) if candidate.is_pinned_read else score * discount
         return scores
 
     def record_outcome(self, action: ToolAction, mode: str, utility: float, success: bool) -> None:

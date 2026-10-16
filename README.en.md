@@ -163,7 +163,11 @@ merge of individually green patches is rejected before writing to the source
 folder. An owner-approved resolver reads both pinned versions through host-routed
 `read_file` with an explicit artifact ID; each read charges one tool call. Reads
 require valid pins and paths and support UTF-8 files up to3,500 bytes; binary or
-larger inputs fail explicitly. Input provenance survives workspace edits. The
+larger inputs fail explicitly. Input provenance survives workspace edits.
+The controller distinguishes pinned versions of the same path and lowers the
+weight of repeated immutable reads without useful outcomes, including zero or
+negative starting bias. A successful read alone is not progress; mutable workspace
+rereads retain their previous behavior. The
 model context retains pinned observations, workspace reads and failure diagnostics;
 optional old history is compacted, and required data that still cannot fit blocks
 inference before HTTP. The

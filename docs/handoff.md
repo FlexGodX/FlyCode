@@ -2,6 +2,40 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Pinned-read feedback correction — 2026-10-17
+
+Versioned immutable-input identity distinguishes artifact selectors. Actual
+success stays separate from useful outcomes, and a pinned-only bounded
+subtractive penalty handles zero/negative bias. Mutable rereads and all biological
+and checkpoint bytes remain unchanged. Initial8 RED failures, intermediate4 sign
+failures, final92 related cases pass. Full837 passed/8 skipped (845 IDs once),
+150 extracted-wheel,5 actual FlyWire, Ruff and canonical mypy45 pass. Direct
+Functional typing retains3 identical pre-existing diagnostics; no new errors.
+Frozen source:
+`9842d1e284804066c34004771e3b6059acdb8fd96aa05b3d7c2c273e69c3dea4`.
+[Report](validation/2026-10-17-pinned-read-feedback.md).
+
+Explicit Qwen probe passes22.691s. New English conflict case FAILS285.625s,
+9 models/23 tools: authors1/2 pass review, resolver reads A twice, skips B and
+workspace, then guesses private answer3. Local verified_completion is true,
+but the canonical case rejects missing required reads before resolver review/
+integration. Original source stays0. This does not establish a native causal
+habituation gain or pass the earlier failed case. All3 workers and8 registered
+checks are stopped, all10 model records known, reserved0/uncertainfalse. Owner
+cancellation changes only the resolver attempt; artifacts/history/spend stay.
+Archive: `~/.cache/flycode/validation/flycode-pin-feedback-n0wjdto0`.
+
+Next: host-side mandatory resolution input observation gate before mutations
+and publication, with RED coverage for correct numeric guesses that skip inputs.
+The isolated AutoClaim prototype now has47 store/capacity checks plus Ruff/mypy40
+passing,64 tasks/165 synthetic zero-effect prior attempts. One capacity sample
+reduces SELECTs42,955→409 and1.198s→0.0173s. It is not merged, full/package/native
+checked or dispatcher acceptance. Exact5-file patch/proofs:
+`~/.cache/flycode/validation/flycode-auto-capacity-prototype-28v8oi6z`;
+working copy `/private/tmp/flycode-auto-reservation-kps6e829`.
+Tasks5–8 remain open. Historical296-run results/10 checkpoints are intact and
+trained variants remain rejected; the new engineering case is outside that cohort.
+
 ## Standalone review recovery — 2026-10-17
 
 Schema11 records exact review input/oracle/fence and coordinator custody before

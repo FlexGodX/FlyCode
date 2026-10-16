@@ -23,6 +23,7 @@ class HabituationEntry(BaseModel):
     fingerprint: str
     count: int = 0
     successes: int = 0
+    useful_outcomes: int = 0
     last_utility: float = 0.0
 
 
@@ -43,6 +44,7 @@ class HabituationModule:
         entry = self._entries.get(key) or HabituationEntry(fingerprint=key)
         entry.count += 1
         entry.successes += int(success)
+        entry.useful_outcomes += int(success and utility > 0)
         entry.last_utility = utility
         self._entries[key] = entry
 
@@ -58,7 +60,8 @@ class HabituationModule:
         if entry is None or entry.count <= 1:
             return 1.0
 
-        useless_repeats = entry.count - 1 - entry.successes
+        useful = entry.useful_outcomes if action.is_pinned_read else entry.successes
+        useless_repeats = entry.count - 1 - useful
         if useless_repeats <= 0:
             return 1.0
         return max(0.1, 1.0 - self.decay * useless_repeats)

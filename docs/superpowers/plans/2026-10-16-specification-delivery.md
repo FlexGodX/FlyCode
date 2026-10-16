@@ -836,6 +836,27 @@ limits: `docs/validation/2026-10-16-coordinator-custody.md`. Task6 remains open.
 - [ ] Verify semantic revision invalidates result, metadata revision preserves evidence, reopen/archive audit and review queue current assignee.
 - [ ] Commit only after actual end-to-end task reaches current verified completion.
 
+**Pinned-read feedback increment (2026-10-17, checked regression):** versioned
+artifact-aware identity and useful-outcome accounting retain actual success;
+pinned-only subtractive habituation lowers signed bias without affecting mutable
+rereads.8 initial REDs and4 intermediate signed-bias REDs are retained; final92
+related checks pass. Frozen source9842:837 passed/8 skipped (845 exact IDs),
+150 extracted-wheel,5 real graph, Ruff/canonical mypy45 pass. Three direct
+Functional typing diagnostics match unchanged HEAD. No graph/checkpoint/default
+change or promotion. [Plan](2026-10-17-pinned-read-feedback.md),
+[report](../../validation/2026-10-17-pinned-read-feedback.md).
+
+The newly registered English Qwen conflict case fails285.625s,9 models/23 tools.
+Both authors pass review; resolver reads A twice and guesses private answer3
+without B or workspace. The required-read assertion rejects it before resolver
+review/integration; local verified_completion is insufficient. Source0 survives,
+all3 workers are stopped,8 registered checks have natural stop receipts, all10 model records are known,
+reserved0/uncertainfalse. Owner cancellation preserves all artifacts/spend and
+changes only resolver awaiting_review→cancelled. Shorter failed execution does
+not establish native causal benefit. Next RED is a host-enforced mandatory-input
+observation gate before mutation and artifact acceptance, not model self-report.
+Task6 and the aggregate delivery plan remain open.
+
 ### Task 7: Нейронные назначения и исследования (18/19/23/24)
 
 **Files:** create `src/flycode/orchestration/{encoder,policy}.py`; research orchestration adapter; tests replay, failure injection and scoped admission.
