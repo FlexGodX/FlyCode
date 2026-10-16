@@ -16,23 +16,29 @@ are held out of this training run (existing project fixtures, not unseen researc
 
 - [x] Reproduce fingerprint omission with failing training/telemetry mutation tests;
   include both packages, then pass identity/benchmark/constrained-training tests.
-- [ ] Freeze `benchmarks/feedback-v1/protocol.json` before any measured run.
+- [x] Freeze `benchmarks/feedback-v1/protocol.json` before any measured run.
   Validate all generated `BenchmarkConfig` inputs. Verify source file checksums
   and graph fingerprint against the released-source metadata.
-- [ ] Run five frozen baselines (FSM, reservoir, RNN, Functional Fly, Full Fly),
+- [x] Run five frozen baselines (FSM, reservoir, RNN, Functional Fly, Full Fly),
   five seeds, four fixtures, bias/hard: 200 cases. Record every failure and cost.
-- [ ] Record ten Functional Fly heuristic teacher episodes, independently rerun
+- [x] Record ten Functional Fly heuristic teacher episodes, independently rerun
   unchanged original tests; curate successful training fixtures only. Train one
   checkpoint per seed using the existing CLI. Check immutable topology and report
   in-sample accuracy separately from task success.
-- [ ] Run trained Full Fly on the same forty conditions. Independently verify all
+- [x] Run trained Full Fly on the same forty conditions. Independently verify all
   measured repositories against the original test bytes and retain raw evidence.
   Compare paired outcomes/tool calls, including train/held-out splits separately.
-- [ ] Run frozen/trained Full Fly with the loaded local Qwen model on two held-out
+- [x] Preserve the first candidate's training-family regression (14/20 → 10/20).
+  Execute the separately registered exploratory `refinement.json`: use only ten
+  independently passing Full Fly bias training episodes, fit five checkpoints,
+  evaluate forty conditions. No held-out labels enter fitting/selection.
+- [x] Run frozen/trained Full Fly with the loaded local Qwen model on two held-out
   fixtures, seed 0, bias, single-model mode. Limit each case to 8 model calls and
   12 tools/steps; entire live phase to 30 minutes, one sequential inference stream.
   Retain HTTP model events/errors; no fallback or automatic model loading.
-- [ ] Publish protocol, compact raw results, feedback, checkpoint manifests/hashes,
+  The refinement adds two live cases; all six share the original phase deadline
+  and consume at most 48 model calls / 72 tools.
+- [x] Publish protocol, compact raw results, feedback, checkpoint manifests/hashes,
   reproducible instructions and honest limitations in README RU/EN and handoff.
   Run relevant checks and commit/push. Keep the wider delivery goal active.
 
@@ -51,3 +57,11 @@ success is unchanged and mean tools falls by at least 10%, with no new regressio
 or unsafe execution. Do not activate a regressing candidate or rewrite failures
 after observing results. This small fixture benchmark cannot establish §§90–99
 scientific acceptance or orchestration admission; no such promotion is requested.
+
+## Outcome
+
+All execution and publication checks are complete for this benchmark scope.
+296 agent runs, 306 independent audits, four negative controls, ten checkpoints.
+Refined toy success improves 14/20→20/20, but Qwen transfer regresses 2/2→0/2.
+Both candidates are retained and rejected as default replacements. Raw artifacts
+stay external; the wider specification-delivery goal remains active.

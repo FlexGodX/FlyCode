@@ -41,6 +41,13 @@ single-Qwen repair не был принят из-за короткого timeout
 прогоны на runtime `18913d5` прошли; результаты и границы сохранены в
 `docs/validation/2026-10-16-model-selection.json`. Старый failure не удалён.
 
+Отдельный запрос benchmark/training выполнен на runtime `694d42d`:
+`docs/validation/2026-10-16-feedback-benchmark.md`, 296 реальных запусков,
+английские запросы, immutable biological graph, две сохранённые попытки обучения.
+Toy-family completion 14/20→20/20, но single-Qwen held-out 2/2→0/2; trained
+checkpoints не активированы. Этот ограниченный standalone эксперимент не закрывает
+Task7, orchestration admission или §§90–99. Следующая поставка здесь остаётся Task4.
+
 Trusted-local pytest engine/CLI опубликованы в `5d16b5a`; Task3a реализует
 owner-approved критерии, oracle bytes и составной план. Общий runtime completion
 по-прежнему требует очереди, review и integration (Tasks4–6).

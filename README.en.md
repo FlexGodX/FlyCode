@@ -286,6 +286,19 @@ not unseen real repositories. `cortex` accepts `heuristic`, the research-only
 configuration per seed with that seed's checkpoint. Reports show actual costs;
 compute equivalence is not assumed.
 
+The 2026-10-16 feedback benchmark provides a [protocol and recipe](benchmarks/feedback-v1/README.md)
+and [full report](docs/validation/2026-10-16-feedback-benchmark.md). Its 280 offline
+runs cover five frozen baselines and two trained candidates, five seeds, four
+fixture families and bias/hard control; all prompts are English. The first
+training attempt regresses and remains in the report. Refining on successful
+short teacher trajectories raises Full Fly toy-family completion from 14/20 to
+20/20, with no heuristic-cortex held-out transfer. Biological adjacency remains
+unchanged; checkpoints stay separate and do not change application defaults.
+This is neither scientific acceptance nor production admission.
+In six actual Qwen runs, frozen Full Fly solves 2/2 tasks, the first trained
+candidate 1/2 and the refined candidate 0/2. Both trained candidates are rejected
+as replacements; higher training accuracy does not hide the live regression.
+
 Phase 11 is partial: neuron input/synaptic-gain lesions and parameter sensitivity
 are measured on recorded trajectories. Graph structure and source files remain
 unchanged. `counterfactual_task_success` stays `null`: replay probes do not

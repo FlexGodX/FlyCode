@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "kind": "exploratory training-feedback refinement after the primary experiment",
+  "reason": "Primary Functional Fly teacher repeats tests and its trained Full Fly falls from 14/20 to 10/20 on training-family tasks. Use successful Full Fly bias trajectories instead; do not select or fit using held-out outcomes.",
+  "source": "baseline",
+  "teacher_controller": "full",
+  "control": "bias",
+  "fixtures": ["toy_arithmetic_bug", "toy_import_bug"],
+  "required_episodes": 10,
+  "filter": "Native verified success, no run error, unchanged original tests, independent pytest pass with exact original case IDs.",
+  "ridge": 0.00001,
+  "seeds": [0, 1, 2, 3, 4],
+  "evaluation": "Same 40 tournament conditions; exploratory repeated held-out evaluation, not a fresh confirmatory test.",
+  "live_extension": "Add refined seed-0 checkpoint on the same two held-out fixtures: all six live cases share the existing 30-minute phase limit, at most 48 model calls and 72 tools.",
+  "activation": "No default checkpoint change; report all candidates and failures. No scientific or production admission."
+}

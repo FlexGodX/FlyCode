@@ -2,6 +2,35 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Feedback benchmark and rejected training candidates — 2026-10-16
+
+English-prompt `benchmarks/feedback-v1` is executed on runtime `694d42d`:
+200 frozen baseline + 40 primary trained + 40 exploratory refined + 10 teacher
+and 6 real Qwen runs = 296 agent runs. Original tests/case IDs were independently
+checked, with 306 audits and four pristine negative controls. All raw evidence,
+repositories, telemetry and ten numeric checkpoints remain under
+`~/.cache/flycode/experiments/2026-10-16-feedback-v1`; public outcome/feedback/
+manifest hashes are in `benchmarks/feedback-v1/results.json`. Recipe and report:
+`benchmarks/feedback-v1/README.md`, `docs/validation/2026-10-16-feedback-benchmark.md`.
+
+Functional teacher (90 actions) improves imitation 44.4%→88.9% but regresses toy
+completion 14/20→10/20. Separately registered refinement on ten successful Full
+Fly bias episodes (50 actions) reaches 100% imitation and 20/20 toy completion,
+but heuristic held-out remains 0/20. Real single-Qwen transfer: frozen 2/2,
+primary trained 1/2, refined 0/2. Three failures exhaust 8-call budgets; no provider
+errors. Entire live phase: 585.54s, 34 requests, 45 tools, sequential model events.
+The refined helper case repeatedly tests without editing. Both training candidates
+are rejected as live replacements; defaults stay unchanged. No further held-out
+tuning was done. Preserve this negative result, not just the toy improvement.
+
+Real graph source checksums/fingerprint and all ten checkpoint mappings/mode
+readouts/topology were verified; only tool readout and bounded gain/leak change.
+Identity now includes training and telemetry, reproduced RED then fixed. Relevant
+research/training tests: 38 passed; opt-in real graph tests: 5 passed; Ruff/mypy passed.
+This is four known synthetic families, not matched compute or §§90–99 evidence.
+The orchestration goal remains active: canonical SQLite Task4 is still next;
+this standalone benchmark does not implement or admit ORC19/24.
+
 ## Live single/dual model acceptance — 2026-10-16
 
 On runtime `18913d5`, a real CLI `--no-decision-model` repair completed in 134.65s
