@@ -744,6 +744,36 @@ def test_pinned_tool_contract_and_observations_survive_optional_context_compacti
     assert len(context.observation.recent_logs[0]) > 10000
 
 
+def test_exact_repeated_facts_fit_without_losing_distinct_versions(owned, pending_resolution, model_server):
+    from flycode.domain import Observation
+    from flycode.llm.protocol import CortexContext
+    from flycode.orchestration.cortex import AttemptCortex
+
+    store, owner, host, workflow, _, _, _ = owned
+    runtime, artifacts, _, resolver, _, _ = pending_resolution
+    facts = [f'[artifact:{item.id} patch={item.patch_hash} file=known] read_file(src/example.py):\nanswer = 1\n'
+        for item in artifacts]
+    original = 'read_file(src/example.py):\nanswer = 0\n'
+    changed = 'read_file(src/example.py):\nanswer = 3\n'
+    failure = 'edit_file(src/example.py): FAILED: old_text not found'
+    context = CortexContext(task='Resolve both inputs.', behavior_mode='diagnose',
+        observation=Observation(task='Resolve both inputs.'),
+        working_memory=[original, changed, *facts, failure, *[original] * 20])
+    before = context.model_dump()
+    cortex = AttemptCortex(store, host, resolver.id, resolver.fence, artifact_root=runtime.root)
+    spent = store.budget(owner, workflow.id).spent.model_calls
+    assert cortex.generate_candidates(context)
+    prompt = model_server.requests[-1]['messages'][-1]['content']
+    for fact in [original, changed, failure, *facts]:
+        assert prompt.count(fact) == 1
+    assert prompt.index(changed) < prompt.index(original)  # retain the latest exact occurrence
+    assert context.model_dump() == before
+    assert store.budget(owner, workflow.id).spent.model_calls == spent + 1
+    compacted = [event for event in store.events(owner, workflow.id) if event.kind == 'artifact_context_compacted']
+    assert compacted[-1].data['removed']['duplicates'] == 20
+    assert compacted[-1].data['removed']['facts'] == 0
+
+
 def test_completed_result_is_current_across_metadata_archive_and_replay(owned, delivery, completed):
     store, owner, host, workflow, task, _, _ = owned
     service, result, integrator = completed

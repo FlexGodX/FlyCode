@@ -7,6 +7,7 @@ Caller scopes are supplied by the trusted host, not by a worker's task content.
 import hashlib
 import json
 import math
+import os
 import sqlite3
 import time
 from collections.abc import Callable
@@ -45,6 +46,10 @@ def required_task(task: WorkItem) -> bool:
     return task.retired_by_result is None
 
 
+def default_state_path() -> Path:
+    return Path(os.environ.get('FLYCODE_STATE_DATABASE') or Path.home() / '.local/share/flycode/state.sqlite').expanduser().resolve()
+
+
 class StoreError(ValueError):
     def __init__(self, code: str, message: str = '', current=None):
         super().__init__(f'{code}: {message}')
@@ -71,7 +76,7 @@ class Store:
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=FULL')
         version = self.db.execute('PRAGMA user_version').fetchone()[0]
-        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9):
+        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
             self.db.close()
             raise StoreError('schema_version', str(version))
         self.db.executescript('''
@@ -109,7 +114,7 @@ class Store:
             CREATE TABLE IF NOT EXISTS outbox (
                 sequence INTEGER PRIMARY KEY REFERENCES events(sequence), delivered_at REAL);
             CREATE TABLE IF NOT EXISTS model_calls (
-                id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL REFERENCES attempts(id),
+                id TEXT PRIMARY KEY, attempt_id TEXT REFERENCES attempts(id),
                 endpoint_ref TEXT NOT NULL, state TEXT NOT NULL, data TEXT NOT NULL);
             CREATE UNIQUE INDEX IF NOT EXISTS active_endpoint ON model_calls(endpoint_ref)
                 WHERE state IN ('running','uncertain');
@@ -154,8 +159,24 @@ class Store:
                 attempt_id TEXT PRIMARY KEY REFERENCES attempts(id),
                 mode TEXT NOT NULL CHECK(mode IN ('worker','review','integration')));
             CREATE UNIQUE INDEX IF NOT EXISTS current_integration ON integrations(workflow_id) WHERE state='completed';
-            PRAGMA user_version=9;
         ''')
+        if version < 10:
+            try:
+                with self.transaction():
+                    if any(row['name'] == 'attempt_id' and row['notnull'] for row in self.db.execute('PRAGMA table_info(model_calls)')):
+                        self.db.execute('ALTER TABLE model_calls RENAME TO model_calls_previous')
+                        self.db.execute('DROP INDEX active_endpoint')
+                        self.db.execute('''CREATE TABLE model_calls (
+                            id TEXT PRIMARY KEY, attempt_id TEXT REFERENCES attempts(id),
+                            endpoint_ref TEXT NOT NULL, state TEXT NOT NULL, data TEXT NOT NULL)''')
+                        self.db.execute('''INSERT INTO model_calls(rowid,id,attempt_id,endpoint_ref,state,data)
+                            SELECT rowid,id,attempt_id,endpoint_ref,state,data FROM model_calls_previous''')
+                        self.db.execute('DROP TABLE model_calls_previous')
+                        self.db.execute("CREATE UNIQUE INDEX active_endpoint ON model_calls(endpoint_ref) WHERE state IN ('running','uncertain')")
+                    self.db.execute('PRAGMA user_version=10')
+            except BaseException:
+                self.db.close()
+                raise
 
     def close(self):
         self.db.close()

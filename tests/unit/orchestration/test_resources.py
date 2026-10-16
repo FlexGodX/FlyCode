@@ -27,7 +27,10 @@ from flycode.orchestration.store import Store, StoreError
 
 @pytest.fixture
 def active(tmp_path, model_server, request):
-    model_server.instance_ids = getattr(request, 'param', {})
+    options = dict(getattr(request, 'param', {}))
+    if options.pop('_uppercase_scheme', False):
+        model_server.url = model_server.url.replace('http:', 'HTTP:', 1)
+    model_server.instance_ids = options
     model_server.respond = lambda request: model_server.completion(json.dumps({'candidates': [
         {'tool': 'read_file', 'arguments': {'path': 'sample.py'}}]}))
     catalogue = ModelCatalogue(model_server.url)
@@ -139,6 +142,368 @@ async def test_real_requests_are_serial_while_wait_and_stop_remain_responsive(ac
     finally:
         release.set()
         await asyncio.gather(first, second, return_exceptions=True)
+
+
+@pytest.mark.parametrize('role', ['primary', 'scorer'])
+async def test_default_standalone_clients_wait_for_canonical_endpoint_and_cancel_without_debit(active, model_server, monkeypatch, tmp_path, role):
+    from flycode.domain import CandidateAction, Observation, TaskSpec, ToolAction
+    from flycode.llm.lmstudio import make_lmstudio_cortex
+    from flycode.llm.protocol import CortexContext
+    from flycode.orchestration.environment import AttemptEnvironment
+    from flycode.orchestration.resources import Resources
+
+    store, owner, runtime, catalogue, workflow, attempts, model = active
+    monkeypatch.setenv('FLYCODE_STATE_DATABASE', str(store.path))
+    entered, release, second_http, waiting, stop = Event(), Event(), Event(), Event(), Event()
+    lock = Lock()
+    counts = {'active': 0, 'maximum': 0}
+    def response(request):
+        with lock:
+            counts['active'] += 1
+            counts['maximum'] = max(counts['maximum'], counts['active'])
+            (second_http if entered.is_set() else entered).set()
+        try:
+            assert release.wait(10)
+            return model_server.completion(json.dumps({'candidates': [
+                {'tool': 'read_file', 'arguments': {'path': 'sample.py'}}]}), [('A', -.1), ('B', -2.)])
+        finally:
+            with lock:
+                counts['active'] -= 1
+    model_server.respond = response
+    def canonical():
+        connection = Store(store.path, catalogue=catalogue)
+        try:
+            with OpenAI(base_url=model_server.url, api_key='local', max_retries=0) as client:
+                return Resources(connection).execute(runtime, attempts[0].id, attempts[0].fence, key='held-canonical',
+                    request=lambda: client.chat.completions.create(model=model.model_id,
+                        messages=[{'role': 'user', 'content': 'Inspect the registered source.'}]))
+        finally:
+            connection.close()
+    first = asyncio.create_task(asyncio.to_thread(canonical))
+    second = None
+    try:
+        assert await asyncio.to_thread(entered.wait, 3)
+        cortex = make_lmstudio_cortex(base_url=model_server.url, model='reasoner', decision_model='decider',
+            should_stop=stop.is_set, on_event=lambda kind, data: waiting.set() if kind == 'model_wait' else None)
+        context = CortexContext(task='Inspect the source.', behavior_mode='explore',
+            observation=Observation(task='Inspect'))
+        client = cortex.reasoner if role == 'primary' else cortex.decider
+        def standalone():
+            return (client.generate_candidates(context) if role == 'primary' else
+                client.score(context, [CandidateAction(id='a', tool='read_file'), CandidateAction(id='b', tool='list_files')]))
+        second = asyncio.create_task(asyncio.to_thread(standalone))
+        deadline = time.monotonic() + 3
+        while not (waiting.is_set() or second_http.is_set()):
+            assert time.monotonic() < deadline
+            await asyncio.sleep(.01)
+        assert waiting.is_set() and not second_http.is_set(), 'Standalone HTTP bypassed the canonical endpoint owner'
+        assert client.request_count == 0
+        root = tmp_path / 'independent-copy'
+        root.mkdir()
+        (root / 'sample.py').write_text('answer = 1\n')
+        environment = AttemptEnvironment(root, store, runtime, attempts[1].id, attempts[1].fence)
+        await environment.reset(TaskSpec(id=attempts[1].task_id, task='Inspect source.'))
+        result = await environment.step(ToolAction(id='independent-file-read', tool='read_file', arguments={'path': 'sample.py'}))
+        assert result.success and result.payload['content'] == 'answer = 1\n'
+        stop.set()
+        with pytest.raises(InterruptedError):
+            await asyncio.wait_for(second, .5)
+        assert client.request_count == 0 and len(model_server.requests) == 2
+        assert store.budget(owner, workflow.id).spent == BudgetAmount(model_calls=1, tool_calls=1)
+        release.set()
+        await asyncio.wait_for(first, 3)
+        stop.clear()
+        assert await asyncio.to_thread(standalone)
+        assert client.request_count == 1 and counts['maximum'] == 1 and len(model_server.requests) == 3
+        assert len(Resources(store).calls(owner, workflow.id)) == 1
+    finally:
+        release.set()
+        stop.set()
+        await asyncio.gather(first, *([second] if second is not None else []), return_exceptions=True)
+
+
+@pytest.mark.parametrize('role', ['primary', 'scorer'])
+async def test_explicit_probe_cannot_bypass_canonical_endpoint_or_charge_before_admission(active, model_server, monkeypatch, role):
+    from flycode.llm.catalogue import CatalogueBusy
+    from flycode.orchestration.resources import Resources
+
+    store, owner, runtime, catalogue, workflow, attempts, model = active
+    monkeypatch.setenv('FLYCODE_STATE_DATABASE', str(store.path))
+    entered, release, second_http = Event(), Event(), Event()
+    def response(request):
+        (second_http if entered.is_set() else entered).set()
+        assert release.wait(10)
+        return model_server.completion(json.dumps({'candidates': [{'tool': 'read_file'}]}), [('A', -.1), ('B', -2.)])
+    model_server.respond = response
+    def canonical():
+        connection = Store(store.path, catalogue=catalogue)
+        try:
+            with OpenAI(base_url=model_server.url, api_key='local', max_retries=0) as client:
+                return Resources(connection).execute(runtime, attempts[0].id, attempts[0].fence, key='held-probe-owner',
+                    request=lambda: client.chat.completions.create(model=model.model_id,
+                        messages=[{'role': 'user', 'content': 'Inspect source.'}]))
+        finally:
+            connection.close()
+    first = asyncio.create_task(asyncio.to_thread(canonical))
+    probe = None
+    try:
+        assert await asyncio.to_thread(entered.wait, 3)
+        independent = ModelCatalogue(model_server.url)
+        entry = independent.discover()[0]
+        probe = asyncio.create_task(asyncio.to_thread(independent.probe, entry.model_ref, role))
+        deadline = time.monotonic() + 3
+        while not (probe.done() or second_http.is_set()):
+            assert time.monotonic() < deadline
+            await asyncio.sleep(.01)
+        assert not second_http.is_set(), 'A compatibility probe bypassed the canonical endpoint owner'
+        with pytest.raises(CatalogueBusy):
+            await probe
+        assert independent.entries[entry.model_ref].probe_calls == 0 and not independent.entries[entry.model_ref].roles
+        assert len(model_server.requests) == 2 and store.budget(owner, workflow.id).spent.model_calls == 1
+        release.set()
+        await asyncio.wait_for(first, 3)
+        accepted = await asyncio.to_thread(independent.probe, entry.model_ref, role)
+        assert accepted.status == 'ready' and accepted.roles == [role] and accepted.probe_calls == 1
+        assert len(model_server.requests) == 3
+    finally:
+        release.set()
+        await asyncio.gather(first, *([probe] if probe is not None else []), return_exceptions=True)
+
+
+async def test_standalone_late_response_is_audited_but_not_returned(active, model_server, monkeypatch):
+    from flycode.domain import Observation
+    from flycode.llm.lmstudio import make_lmstudio_cortex
+    from flycode.llm.protocol import CortexContext
+    from flycode.orchestration.resources import Resources
+
+    store, owner, runtime, _, workflow, attempts, _ = active
+    monkeypatch.setenv('FLYCODE_STATE_DATABASE', str(store.path))
+    entered, release, stop = Event(), Event(), Event()
+    def response(request):
+        entered.set()
+        assert release.wait(10)
+        return model_server.completion(json.dumps({'candidates': [{'tool': 'read_file'}]}))
+    model_server.respond = response
+    cortex = make_lmstudio_cortex(model_server.url, model='reasoner', decision_model=None, should_stop=stop.is_set)
+    context = CortexContext(task='Inspect source.', behavior_mode='explore', observation=Observation(task='Inspect source.'))
+    pending = asyncio.create_task(asyncio.to_thread(cortex.reasoner.generate_candidates, context))
+    try:
+        assert await asyncio.to_thread(entered.wait, 3)
+        stop.set()
+        assert Resources(store).begin(runtime, attempts[0].id, attempts[0].fence, key='while-stopped-http') is None
+        release.set()
+        with pytest.raises(InterruptedError, match='audit only'):
+            await asyncio.wait_for(pending, 3)
+        row = store.db.execute('SELECT state,data FROM model_calls WHERE attempt_id IS NULL').fetchone()
+        call = json.loads(row['data'])
+        assert row['state'] == 'completed' and call['late'] and call['usage']['total_tokens'] == 11
+        assert cortex.reasoner.request_count == 1 and len(model_server.requests) == 2
+        assert store.budget(owner, workflow.id).spent == BudgetAmount()
+        assert Resources(store).begin(runtime, attempts[0].id, attempts[0].fence, key='after-finished-http').fresh
+    finally:
+        release.set()
+        await asyncio.gather(pending, return_exceptions=True)
+
+
+@pytest.mark.parametrize('timeout', [float('nan'), float('inf'), -1.])
+def test_host_wait_limit_is_validated_before_database_or_http_effects(tmp_path, model_server, timeout):
+    from flycode.orchestration.transport import HostTransport
+
+    database = tmp_path / 'invalid-host.sqlite'
+    transport = HostTransport(model_server.url, 'reasoner', 'primary', database=database)
+    with OpenAI(base_url=model_server.url, api_key='local', max_retries=0) as client, pytest.raises(ValueError):
+        transport.execute(lambda: client.chat.completions.create(model='reasoner',
+            messages=[{'role': 'user', 'content': 'Inspect source.'}]), timeout=timeout)
+    assert not model_server.requests and not database.exists()
+
+
+@pytest.mark.parametrize('active', [{'_uppercase_scheme': True}], indirect=True)
+@pytest.mark.parametrize('from_environment', [False, True])
+def test_direct_primary_retains_configured_endpoint_identity_when_sdk_normalizes_url(active, model_server, monkeypatch, from_environment):
+    from flycode.domain import Observation
+    from flycode.llm.openai_compatible import OpenAICompatibleLLM
+    from flycode.llm.protocol import CortexContext
+    from flycode.orchestration.resources import Resources
+    from flycode.orchestration.transport import EndpointBusy
+
+    store, owner, runtime, _, workflow, attempts, _ = active
+    monkeypatch.setenv('FLYCODE_STATE_DATABASE', str(store.path))
+    monkeypatch.setenv('OPENAI_BASE_URL', model_server.url)
+    Resources(store).begin(runtime, attempts[0].id, attempts[0].fence, key='configured-endpoint-owner')
+    client = OpenAICompatibleLLM(model='reasoner', base_url=None if from_environment else model_server.url,
+        api_key='local', timeout=.05)
+    try:
+        with pytest.raises(EndpointBusy):
+            client.generate_candidates(CortexContext(task='Inspect source.', behavior_mode='explore',
+                observation=Observation(task='Inspect')))
+        assert client.request_count == 0 and len(model_server.requests) == 1
+        assert store.budget(owner, workflow.id).spent.model_calls == 1
+    finally:
+        client._client.close()
+
+
+def test_web_probe_reports_shared_capacity_without_bypassing_session_or_origin(active, model_server, monkeypatch, tmp_path):
+    from fastapi.testclient import TestClient
+
+    from flycode.orchestration.resources import Resources
+    from flycode.web.app import create_app
+
+    store, owner, runtime, _, workflow, attempts, _ = active
+    monkeypatch.setenv('FLYCODE_STATE_DATABASE', str(store.path))
+    monkeypatch.setenv('LMSTUDIO_BASE_URL', model_server.url)
+    admission = Resources(store).begin(runtime, attempts[0].id, attempts[0].fence, key='web-probe-owner')
+    app = create_app(tmp_path, tmp_path / 'ui', tmp_path / 'empty-artifact-catalogue')
+    with TestClient(app, base_url='http://127.0.0.1') as client:
+        token = client.get('/api/bootstrap').json()['token']
+        entry = client.get('/api/models').json()['catalogue'][0]
+        body = {'model_ref': entry['model_ref'], 'role': 'primary'}
+        assert client.post('/api/models/probe', json=body).status_code == 403
+        client.headers['X-FlyCode-Token'] = token
+        assert client.post('/api/models/probe', json=body, headers={'Origin': 'https://foreign.example'}).status_code == 403
+        assert client.post('/api/models/probe', json=body).status_code == 409
+        current = next(item for item in client.get('/api/models').json()['catalogue'] if item['model_ref'] == entry['model_ref'])
+        assert current['probe_calls'] == 0 and not current['roles'] and current['status'] != 'unsupported'
+        assert len(model_server.requests) == 1
+        Resources(store).finish(runtime, admission.call.id, status='failed', error_class='TestAdmissionReleasedBeforeHTTP')
+        accepted = client.post('/api/models/probe', json=body)
+        assert accepted.status_code == 200
+        assert accepted.json()['status'] == 'ready' and accepted.json()['probe_calls'] == 1
+        assert len(model_server.requests) == 2
+        assert store.budget(owner, workflow.id).spent.model_calls == 1
+
+
+def test_host_unknown_transport_survives_restart_and_requires_exact_acknowledgement(active, model_server, monkeypatch):
+    from flycode.domain import Observation
+    from flycode.domain.orchestration import HostModelCall
+    from flycode.llm.openai_compatible import OpenAICompatibleLLM
+    from flycode.llm.protocol import CortexContext
+    from flycode.orchestration.resources import Resources
+    from flycode.orchestration.transport import HostTransport
+
+    store, owner, runtime, catalogue, workflow, attempts, _ = active
+    monkeypatch.setenv('FLYCODE_STATE_DATABASE', str(store.path))
+    release, provider_finished = Event(), Event()
+    def response(request):
+        assert release.wait(5)
+        provider_finished.set()
+        return model_server.completion(json.dumps({'candidates': [{'tool': 'read_file'}]}))
+    model_server.respond = response
+    client = OpenAICompatibleLLM(model='reasoner', base_url=model_server.url, api_key='local', timeout=.05)
+    context = CortexContext(task='Inspect source.', behavior_mode='explore', observation=Observation(task='Inspect'))
+    try:
+        with pytest.raises(APITimeoutError):
+            client.generate_candidates(context)
+        row = store.db.execute('SELECT data FROM model_calls WHERE attempt_id IS NULL').fetchone()
+        call = HostModelCall.model_validate_json(row['data'])
+        assert call.status == 'uncertain' and call.ended_at is None and client.request_count == 1
+        with pytest.raises(StoreError, match='scope'):
+            Resources(store).get(owner, call.id)
+        with pytest.raises(StoreError, match='scope'):
+            Resources(store).finish(runtime, call.id, status='failed')
+        connection = Store(store.path, catalogue=catalogue)
+        try:
+            assert Resources(connection).begin(runtime, attempts[0].id, attempts[0].fence, key='after-host-restart') is None
+            assert connection.budget(owner, workflow.id).spent.model_calls == 0
+        finally:
+            connection.close()
+        foreign = HostTransport(model_server.url, 'reasoner', 'primary', owner_id='another-host')
+        with pytest.raises(StoreError, match='scope'):
+            foreign.finish(call.id, status='failed')
+        assert store.db.execute('SELECT state FROM model_calls WHERE id=?', (call.id,)).fetchone()['state'] == 'uncertain'
+        release.set()
+        assert provider_finished.wait(3)
+        trusted = HostTransport(model_server.url, 'reasoner', 'primary', owner_id=call.owner_id)
+        settled = trusted.finish(call.id, status='failed', error_class='ProviderFinishedAfterClientTimeout')
+        assert settled.status == 'failed' and settled.usage is None
+        assert trusted.finish(call.id, status='failed', error_class='ProviderFinishedAfterClientTimeout') == settled
+        with pytest.raises(StoreError, match='reconcile_required'):
+            trusted.finish(call.id, status='completed')
+        assert Resources(store).begin(runtime, attempts[0].id, attempts[0].fence, key='after-trusted-host-ack').fresh
+        assert client.request_count == 1 and len(model_server.requests) == 2
+    finally:
+        release.set()
+        client._client.close()
+
+
+def legacy_model_calls_schema(store):
+    """Install the literal schema9 format while preserving the test's real rows."""
+    with store.transaction():
+        store.db.execute('ALTER TABLE model_calls RENAME TO model_calls_current')
+        store.db.execute('DROP INDEX active_endpoint')
+        store.db.execute('''CREATE TABLE model_calls (
+            id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL REFERENCES attempts(id),
+            endpoint_ref TEXT NOT NULL, state TEXT NOT NULL, data TEXT NOT NULL)''')
+        store.db.execute('''INSERT INTO model_calls(rowid,id,attempt_id,endpoint_ref,state,data)
+            SELECT rowid,id,attempt_id,endpoint_ref,state,data FROM model_calls_current''')
+        store.db.execute('DROP TABLE model_calls_current')
+        store.db.execute("CREATE UNIQUE INDEX active_endpoint ON model_calls(endpoint_ref) WHERE state IN ('running','uncertain')")
+        store.db.execute('PRAGMA user_version=9')
+
+
+def test_schema9_upgrade_preserves_active_calls_and_then_admits_typed_host_probe(active, model_server, monkeypatch):
+    from flycode.llm.catalogue import CatalogueBusy
+    from flycode.orchestration.resources import Resources
+
+    store, owner, runtime, catalogue, workflow, attempts, _ = active
+    monkeypatch.setenv('FLYCODE_STATE_DATABASE', str(store.path))
+    first = Resources(store).begin(runtime, attempts[0].id, attempts[0].fence, key='migration-first')
+    Resources(store).finish(runtime, first.call.id, status='completed')
+    current = Resources(store).begin(runtime, attempts[0].id, attempts[0].fence, key='migration-held')
+    Resources(store).finish(runtime, current.call.id, status='uncertain', error_class='InjectedTransportUncertainty')
+    legacy_model_calls_schema(store)
+    before = Resources(store).calls(owner, workflow.id), store.budget(owner, workflow.id), store.events(owner, workflow.id)
+    connection = Store(store.path, catalogue=catalogue)
+    try:
+        assert (Resources(connection).calls(owner, workflow.id), connection.budget(owner, workflow.id),
+            connection.events(owner, workflow.id)) == before
+        assert Resources(connection).begin(runtime, attempts[1].id, attempts[1].fence, key='migration-no-bypass') is None
+        independent = ModelCatalogue(model_server.url)
+        entry = independent.discover()[0]
+        with pytest.raises(CatalogueBusy):
+            independent.probe(entry.model_ref, 'primary')
+        assert len(model_server.requests) == 1
+        Resources(connection).finish(runtime, current.call.id, status='failed', error_class='TrustedTestTransportAcknowledgement')
+        accepted = independent.probe(entry.model_ref, 'primary')
+        assert accepted.status == 'ready' and accepted.probe_calls == 1
+        row = connection.db.execute('SELECT state,data FROM model_calls WHERE attempt_id IS NULL').fetchone()
+        assert row['state'] == 'completed' and json.loads(row['data'])['owner_kind'] == 'probe'
+        assert connection.budget(owner, workflow.id) == before[1]
+        assert not connection.db.execute('PRAGMA foreign_key_check').fetchall()
+        assert len(Resources(connection).calls(owner, workflow.id)) == 2 and len(model_server.requests) == 2
+    finally:
+        connection.close()
+
+
+def test_schema9_migration_failure_rolls_back_live_endpoint_and_version(active, monkeypatch):
+    import sqlite3
+
+    from flycode.orchestration import store as module
+    from flycode.orchestration.resources import Resources
+
+    store, owner, runtime, catalogue, workflow, attempts, _ = active
+    held = Resources(store).begin(runtime, attempts[0].id, attempts[0].fence, key='migration-rollback-held')
+    legacy_model_calls_schema(store)
+    before = Resources(store).calls(owner, workflow.id), store.budget(owner, workflow.id), store.events(owner, workflow.id)
+    connect = module.sqlite3.connect
+    def denied_migration(*args, **kwargs):
+        connection = connect(*args, **kwargs)
+        connection.set_authorizer(lambda action, first, second, database, trigger:
+            sqlite3.SQLITE_DENY if action == sqlite3.SQLITE_DROP_TABLE and first == 'model_calls_previous' else sqlite3.SQLITE_OK)
+        return connection
+    with monkeypatch.context() as patch:
+        patch.setattr(module.sqlite3, 'connect', denied_migration)
+        with pytest.raises(sqlite3.DatabaseError):
+            Store(store.path, catalogue=catalogue)
+    assert store.db.execute('PRAGMA user_version').fetchone()[0] == 9
+    assert (Resources(store).calls(owner, workflow.id), store.budget(owner, workflow.id), store.events(owner, workflow.id)) == before
+    assert not store.db.execute("SELECT 1 FROM sqlite_master WHERE name='model_calls_previous'").fetchone()
+    connection = Store(store.path, catalogue=catalogue)
+    try:
+        assert Resources(connection).get(owner, held.call.id) == held.call
+        assert Resources(connection).begin(runtime, attempts[1].id, attempts[1].fence, key='after-rollback') is None
+        assert not connection.db.execute('PRAGMA foreign_key_check').fetchall()
+    finally:
+        connection.close()
 
 
 def test_http_failure_is_charged_and_replay_never_sends_a_second_request(active, model_server):
@@ -353,6 +718,27 @@ def test_attempt_cortex_binds_canonical_context_and_each_actual_request(active, 
     assert sum(cortex.model_calls.values()) == 1  # reset cannot reset the shared ledger
     assert store.budget(owner, workflow.id).spent.model_calls == 2
     assert len(model_server.requests) == 3  # one explicit probe, two admitted calls
+
+
+@pytest.mark.parametrize('caller_flag', [False, True])
+def test_canonical_objective_occurs_once_in_actual_request(active, model_server, caller_flag):
+    from flycode.domain import Observation
+    from flycode.llm.protocol import CortexContext
+    from flycode.orchestration.cortex import AttemptCortex
+
+    store, owner, runtime, _, workflow, attempts, _ = active
+    context = CortexContext(task='Untrusted task', behavior_mode='explore',
+        observation=Observation(task='Untrusted observation', recent_errors=['preserve this error']))
+    context = context.model_copy(update={'objective_embedded': caller_flag})
+    before = context.model_dump()
+    cortex = AttemptCortex(store, runtime, attempts[0].id, attempts[0].fence)
+    assert cortex.generate_candidates(context)
+    prompt = model_server.requests[-1]['messages'][-1]['content']
+    assert prompt.count('Inspect the parser.') == 1
+    assert attempts[0].task_id in prompt and 'preserve this error' in prompt
+    assert 'Untrusted task' not in prompt and 'Untrusted observation' not in prompt
+    assert context.model_dump() == before
+    assert store.budget(owner, workflow.id).spent.model_calls == 1
 
 
 def test_attempt_cortex_rechecks_loaded_context_and_bounds_input_before_http(active, model_server):

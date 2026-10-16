@@ -6,12 +6,14 @@ import os
 from threading import Lock
 from typing import Literal
 from urllib.parse import urlsplit
+from uuid import uuid4
 
 import httpx
 from openai import APIError
 from pydantic import BaseModel, Field
 
 from ..domain import CandidateAction, Observation
+from ..orchestration.transport import EndpointBusy, HostTransport
 from .decision import JevStyleDecisionClient
 from .lmstudio import DEFAULT_BASE_URL
 from .openai_compatible import OpenAICompatibleLLM
@@ -49,6 +51,7 @@ class ModelCatalogue:
         self.endpoint_ref = hashlib.sha256(self.base_url.encode()).hexdigest()[:20]
         self.entries: dict[str, ModelDescriptor] = {}
         self.lock = Lock()
+        self.probe_owner_id = uuid4().hex
 
     def discover(self) -> list[ModelDescriptor]:
         key = os.environ.get('LMSTUDIO_API_KEY') or 'lm-studio'
@@ -158,16 +161,23 @@ class ModelCatalogue:
             key = os.environ.get('LMSTUDIO_API_KEY') or 'lm-studio'
             context = CortexContext(task='Inspect sample.py without editing it', behavior_mode='explore',
                                     observation=Observation(task='compatibility probe'))
-            entry.probe_calls += 1
-            entry.revision += 1
+            transport = HostTransport(self.base_url, entry.loaded_instance_id, role,
+                kind='probe', owner_id=self.probe_owner_id)
+            def execute(request):
+                def admitted():
+                    entry.probe_calls += 1
+                    entry.revision += 1
+                    return request()
+                return transport.execute(admitted, timeout=0)
             try:
                 if role == 'primary':
                     client = OpenAICompatibleLLM(model=entry.loaded_instance_id, base_url=self.base_url, api_key=key,
-                        structured_output=True, max_tokens=1536, timeout=30)
+                        structured_output=True, max_tokens=1536, timeout=30, request_executor=execute)
                     if not client.generate_candidates(context):
                         raise ValueError('No valid structured candidates')
                 else:
-                    scorer = JevStyleDecisionClient(entry.loaded_instance_id, self.base_url, key, timeout=30)
+                    scorer = JevStyleDecisionClient(entry.loaded_instance_id, self.base_url, key, timeout=30,
+                        request_executor=execute)
                     scorer.score(context, [CandidateAction(id='a', tool='read_file', arguments={'path': 'sample.py'}),
                                            CandidateAction(id='b', tool='list_files')])
                 if role not in entry.roles:
@@ -175,6 +185,8 @@ class ModelCatalogue:
                 entry.status = 'ready'
                 entry.capability_source = 'explicit-local-probe'
                 entry.reason = 'Протокол проверен одним запросом; качество решений и версия весов не установлены.'
+            except EndpointBusy as exc:
+                raise CatalogueBusy(str(exc)) from exc
             except (APIError, ValueError) as exc:
                 entry.roles = [known for known in entry.roles if known != role]
                 entry.status = 'ready' if entry.roles else 'unsupported'

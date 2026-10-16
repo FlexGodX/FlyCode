@@ -8,6 +8,11 @@ from types import SimpleNamespace
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def isolated_state_database(tmp_path, monkeypatch):
+    monkeypatch.setenv('FLYCODE_STATE_DATABASE', str(tmp_path / 'state.sqlite'))
+
+
 @pytest.fixture
 def model_server():
     state = SimpleNamespace(requests=[], get_requests=[], models=["reasoner", "decider"], contexts=None,

@@ -26,6 +26,7 @@ class CortexContext(BaseModel):
     fly_policy_bias: dict[str, float] = Field(default_factory=dict)
     candidate_tools: list[str] = Field(default_factory=list)
     artifact_reads: bool = False
+    objective_embedded: bool = False
     n_candidates: int = 4
     neural_state: NeuralState | None = None
     control_mode: str = "bias_control"

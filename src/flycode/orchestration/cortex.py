@@ -99,7 +99,7 @@ class AttemptCortex:
                     ' or change task status, permissions, cancellation or review approval.')
         observation = context.observation.model_copy(update={'task': task.objective, 'task_id': task.id})
         result = context.model_copy(update={'task': text, 'observation': observation,
-            'artifact_reads': bool(task.input_artifacts),
+            'artifact_reads': bool(task.input_artifacts), 'objective_embedded': True,
             'candidate_tools': list(dict.fromkeys([*tools, 'stop']))})
         if 'send_message' in tools and not self.core.reasoner.context_fits(result):
             result = result.model_copy(update={'task': base_text,
@@ -108,8 +108,10 @@ class AttemptCortex:
                 attempt, task, workflow = self.store._owned(self.scope, self.attempt_id, self.fence, running=True)
                 self.store._event(self.scope, workflow, 'message_tool_context_deferred', task=task, attempt=attempt)
         if task.input_artifacts:
-            facts, notes, logs = list(result.working_memory), list(result.episodic_notes), list(result.observation.recent_logs)
-            removed = {'facts': 0, 'lessons': 0, 'logs': 0}
+            facts = list(dict.fromkeys(reversed(result.working_memory)))[::-1]
+            notes, logs = list(result.episodic_notes), list(result.observation.recent_logs)
+            removed = {'facts': 0, 'lessons': 0, 'logs': 0, 'duplicates': len(result.working_memory) - len(facts)}
+            result = result.model_copy(update={'working_memory': facts})
             while not self.core.reasoner.context_fits(result):
                 optional = next((index for index, fact in enumerate(facts)
                     if not fact.startswith(('[artifact:', 'read_file('))

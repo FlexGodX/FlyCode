@@ -230,6 +230,27 @@ fencing and completion authority unchanged. Run the targeted process tests befor
 the next complete frozen-source verification; retain the RED and large-output
 checks with the existing failed model case.
 
+**Measured context redundancy (2026-10-17):** the frozen diagnostic increment
+passes804 default cases/8 skips and85 extracted-wheel cases, but both real
+resolution attempts fail at `artifact_context_budget`. The same-workflow retry
+records23 size-only samples: its final prompt includes the611-byte objective
+twice and three copies of one protected38-byte workspace fact. Preserve the
+failed workflow,18 model calls/32 tools and original deadline; it is cancelled
+without completion. See `docs/validation/2026-10-17-worker-diagnostics.md`.
+
+Next REDs exercise actual HTTP: canonical objective appears exactly once while
+task ID/errors survive, caller context remains unchanged, and exact repeated
+protected facts fit while every distinct version/provenance/error remains. Keep
+the latest occurrence order. A unique oversized protected fact must still block
+before HTTP. Standalone callers retain their observation task by default.
+Minimal implementation: an explicit context marker set by the canonical host
+allows the renderer to omit only the duplicated observation task. Deduplicate
+exact fact strings in the pinned-input context copy and audit duplicate counts
+separately from discarded optional facts. Do not mutate working memory, drop
+unique required data, enlarge loaded context or claim model success in advance.
+Then run targeted, full/package/graph checks and another explicitly registered
+English model experiment on the new source, retaining all failures.
+
 **Task5 lease foundation:** `Store.heartbeat` renews only current unexpired
 ownership by 30s. `Store.expire` revokes expired attempts into reconciling,
 retaining instance and reservations; it never starts a replacement. Workflow
@@ -262,6 +283,64 @@ and no automatic recovery of an unknown provider outcome is implemented.
 Verification: full default suite515 passed/8 skipped, targeted suite109 passed,
 changed-file Ruff/mypy pass. Extracted wheel:13 transport checks and CLI `brains`
 passed outside the checkout. These adapter checks do not close Task5 execution.
+
+**Task5 shared endpoint admission:** use the existing `model_calls` table and
+active-endpoint uniqueness for canonical calls, standalone primary/scorer calls
+and explicit probes. An extra ownership table would require synchronizing two
+ledgers; instead migrate the existing table atomically to allow a null attempt
+only for a distinct typed host call. Canonical ModelCall contracts and budgets
+remain required. Preserve IDs, row order, active/uncertain rows and foreign keys
+when upgrading schema9; a migration failure must roll back without releasing a
+request. No fake workflow/attempt is created for a compatibility probe.
+
+Files: `domain/orchestration.py` adds `HostModelCall`; `orchestration/store.py`
+owns the nullable-attempt schema migration and configured default state path;
+new `orchestration/transport.py` owns host calls on that same connection/table.
+`Resources.get` rejects host IDs outside workflow scope. Default primary/scorer
+clients and the LM Studio factory use host admission unless the trusted host
+already supplied the canonical executor. Probes use nonwaiting admission and
+report capacity separately from protocol compatibility; no probe call/revision
+counter is charged before an actual admitted HTTP request.
+
+1. In `test_resources.py`, hold a canonical HTTP request open. Through the real
+   default factory, attempt primary and scorer calls against the same configured
+   database/endpoint. Wait for either an actual second HTTP effect or a model-wait
+   event; require the wait event, zero client calls, successful independent file
+   reads, and cancellation without a new debit. Release the first request and
+   prove the standalone call can then run with maximum actual HTTP concurrency1.
+2. Repeat with a separate catalogue's primary/scorer probe. Busy admission must
+   raise `CatalogueBusy`, send no HTTP and preserve probe count/capabilities. A
+   later explicit probe after release performs exactly one protocol request.
+3. `HostTransport.execute(request, should_stop, timeout, on_wait)` opens the
+   configured Store per execution, commits one typed host record before HTTP,
+   reports one wait event, and closes the connection after accounting. Known HTTP
+   errors finish failed; lost transport remains uncertain and blocks every
+   producer after restart until exact trusted host acknowledgement. SDK counters
+   advance only inside the admitted request. Store only IDs, state/times, error
+   class and usage; never headers, API keys or prompt contents.
+4. Test unknown-outcome restart, canonical-vs-host races in both directions,
+   migration with an active old request, rollback on migration failure, rejected
+   foreign acknowledgements and no SQLite transaction during HTTP. Isolate the
+   configured state database in the test fixture. Verify default single/dual,
+   explicit null/no scorer, web/CLI/research adapters and failed probes without
+   changing single-agent defaults or allowing fallback.
+5. Merge only checked code into the main checkout after its frozen measurement
+   finishes, then freeze a new identity for full tests, package and real-model
+   checks. Keep Task5 open until dispatcher/child-wait and actual DAG execution
+   are also verified; this shared-admission slice does not replace them.
+
+Shared-admission/context slice measured on frozen source
+`c35a4b8557f074f8072a4eb0beaecada6a2b3822fa87847ad9d7260f9a4f142e`:
+822 default passed/8 skipped (830 exact IDs),84 extracted-wheel cases,5 actual
+FlyWire, relevant Ruff/mypy45. The explicit primary probe passes25.505s. The
+English real-model case FAILS684.198s,22 model calls/35 tools: the resolver reads
+one pinned input16 times, never the other, and produces an empty artifact.
+Context compaction now works without a required-input overflow; no unknown calls
+or reservations remain. Owner cancellation retains spending, original source0,
+dirty bytes and all artifacts. See
+`docs/validation/2026-10-17-shared-endpoint-context.md`. This does not close Task5
+or establish a neural efficiency gain. Future diagnostic instrumentation must
+retain candidate alternatives/scores and actual choice before assigning a cause.
 
 **Addressed-message execution slice (ORC-06/08):**
 

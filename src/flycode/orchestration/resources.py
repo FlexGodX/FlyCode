@@ -25,6 +25,9 @@ class Resources:
         self.store = store
 
     def get(self, scope: AccessScope, identity: str) -> ModelCall:
+        row = self.store.db.execute('SELECT attempt_id FROM model_calls WHERE id=?', (identity,)).fetchone()
+        if row is not None and row['attempt_id'] is None:
+            raise StoreError('scope', 'Host request is not a workflow model call')
         call = self.store._load('model_calls', identity, ModelCall)
         self.store.workflow(scope, call.workflow_id)
         return call

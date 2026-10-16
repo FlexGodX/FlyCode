@@ -100,14 +100,23 @@ still runs one task at a time. See the checked
 [delivery plan](docs/superpowers/plans/2026-10-16-specification-delivery.md).
 The model transport adapter acquires an endpoint slot and charges the request
 before HTTP, records available token usage and retains unknown timeout outcomes.
-Waiting can be cancelled without sending a request. Legacy-run and probe wiring
-remains unfinished; all UI calls do not yet share this admission.
+Waiting can be cancelled without sending a request. Single/dual cortex, direct
+clients and explicit probes share the SQLite endpoint ownership index (schema10).
+All executors must use the same database through `FLYCODE_STATE_DATABASE`, which
+defaults to `~/.local/share/flycode/state.sqlite`. Unknown outcomes retain the
+endpoint across restart until trusted reconciliation; a busy probe returns409
+without inference. A late response after Stop retains usage without returning
+candidates. Canonical queue UI and dispatcher integration remain unfinished.
 
 `AttemptCortex` binds the existing `run_agent` to the canonical attempt's objective,
 acceptance criteria and model budget. Admission pins the actual loaded LM Studio
 instance and its context capacity; configuration changes require another probe.
 A conservative request-size bound rejects oversized input before HTTP, but does
-not replace an exact tokenizer. `AttemptEnvironment` checks
+not replace an exact tokenizer. The canonical objective is sent once; exact
+repeated pinned-input facts are removed only from the context copy, retaining
+latest occurrence order, all unique versions, errors and provenance. Action
+history stays intact; unique required data that cannot fit still blocks inference.
+`AttemptEnvironment` checks
 permissions and paths, charges before each tool and records its actual outcome.
 Replay never repeats an effect; unknown outcomes retain attempt ownership. It
 currently requires full project read access and supports local file tools/pytest.

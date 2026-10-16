@@ -24,6 +24,11 @@ class JevStyleDecisionClient:
         self.request_executor = request_executor
         self._client = OpenAI(base_url=base_url, api_key=api_key, timeout=timeout, max_retries=0,
                               http_client=DefaultHttpxClient(trust_env=False))
+        if request_executor is None:
+            from ..orchestration.transport import HostTransport
+
+            transport = HostTransport(base_url, model, 'scorer')
+            self.request_executor = lambda request: transport.execute(request, timeout=timeout)
 
     def score(self, context: CortexContext, candidates: list[CandidateAction]) -> dict[str, float]:
         if not 2 <= len(candidates) <= 20 or len({c.id for c in candidates}) != len(candidates):

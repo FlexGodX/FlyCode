@@ -3,11 +3,13 @@
 import os
 from collections.abc import Callable
 from typing import Any
+from uuid import uuid4
 
 from openai import APIError
 from pydantic import BaseModel, Field
 
 from ..domain import DEFAULT_CANDIDATE_COUNT, VALID_TOOLS, CandidateAction
+from ..orchestration.transport import HostTransport
 from ..policy.model_routing import plan_model_calls
 from ..safety import filter_safe
 from ..telemetry.events import EventSink, emit
@@ -135,9 +137,18 @@ def make_lmstudio_cortex(base_url: str | None = None, model: str = DEFAULT_REASO
         raise ValueError("reasoner and decider require distinct model IDs")
     if (decision_model is not None and (primary_request_executor is None) != (decision_request_executor is None)
             or decision_model is None and decision_request_executor is not None):
-        raise ValueError('Provide an executor for every selected model or use the unguarded legacy path')
+        raise ValueError('Provide an executor for every selected model or use shared host admission')
     base_url = base_url or os.environ.get("LMSTUDIO_BASE_URL") or DEFAULT_BASE_URL
     key = os.environ.get("LMSTUDIO_API_KEY") or "lm-studio"
+    if primary_request_executor is None:
+        owner_id = uuid4().hex
+        def executor(model_id, role):
+            transport = HostTransport(base_url, model_id, role, owner_id=owner_id)
+            return lambda request: transport.execute(request, should_stop=should_stop or (lambda: False),
+                timeout=timeout, on_wait=lambda: emit(on_event, 'model_wait', role=role, model=model_id))
+        primary_request_executor = executor(model, 'primary')
+        if decision_model is not None:
+            decision_request_executor = executor(decision_model, 'scorer')
     reasoner = OpenAICompatibleLLM(model=model, base_url=base_url, api_key=key, temperature=0,
                                    structured_output=True, max_tokens=1536, timeout=timeout,
                                    request_executor=primary_request_executor)

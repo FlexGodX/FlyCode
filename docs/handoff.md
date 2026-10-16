@@ -2,6 +2,52 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Shared endpoint / context redundancy — 2026-10-17
+
+The increment after `b90325c` shares the existing SQLite endpoint ownership index
+between canonical, standalone primary/scorer and explicit probe calls. Schema10
+preserves active/uncertain ownership and audit rows during migration; failure
+rolls back. Use one configured `FLYCODE_STATE_DATABASE` for all participants.
+Unknown calls remain occupied until exact trusted acknowledgment, busy probes
+return409 without inference, and late responses after Stop retain usage without
+returning candidates. Single/dual/null selection remains compatible.
+
+Canonical objectives are serialized once. Exact repeated pinned-input facts are
+removed only from the context copy, retaining latest occurrence order and every
+unique version/provenance/error. Original memory/history stay; unique required
+overflow still blocks before HTTP. Frozen source:
+`c35a4b8557f074f8072a4eb0beaecada6a2b3822fa87847ad9d7260f9a4f142e`.
+Full822 passed/8 skipped, all830 IDs once in1,137.53s. Extracted wheel84 passed,
+real FlyWire5 passed, relevant Ruff/mypy45 passed; all132 Python files and README
+metadata match. [Report](validation/2026-10-17-shared-endpoint-context.md).
+
+The explicit Qwen probe passes25.505s. Actual English resolution FAILS684.198s:
+22 model calls/35 tools. Both authors pass review; the resolver reads one input
+16 times and publishes an empty artifact with answer0. The second required input
+is never read, so no resolver review/integration/completion follows. Context no
+longer blocks, and all61 size samples retain unique facts. Candidate alternatives
+and scores are not stored; do not attribute this loop to model or controller
+without a preregistered observation of both. No retraining/promotion is justified
+by this case. The historical296-run benchmark/rejected checkpoints remain intact.
+
+All processes/calls are stopped/known, reservations zero. Owner cancellation
+closes the incomplete workflow, changing only the stopped resolver attempt from
+awaiting_review to cancelled; other attempts/artifacts and all spending remain.
+Source0 and dirty bytes survive. Archive:
+`~/.cache/flycode/validation/flycode-shared-context-fuaam3ks`.
+
+Next isolated work: `/private/tmp/flycode-review-recovery-23bjkhu0`, based on this
+frozen source. Its `review-validation/recovery-only.patch` contains only four
+future files. It adds schema11 review coordinator custody/reconciliation and
+blocks legacy unfinished review lanes without proof. Seven targeted process,
+race, pause and migration cases pass; full/package/graph and the broader negative
+matrix are NOT checked. Keep it separate until those checks and publication.
+Task5 still needs dispatcher, candidate-specific remaining reservations,
+owner-approved worker/review/integration bindings and quiescent child waiting.
+General reopen, canonical CLI/API/UI and all Task7 experiments remain open.
+
+Older sections retain historical boundaries and measurements.
+
 ## Worker diagnostics / snapshot configuration — 2026-10-17
 
 The increment after `97cd64e` continuously drains worker stderr, retaining at

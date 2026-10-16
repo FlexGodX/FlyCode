@@ -20,7 +20,7 @@ from fastapi.responses import (
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..llm.catalogue import ModelCatalogue
+from ..llm.catalogue import CatalogueBusy, ModelCatalogue
 from .folders import choose_folder
 from .projects import FolderPickerRequest, ProjectRequest
 from .runs import ACTIVE, RunManager, RunRequest
@@ -131,6 +131,8 @@ def create_app(workspace: Path | None = None, data_dir: Path | None = None,
                     raise HTTPException(409, "Дождитесь завершения текущей задачи")
             try:
                 return model_catalogue.probe(body.model_ref, body.role).model_dump()
+            except CatalogueBusy as exc:
+                raise HTTPException(409, str(exc)) from exc
             except ValueError as exc:
                 raise HTTPException(400, str(exc)) from exc
         finally:

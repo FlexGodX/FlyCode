@@ -314,6 +314,21 @@ class ModelAdmission(QueueModel):
     fresh: bool
 
 
+class HostModelCall(QueueModel):
+    id: str
+    owner_id: str = Field(min_length=1, max_length=200)
+    owner_kind: Literal['legacy', 'probe']
+    endpoint_ref: str
+    model_id: str
+    role: Literal['primary', 'scorer']
+    status: Literal['running', 'completed', 'failed', 'uncertain'] = 'running'
+    started_at: float
+    ended_at: float | None = None
+    error_class: str | None = Field(default=None, max_length=200)
+    usage: ModelUsage | None = None
+    late: bool = False
+
+
 class ToolCall(QueueModel):
     id: str
     workflow_id: str

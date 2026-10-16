@@ -6,6 +6,7 @@ without any other code change.
 """
 
 import json
+import os
 from collections.abc import Callable
 from typing import Any
 
@@ -41,6 +42,12 @@ class OpenAICompatibleLLM:
         self.structured_output = structured_output
         self.request_count = 0
         self.request_executor = request_executor
+        if request_executor is None:
+            from ..orchestration.transport import HostTransport
+
+            configured_url = base_url if base_url is not None else os.environ.get('OPENAI_BASE_URL')
+            transport = HostTransport(configured_url if configured_url is not None else str(self._client.base_url), model, 'primary')
+            self.request_executor = lambda request: transport.execute(request, timeout=timeout)
         if context_limit is not None and context_limit <= 0:
             raise ValueError('Context limit must be positive')
         self.context_limit = context_limit
@@ -73,7 +80,7 @@ class OpenAICompatibleLLM:
             working_memory=context.working_memory,
             episodic_notes=context.episodic_notes,
             fly_policy_bias=context.fly_policy_bias,
-            observation_summary=context.observation.model_dump_json(),
+            observation_summary=context.observation.model_dump_json(exclude={'task'} if context.objective_embedded else set()),
         )
         if self.structured_output:
             system += '\nReturn an object with a "candidates" array instead of a bare array.'

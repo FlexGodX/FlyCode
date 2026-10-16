@@ -31,6 +31,15 @@ def test_structured_reasoner_request_and_candidate_validation(model_server):
     assert client.request_count == 1
 
 
+def test_standalone_observation_keeps_its_distinct_task(model_server):
+    client = OpenAICompatibleLLM(model='reasoner', base_url=model_server.url, api_key='local')
+    context = CortexContext(task='Repair the parser.', behavior_mode='diagnose',
+        observation=Observation(task='Observed subtask identity.', task_id='legacy-task'))
+    client.generate_candidates(context)
+    prompt = model_server.requests[-1]['messages'][-1]['content']
+    assert 'Repair the parser.' in prompt and 'Observed subtask identity.' in prompt and 'legacy-task' in prompt
+
+
 def test_jev_uses_one_token_probabilities_and_candidate_ids(model_server):
     from flycode.llm.decision import JevStyleDecisionClient
 
