@@ -2,6 +2,7 @@
 
 import os
 from collections.abc import Callable
+from typing import Any
 
 from openai import APIError
 from pydantic import BaseModel, Field
@@ -123,22 +124,29 @@ class LMStudioCortex:
 def make_lmstudio_cortex(base_url: str | None = None, model: str = DEFAULT_REASONER,
                          decision_model: str | None = DEFAULT_DECIDER, timeout: float = 120.0,
                          max_model_calls: int = 60, on_event: EventSink | None = None,
-                         should_stop: Callable[[], bool] | None = None) -> LMStudioCortex:
+                         should_stop: Callable[[], bool] | None = None,
+                         primary_request_executor: Callable[[Callable[[], Any]], Any] | None = None,
+                         decision_request_executor: Callable[[Callable[[], Any]], Any] | None = None) -> LMStudioCortex:
     if timeout <= 0:
         raise ValueError("request timeout must be positive")
     validate_model_id(model)
     validate_model_id(decision_model)
     if model == decision_model:
         raise ValueError("reasoner and decider require distinct model IDs")
+    if (decision_model is not None and (primary_request_executor is None) != (decision_request_executor is None)
+            or decision_model is None and decision_request_executor is not None):
+        raise ValueError('Provide an executor for every selected model or use the unguarded legacy path')
     base_url = base_url or os.environ.get("LMSTUDIO_BASE_URL") or DEFAULT_BASE_URL
     key = os.environ.get("LMSTUDIO_API_KEY") or "lm-studio"
     reasoner = OpenAICompatibleLLM(model=model, base_url=base_url, api_key=key, temperature=0,
-                                   structured_output=True, max_tokens=1536, timeout=timeout)
+                                   structured_output=True, max_tokens=1536, timeout=timeout,
+                                   request_executor=primary_request_executor)
     available = {item.id for item in reasoner._client.models.list()}
     missing = ({model, decision_model} if decision_model is not None else {model}) - available
     if missing:
         raise ValueError(f"Models not available in LM Studio: {sorted(missing)}. Available IDs: {sorted(available)}")
-    decider = (JevStyleDecisionClient(model=decision_model, base_url=base_url, api_key=key, timeout=timeout)
+    decider = (JevStyleDecisionClient(model=decision_model, base_url=base_url, api_key=key, timeout=timeout,
+                                    request_executor=decision_request_executor)
                if decision_model is not None else None)
     return LMStudioCortex(reasoner, decider, max_model_calls=max_model_calls,
                           on_event=on_event, should_stop=should_stop)

@@ -24,6 +24,7 @@ from ..domain.orchestration import (
     BudgetLedger,
     ClaimRequest,
     ClaimResult,
+    ModelCall,
     QueueEvent,
     TaskCommand,
     TaskDraft,
@@ -63,7 +64,7 @@ class Store:
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=FULL')
         version = self.db.execute('PRAGMA user_version').fetchone()[0]
-        if version not in (0, 1):
+        if version not in (0, 1, 2):
             self.db.close()
             raise StoreError('schema_version', str(version))
         self.db.executescript('''
@@ -100,9 +101,14 @@ class Store:
                 workflow_id TEXT NOT NULL REFERENCES workflows(id), data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS outbox (
                 sequence INTEGER PRIMARY KEY REFERENCES events(sequence), delivered_at REAL);
+            CREATE TABLE IF NOT EXISTS model_calls (
+                id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL REFERENCES attempts(id),
+                endpoint_ref TEXT NOT NULL, state TEXT NOT NULL, data TEXT NOT NULL);
+            CREATE UNIQUE INDEX IF NOT EXISTS active_endpoint ON model_calls(endpoint_ref)
+                WHERE state IN ('running','uncertain');
             CREATE TABLE IF NOT EXISTS counters (name TEXT PRIMARY KEY, value INTEGER NOT NULL);
             INSERT OR IGNORE INTO counters VALUES ('task_number',0),('root_starts',0),('queue_paused',0);
-            PRAGMA user_version=1;
+            PRAGMA user_version=2;
         ''')
 
     def close(self):
@@ -697,15 +703,18 @@ class Store:
             if found:
                 return AgentAttempt.model_validate(result)
             attempt, task, workflow = self._owned(scope, attempt_id, fence, running=True)
-            if amount.model_calls > attempt.reserved.model_calls or amount.tool_calls > attempt.reserved.tool_calls:
-                raise StoreError('budget_exhausted', 'Spend exceeds owned reservation')
-            self.db.execute('''UPDATE reservations SET model_reserved=model_reserved-?, tool_reserved=tool_reserved-?,
-                model_spent=model_spent+?, tool_spent=tool_spent+? WHERE attempt_id=?''',
-                (amount.model_calls, amount.tool_calls, amount.model_calls, amount.tool_calls, attempt_id))
-            self._event(scope, workflow, 'budget_spent', task=task, attempt=attempt, amount=amount.model_dump())
+            self._debit(scope, attempt, task, workflow, amount)
             result = self._attempt(attempt_id)
             self._remember(scope, key, task.project_id, digest, result)
             return result
+
+    def _debit(self, scope, attempt, task, workflow, amount):
+        if amount.model_calls > attempt.reserved.model_calls or amount.tool_calls > attempt.reserved.tool_calls:
+            raise StoreError('budget_exhausted', 'Spend exceeds owned reservation')
+        self.db.execute('''UPDATE reservations SET model_reserved=model_reserved-?, tool_reserved=tool_reserved-?,
+            model_spent=model_spent+?, tool_spent=tool_spent+? WHERE attempt_id=?''',
+            (amount.model_calls, amount.tool_calls, amount.model_calls, amount.tool_calls, attempt.id))
+        self._event(scope, workflow, 'budget_spent', task=task, attempt=attempt, amount=amount.model_dump())
 
     def recover(self, scope):
         self._role(scope, ('runtime',))
@@ -722,6 +731,10 @@ class Store:
         attempt = changed(attempt, state='reconciling')
         self._save_attempt(attempt)
         self.db.execute('UPDATE reservations SET uncertain=1 WHERE attempt_id=?', (attempt.id,))
+        for row in self.db.execute("SELECT data FROM model_calls WHERE attempt_id=? AND state='running'", (attempt.id,)):
+            call = changed(ModelCall.model_validate_json(row['data']), status='uncertain', late=True)
+            self.db.execute('UPDATE model_calls SET state=?,data=? WHERE id=?', ('uncertain', call.model_dump_json(), call.id))
+            self._event(scope, workflow, 'model_uncertain', task=task, attempt=attempt, call=call.model_dump(mode='json'), reason=reason)
         instance = self._instance(attempt.instance_id)
         self._save_instance(changed(instance, state='reconciling', revision=instance.revision + 1))
         self._event(scope, workflow, 'attempt_reconciling', task=task, attempt=attempt, reason=reason)
@@ -770,6 +783,9 @@ class Store:
                 return AgentAttempt.model_validate(result)
             if attempt.fence != fence or task.current_attempt_id != attempt_id or attempt.state not in ACTIVE:
                 raise StoreError('fence', 'Stop acknowledgement does not own the current attempt')
+            if self.db.execute("SELECT 1 FROM model_calls WHERE attempt_id=? AND state IN ('running','uncertain')",
+                               (attempt_id,)).fetchone():
+                raise StoreError('resource_busy', 'Confirm the model transport outcome before releasing ownership')
             uncertain = self.db.execute('SELECT uncertain FROM reservations WHERE attempt_id=?', (attempt_id,)).fetchone()[0]
             if uncertain and not expenditure_confirmed:
                 raise StoreError('uncertain', 'Reconcile unknown spending before releasing the reservation')

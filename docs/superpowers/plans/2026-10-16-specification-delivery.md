@@ -195,6 +195,28 @@ Verification:51 targeted tests and full default suite502 passed/8 skipped;
 Ruff/mypy pass. Five lease/deadline cases also pass on the extracted wheel.
 This partial Task5 increment leaves the aggregate checklist open.
 
+**Task5 model-transport foundation:** `Resources.begin/execute/finish/calls`
+uses the same SQLite file (schema2; existing schema1 upgrades in place).
+Endpoint ownership, one request debit, event/outbox and idempotency commit
+atomically. Active/uncertain endpoint uniqueness spans database connections.
+Only the pinned, explicitly probed profile binding supplies model/endpoint IDs.
+HTTP executes after the transaction. Waiting emits one event and cancellation
+does not debit or send. HTTP status errors consume budget; lost transports retain
+their slot and uncertainty across restart. A response from a revoked fence is
+audited with actual usage, releases only its known-finished transport, and cannot
+return a result to the worker. Host transport acknowledgement is trusted and must
+not be exposed as an agent/browser-supplied completion flag.
+
+Primary generation/consolidation and scorer clients now accept host-only request
+executors around actual SDK calls; counters increment after admission. The
+LM Studio factory rejects partially guarded pairs. These are working adapter
+seams, not a connected supervisor. Legacy/probe calls still require shared
+admission wiring, model capacity checks and actual worker execution remain open,
+and no automatic recovery of an unknown provider outcome is implemented.
+Verification: full default suite515 passed/8 skipped, targeted suite109 passed,
+changed-file Ruff/mypy pass. Extracted wheel:13 transport checks and CLI `brains`
+passed outside the checkout. These adapter checks do not close Task5 execution.
+
 **Runtime implementation constraints:**
 
 1. Reuse `run_agent`/event sink/stop callback, but do not create a second lifecycle

@@ -97,6 +97,10 @@ retains unconfirmed ownership until reconciliation. Tracker reads the same store
 Executor, CLI/API and screen integration remain unfinished; the current interface
 still runs one task at a time. See the checked
 [delivery plan](docs/superpowers/plans/2026-10-16-specification-delivery.md).
+The model transport adapter acquires an endpoint slot and charges the request
+before HTTP, records available token usage and retains unknown timeout outcomes.
+Waiting can be cancelled without sending a request. Supervisor, legacy-run and
+probe wiring remains unfinished; all UI calls do not yet share this admission.
 
 ## First run without an API key
 

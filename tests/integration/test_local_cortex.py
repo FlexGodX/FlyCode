@@ -50,6 +50,31 @@ def test_uncertain_controller_requests_both_models_and_uses_jev_scores(model_ser
     assert cortex.model_calls == {"reasoner": 1, "decider": 1}
 
 
+def test_transport_executors_guard_both_models_and_reject_half_guarded_pair(model_server):
+    from flycode.llm import make_lmstudio_cortex
+
+    respond_with_candidates(model_server, ACTIONS)
+    admitted = []
+    def primary(request):
+        admitted.append('primary')
+        return request()
+    def scorer(request):
+        raise InterruptedError('Scorer not admitted')
+    with pytest.raises(ValueError, match='executor'):
+        local_cortex(model_server, primary_request_executor=primary)
+    assert model_server.requests == []
+    cortex = local_cortex(model_server, primary_request_executor=primary, decision_request_executor=scorer)
+    with pytest.raises(InterruptedError):
+        cortex.generate_candidates(context())
+    assert admitted == ['primary']
+    assert cortex.model_calls == {'reasoner': 1, 'decider': 0}
+    assert [request['model'] for request in model_server.requests] == ['reasoner']
+    single = make_lmstudio_cortex(base_url=model_server.url, model='reasoner', decision_model=None,
+                                primary_request_executor=primary)
+    assert len(single.generate_candidates(context())) == 2
+    assert single.model_calls == {'reasoner': 1}
+
+
 def test_confident_controller_skips_jev(model_server):
     respond_with_candidates(model_server, ACTIONS)
     cortex = local_cortex(model_server)

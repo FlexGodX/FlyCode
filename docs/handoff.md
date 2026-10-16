@@ -2,6 +2,49 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Task5 model transport — 2026-10-16
+
+`orchestration.resources.Resources` atomically admits a pinned profile's request,
+debits one model call from its reservation and records a canonical event/outbox
+in the same SQLite database. Schema2 adds `model_calls` and a unique active/
+uncertain endpoint index; schema1 is accepted/upgraded. `execute` calls actual
+HTTP after committing. Wait is cancellable before admission with no debit.
+HTTP status errors spend a call; timeout/connection loss retains the endpoint.
+Recovery/lease expiry records open transports as uncertain rather than replaying.
+Confirmed real responses after fencing are audited but not returned to the worker.
+Unknown transport ownership blocks `confirm_stopped`, even when spending was
+acknowledged. Available token usage is retained; invalid usage fails without
+leaving known-finished HTTP running. No prompts, response bodies or credentials
+are stored in these events. The acknowledgement API is trusted host code, not
+an authority field accepted from agent messages or HTTP JSON.
+
+`OpenAICompatibleLLM` and `JevStyleDecisionClient` accept optional host request
+executors at the actual SDK boundary; counters advance after admission. Both
+primary generation and remote consolidation are covered. `make_lmstudio_cortex`
+passes separate primary/scorer executors and rejects a partially guarded pair.
+Legacy clients with no executor keep their behavior. These hooks are not yet
+wired to a dispatcher, UI or probes, so Task5 remains open. In particular, do
+not claim all endpoint activity is serialized until legacy/probe wiring exists.
+
+Next runtime prerequisites: persistent model binding/capacity admission across
+worker processes; owned process supervision/heartbeat; per-tool argument guards;
+message delivery; isolated writer copies and actual completion/review. The shared
+snapshot API is `verification.snapshot.capture(root, destination, ref=SubjectRef)`.
+Exploration reproduced a real subfolder inventory leak: capture(repo/project)
+copies correct subtree bytes but Git status includes sibling paths. Fix shared
+capture with a project pathspec and project-relative NUL-delimited rename handling
+before using it for worker workspaces. `evidence.atomic_json` can retain raw
+RunResult, but its legacy observation success is not canonical verified completion.
+
+Verification: full default suite515 passed/8 skipped in238.99s; targeted
+queue/LLM/tracker suite109 passed in40.08s. Changed-file Ruff and mypy13 source
+files pass. A broader `llm/` Ruff scan also found three existing out-of-scope
+findings: RUF022 in `llm/__init__.py`, C408/RUF046 in `candidate_generator.py`.
+They were not changed. Thirteen transport tests and CLI `brains` passed against
+the extracted wheel outside the checkout. Wheel SHA256:
+`df5d8480306e0795ae6b183fb4d6db2f027610dd146d195ec37fa59fc6bba9dc`.
+No fresh live-model, biological research admission or UI acceptance is claimed.
+
 ## Task5 lease/deadline foundation — 2026-10-16
 
 `Store.heartbeat` extends only current, unexpired ownership to now+30s, without

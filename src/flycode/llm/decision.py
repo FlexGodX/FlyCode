@@ -7,6 +7,8 @@ https://huggingface.co/chaoliangUNSW/Jev-Style-Qwen3.5-2B-Decision-GGUF
 import json
 import math
 import string
+from collections.abc import Callable
+from typing import Any
 
 from openai import DefaultHttpxClient, OpenAI
 
@@ -15,9 +17,11 @@ from .protocol import CortexContext
 
 
 class JevStyleDecisionClient:
-    def __init__(self, model: str, base_url: str, api_key: str, timeout: float = 60.0) -> None:
+    def __init__(self, model: str, base_url: str, api_key: str, timeout: float = 60.0,
+                 request_executor: Callable[[Callable[[], Any]], Any] | None = None) -> None:
         self.model = model
         self.request_count = 0
+        self.request_executor = request_executor
         self._client = OpenAI(base_url=base_url, api_key=api_key, timeout=timeout, max_retries=0,
                               http_client=DefaultHttpxClient(trust_env=False))
 
@@ -35,11 +39,13 @@ class JevStyleDecisionClient:
         prompt = ("You are a decision function. Read the state, then answer the question by choosing exactly one option.\n\n"
                   f"[State]\n{state}\n\n[Question]\nWhich action best advances this task safely in the current mode?\n\n"
                   f"[Options]\n{options}\n\nAnswer:")
-        self.request_count += 1
-        response = self._client.chat.completions.create(
-            model=self.model, messages=[{"role": "user", "content": prompt}],
-            max_tokens=1, temperature=0, logprobs=True, top_logprobs=20,
-        )
+        def request():
+            self.request_count += 1
+            return self._client.chat.completions.create(
+                model=self.model, messages=[{"role": "user", "content": prompt}],
+                max_tokens=1, temperature=0, logprobs=True, top_logprobs=20,
+            )
+        response = self.request_executor(request) if self.request_executor is not None else request()
         if not response.choices or not response.choices[0].logprobs or not response.choices[0].logprobs.content:
             raise ValueError("Jev returned no token log probabilities")
         tokens = response.choices[0].logprobs.content[0].top_logprobs

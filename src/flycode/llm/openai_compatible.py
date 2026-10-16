@@ -6,6 +6,7 @@ without any other code change.
 """
 
 import json
+from collections.abc import Callable
 from typing import Any
 
 from pydantic import ValidationError
@@ -27,6 +28,7 @@ class OpenAICompatibleLLM:
         timeout: float = 60.0,
         max_tokens: int | None = None,
         structured_output: bool = False,
+        request_executor: Callable[[Callable[[], Any]], Any] | None = None,
     ) -> None:
         from openai import DefaultHttpxClient, OpenAI
 
@@ -37,6 +39,13 @@ class OpenAICompatibleLLM:
         self.max_tokens = max_tokens
         self.structured_output = structured_output
         self.request_count = 0
+        self.request_executor = request_executor
+
+    def _complete(self, **options):
+        def request():
+            self.request_count += 1
+            return self._client.chat.completions.create(**options)
+        return self.request_executor(request) if self.request_executor is not None else request()
 
     def generate_candidates(self, context: CortexContext) -> list[CandidateAction]:
         n = context.n_candidates or DEFAULT_CANDIDATE_COUNT
@@ -61,8 +70,7 @@ class OpenAICompatibleLLM:
             system += ("\nPropose independent alternatives for ONE immediate tool call, not a sequential plan."
                        " Keep each rationale under 15 words. Reuse known file contents from working memory."
                        " Do not repeat a successful read or failed tests unless relevant files changed.")
-        self.request_count += 1
-        response = self._client.chat.completions.create(
+        response = self._complete(
             model=self.model,
             temperature=self.temperature,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
@@ -73,8 +81,7 @@ class OpenAICompatibleLLM:
 
     def consolidate(self, context: CortexContext, transcript: list[str]) -> str:
         prompt = CONSOLIDATION_PROMPT.format(task=context.task, transcript="\n".join(transcript))
-        self.request_count += 1
-        response = self._client.chat.completions.create(
+        response = self._complete(
             model=self.model,
             temperature=self.temperature,
             messages=[{"role": "user", "content": prompt}],

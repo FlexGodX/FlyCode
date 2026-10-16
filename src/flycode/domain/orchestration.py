@@ -275,3 +275,32 @@ class QueueEvent(QueueModel):
     task_id: str | None = None
     attempt_id: str | None = None
     data: dict[str, Any] = Field(default_factory=dict)
+
+
+class ModelUsage(QueueModel):
+    prompt_tokens: int | None = Field(default=None, ge=0)
+    completion_tokens: int | None = Field(default=None, ge=0)
+    total_tokens: int | None = Field(default=None, ge=0)
+
+
+class ModelCall(QueueModel):
+    id: str
+    workflow_id: str
+    task_id: str
+    attempt_id: str
+    instance_id: str
+    fence: int = Field(ge=1)
+    endpoint_ref: str
+    model_id: str
+    role: Literal['primary', 'scorer']
+    status: Literal['running', 'completed', 'failed', 'uncertain'] = 'running'
+    started_at: float
+    ended_at: float | None = None
+    error_class: str | None = Field(default=None, max_length=200)
+    usage: ModelUsage | None = None
+    late: bool = False
+
+
+class ModelAdmission(QueueModel):
+    call: ModelCall
+    fresh: bool

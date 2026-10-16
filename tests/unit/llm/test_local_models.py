@@ -87,3 +87,24 @@ def test_timeout_counts_one_attempt_without_automatic_retries(model_server):
         client.generate_candidates(ctx)
     assert client.request_count == 1
     assert len(model_server.requests) == 1
+
+
+def test_scorer_transport_gate_prevents_unadmitted_http_and_counter_increment(model_server):
+    from flycode.llm.decision import JevStyleDecisionClient
+
+    permitted = [False]
+    def gate(request):
+        if not permitted[0]:
+            raise InterruptedError('Not admitted')
+        return request()
+    model_server.respond = lambda request: model_server.completion('A', [('A', -1.), ('B', -1.)])
+    client = JevStyleDecisionClient(model='decider', base_url=model_server.url, api_key='local', request_executor=gate)
+    context = CortexContext(task='Inspect the parser.', behavior_mode='execute', observation=Observation(task='Inspect'))
+    candidates = [CandidateAction(id='a', tool='read_file'), CandidateAction(id='b', tool='run_tests')]
+    with pytest.raises(InterruptedError):
+        client.score(context, candidates)
+    assert client.request_count == 0 and model_server.requests == []
+    permitted[0] = True
+    assert client.score(context, candidates) == pytest.approx({'a': .5, 'b': .5})
+    assert client.request_count == 1 and len(model_server.requests) == 1
+    assert model_server.requests[0]['logprobs'] is True
