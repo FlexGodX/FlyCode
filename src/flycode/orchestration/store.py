@@ -55,6 +55,12 @@ def default_state_path() -> Path:
     return Path(os.environ.get('FLYCODE_STATE_DATABASE') or Path.home() / '.local/share/flycode/state.sqlite').expanduser().resolve()
 
 
+def host_pin_path(path: Path) -> Path:
+    root = Path(os.environ.get('FLYCODE_HOST_AUTHORITY_ROOT') or Path.home() / '.local/share/flycode/host-authority')
+    key = hashlib.sha256(str(Path(path).expanduser().resolve()).encode()).hexdigest()
+    return root.expanduser().resolve() / 'by-path' / (key + '.json')
+
+
 class StoreError(ValueError):
     def __init__(self, code: str, message: str = '', current=None):
         super().__init__(f'{code}: {message}')
@@ -71,8 +77,11 @@ def covers(scopes: tuple[str, ...], paths: tuple[str, ...]) -> bool:
 
 
 class Store:
-    def __init__(self, path: Path, *, catalogue=None, clock: Callable[[], float] = time.time):
-        self.path = Path(path)
+    def __init__(self, path: Path, *, catalogue=None, clock: Callable[[], float] = time.time, host=None):
+        self.host = host
+        self.path = host.bind_path(path) if host is not None else Path(path)
+        self._host_database_identity = host.registration.database_identity if host is not None else None
+        self._host_expected = host_pin_path(self.path).exists()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.catalogue, self.clock = catalogue, clock
         self.db = sqlite3.connect(self.path, isolation_level=None, timeout=5)
@@ -81,7 +90,7 @@ class Store:
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=FULL')
         version = self.db.execute('PRAGMA user_version').fetchone()[0]
-        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17):
+        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18):
             self.db.close()
             raise StoreError('schema_version', str(version))
         self.db.executescript('''
@@ -250,6 +259,50 @@ class Store:
             except BaseException:
                 self.db.close()
                 raise
+
+        if version < 18:
+            try:
+                with self.transaction():
+                    self.db.execute('CREATE TABLE IF NOT EXISTS host_registry (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL)')
+                    self.db.execute('CREATE TABLE IF NOT EXISTS host_sessions (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL)')
+                    self.db.execute('PRAGMA user_version=18')
+            except BaseException:
+                self.db.close()
+                raise
+        if host is not None:
+            try:
+                host.bind_path(self.path)
+                host.validate_sql(self)
+            except BaseException:
+                self.db.close()
+                raise
+
+    def _host_guard(self):
+        if self.db.in_transaction:
+            raise RuntimeError('Host filesystem inspection cannot run in a SQLite transaction')
+        self._host_expected = self._host_expected or host_pin_path(self.path).exists()
+        if self.host is not None:
+            self.host.bind_path(self.path)
+        self._host_sql()
+
+    def _host_sql(self):
+        if self.host is not None:
+            self.host.validate_sql(self)
+        elif self._host_expected or self.db.execute('SELECT 1 FROM host_registry WHERE id=1').fetchone() is not None:
+            raise StoreError('host_required', 'Managed runtime requires the exact current host session')
+
+    def _host_late(self):
+        """Lost admission authority may acknowledge exact spending, never new work."""
+        try:
+            if self.db.in_transaction:
+                self._host_sql()
+            else:
+                self._host_guard()
+        except StoreError as error:
+            if not error.code.startswith('host_'):
+                raise
+            return True
+        return False
 
     def close(self):
         self.db.close()
@@ -902,10 +955,12 @@ class Store:
         return BudgetAmount(model_calls=max(0, min(models, model_free)), tool_calls=max(0, min(tools, tool_free)))
 
     def _claim(self, scope, request) -> ClaimResult:
+        self._host_guard()
         automatic = isinstance(request, AutoClaimRequest)
         preferred_id = None if automatic else request.task_id
         self.refresh_results(scope, self.task(scope, preferred_id).workflow_id if preferred_id else None)
         with self.transaction():
+            self._host_sql()
             instance = self.instance(scope, request.instance_id)
             profile = self._profile(instance.profile_id)
             preferred = self.task(scope, preferred_id) if preferred_id else None
@@ -973,10 +1028,12 @@ class Store:
 
     def dispatch_bound(self, scope, *, runtime_root, binding_ids, key, blocked_reasons=()):
         self._role(scope, ('runtime',))
+        self._host_guard()
         self.refresh_results(scope)
         from .pipeline import Pipelines
         pipelines = Pipelines(self, runtime_root)
         with self.transaction():
+            self._host_sql()
             found, result, digest = self._replay(scope, key, {'dispatch_bound': runtime_root})
             if found:
                 return ClaimResult.model_validate(result)
@@ -1086,13 +1143,16 @@ class Store:
     def _claim_execution(self, scope, attempt_id, fence, mode):
         if not self.db.in_transaction:
             raise RuntimeError('Execution admission must be atomic')
+        self._host_sql()
         attempt, task, workflow = self._owned(scope, attempt_id, fence, running=mode != 'worker')
         self._execution_available(scope, attempt_id)
         self.db.execute('INSERT INTO execution_lanes VALUES (?,?)', (attempt_id, mode))
         self._event(scope, workflow, 'execution_admitted', task=task, attempt=attempt, mode=mode)
 
     def confirm_started(self, scope, attempt_id, fence):
+        self._host_guard()
         with self.transaction():
+            self._host_sql()
             attempt, task, workflow = self._owned(scope, attempt_id, fence)
             if attempt.started_at is not None:
                 return attempt
@@ -1137,7 +1197,9 @@ class Store:
 
     def recover(self, scope):
         self._role(scope, ('runtime',))
+        self._host_guard()
         with self.transaction():
+            self._host_sql()
             for workflow in self.workflows(scope):
                 for attempt in self.attempts(scope, workflow.id):
                     if attempt.state not in {'assigned', 'running', 'stopping'}:
@@ -1171,7 +1233,9 @@ class Store:
         return self._attempt(attempt.id)
 
     def heartbeat(self, scope, attempt_id, fence):
+        self._host_guard()
         with self.transaction():
+            self._host_sql()
             attempt, task, workflow = self._owned(scope, attempt_id, fence)
             attempt = changed(attempt, lease_until=self.clock() + 30.)
             self._save_attempt(attempt)
@@ -1181,8 +1245,10 @@ class Store:
     def expire(self, scope):
         """Revoke expired ownership without asserting that its process has stopped."""
         self._role(scope, ('runtime',))
+        self._host_guard()
         expired = []
         with self.transaction():
+            self._host_sql()
             now = self.clock()
             for workflow in self.workflows(scope):
                 if not workflow.active_slot:

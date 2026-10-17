@@ -40,7 +40,9 @@ class Resources:
     def begin(self, scope: AccessScope, attempt_id: str, fence: int, *, key: str) -> ModelAdmission | None:
         store = self.store
         store._role(scope, ('runtime',))
+        store._host_guard()
         with store.transaction():
+            store._host_sql()
             task = store.task(scope, store._attempt(attempt_id).task_id)
             found, result, digest = store._replay(scope, key, {'model_call': attempt_id, 'fence': fence})
             if found:
@@ -72,6 +74,7 @@ class Resources:
         store._role(scope, ('runtime',))
         if status not in {'completed', 'failed', 'uncertain'}:
             raise StoreError('model_status')
+        authority_lost = store._host_late()
         with store.transaction():
             call = self.get(scope, identity)
             if call.status != 'running':
@@ -81,7 +84,7 @@ class Resources:
                     raise StoreError('reconcile_required', 'A terminal transport outcome cannot be overwritten')
             try:
                 attempt, task, workflow = store._owned(scope, call.attempt_id, call.fence, running=True)
-                late = False
+                late = authority_lost or store._host_late()
             except StoreError as error:
                 if error.code not in {'fence', 'wall_deadline'}:
                     raise

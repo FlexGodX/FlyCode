@@ -289,6 +289,7 @@ class Integration:
     def reconcile(self, scope, identity):
         store = self.store
         store._role(scope, ('runtime',))
+        store._host_guard()
         if store.db.in_transaction:
             raise RuntimeError('Integration reconciliation cannot run in a SQLite transaction')
         record = self.get(scope, identity)
@@ -396,6 +397,10 @@ class Integration:
                 raise StoreError('source_changed')
 
     def _guard(self, scope, record, *, deep=False):
+        if self.store.db.in_transaction:
+            self.store._host_sql()
+        else:
+            self.store._host_guard()
         attempt, task, workflow = self.store._owned(scope, record.attempt_id, record.fence, running=True)
         if record.source_claim_id is not None:
             self._source_guard(record)
@@ -476,6 +481,7 @@ class Integration:
         store._role(scope, ('runtime',))
         if store.db.in_transaction:
             raise RuntimeError('Integration cannot run in a SQLite transaction')
+        store._host_guard()
         if trust != 'trusted-local-process':
             raise StoreError('unsupported_sandbox')
         previous = store.db.execute('SELECT id FROM integrations WHERE attempt_id=?', (attempt_id,)).fetchone()

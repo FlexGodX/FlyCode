@@ -119,7 +119,7 @@ one structured candidate; ordinary generation keeps its existing count and limit
 The model transport adapter acquires an endpoint slot and charges the request
 before HTTP, records available token usage and retains unknown timeout outcomes.
 Waiting can be cancelled without sending a request. Single/dual cortex, direct
-clients and explicit probes share the SQLite endpoint ownership index (schema17).
+clients and explicit probes share the SQLite endpoint ownership index (schema18).
 All executors must use the same database through `FLYCODE_STATE_DATABASE`, which
 defaults to `~/.local/share/flycode/state.sqlite`. Unknown outcomes retain the
 endpoint across restart until trusted reconciliation; a busy probe returns409
@@ -157,6 +157,16 @@ from verified physical folders. Drafts do not call a model. Folder replacement
 denies the previous ID; historical textual IDs are never implicitly imported.
 The shared `/tasks` screen uses these APIs for drafts, comments and commands.
 The background queue host and verification API remain open.
+Internal `Host` binds one owner to the physical database through a kernel lock,
+an external path pin and a session generation. Damaged ownership metadata or an
+active older manual attempt blocks automatic adoption. Lost authority denies new
+execution and artifact acceptance while retaining actual late spending. Internal
+`python -m flycode.orchestration.coordinator` runs an approved pipeline independently
+of clients. Its control loop renews heartbeats during checks; restart reconciles
+saved process custody while retaining unknown effects. Shutdown waits for actual
+HTTP completion before releasing the kernel lock. The interface does not start
+this process yet; automatic client attachment and verification API remain open.
+[Plan and current limits](docs/superpowers/plans/2026-10-17-managed-coordinator.md).
 Python web execution changes now also invalidate the admission fingerprint.
 For registered projects, dispatcher/runtime revalidate the physical folder before
 assignment/launch and after workspace capture; integration checks it before the

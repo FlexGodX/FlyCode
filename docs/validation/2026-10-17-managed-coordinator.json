@@ -1,0 +1,266 @@
+{
+  "validation_state": "verified",
+  "goal_complete": false,
+  "parent_commit": "6c6d33edc54c28ec0cc02e6e5ea9a26fa130551f",
+  "scope": "Physical schema18 Host ownership and internal standalone managed coordinator; application attachment remains open",
+  "frozen_files": 250,
+  "source_static_test_config_sha256": "f58674796e280b3985f03112780e42812556ab355ed1c4e16a27aa366d5e7d0e",
+  "runtime_implementation_sha256": "2ecc20e62b5d138aa5a5980134aed7c9064aac8c7d0c217f0b47eab62e67cab0",
+  "full": {
+    "implementation_sha256": "f58674796e280b3985f03112780e42812556ab355ed1c4e16a27aa366d5e7d0e",
+    "groups": {
+      "non-orchestration": {
+        "returncode": 0,
+        "observed_wait_seconds": 255.23341837499174,
+        "pytest_seconds": 253.932
+      },
+      "orchestration-1": {
+        "returncode": 0,
+        "observed_wait_seconds": 890.5670982089941,
+        "pytest_seconds": 890.066
+      },
+      "orchestration-2": {
+        "returncode": 0,
+        "observed_wait_seconds": 890.5659829170036,
+        "pytest_seconds": 531.64
+      },
+      "web": {
+        "returncode": 0,
+        "observed_wait_seconds": 117.98902400000952,
+        "pytest_seconds": 115.508
+      }
+    },
+    "registered_cases": 1130,
+    "observed_cases": 1130,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 8,
+    "seconds": 1008.6273971670016,
+    "frozen_files_unchanged": 250,
+    "passed": true,
+    "passed_cases": 1122,
+    "expected_skips": [
+      {
+        "class": "tests.e2e.test_environment_autonomy",
+        "name": "test_agent_repairs_and_runs_fastapi_postgres[bias_control-full]",
+        "reason": "requires prepared biological graph"
+      },
+      {
+        "class": "tests.e2e.test_environment_autonomy",
+        "name": "test_agent_repairs_and_runs_fastapi_postgres[hard_control-full]",
+        "reason": "requires prepared biological graph"
+      },
+      {
+        "class": "tests.e2e.test_lmstudio",
+        "name": "test_installed_qwen_and_jev_repair_a_toy_repository",
+        "reason": "set FLYCODE_TEST_LMSTUDIO=1 to run both installed local models"
+      },
+      {
+        "class": "tests.e2e.test_real_connectome",
+        "name": "test_real_flywire_runs_the_same_tasks[bias_control-toy_arithmetic_bug]",
+        "reason": "requires prepared FlyWire data and FLYCODE_TEST_CONNECTOME=1"
+      },
+      {
+        "class": "tests.e2e.test_real_connectome",
+        "name": "test_real_flywire_runs_the_same_tasks[bias_control-toy_import_bug]",
+        "reason": "requires prepared FlyWire data and FLYCODE_TEST_CONNECTOME=1"
+      },
+      {
+        "class": "tests.e2e.test_real_connectome",
+        "name": "test_real_flywire_runs_the_same_tasks[hard_control-toy_arithmetic_bug]",
+        "reason": "requires prepared FlyWire data and FLYCODE_TEST_CONNECTOME=1"
+      },
+      {
+        "class": "tests.e2e.test_real_connectome",
+        "name": "test_real_flywire_runs_the_same_tasks[hard_control-toy_import_bug]",
+        "reason": "requires prepared FlyWire data and FLYCODE_TEST_CONNECTOME=1"
+      },
+      {
+        "class": "tests.e2e.test_real_connectome",
+        "name": "test_constrained_training_improves_explicit_multicandidate_task_selection",
+        "reason": "requires prepared FlyWire data and FLYCODE_TEST_CONNECTOME=1"
+      }
+    ]
+  },
+  "focused": {
+    "passed": 108,
+    "exact_ids": true,
+    "seconds": 180.19
+  },
+  "corrected_test_seam": {
+    "file": "tests/unit/orchestration/test_registered_project_execution.py",
+    "references_changed": 2,
+    "assertions_unchanged": true,
+    "module_passed": 13,
+    "seconds": 19.44,
+    "production_unchanged": true
+  },
+  "initial_full_retained": {
+    "implementation_sha256": "e49ce77255805a0533b02d57d66c4f57fdedb8e32e6267fe64a950b8ed7b6f3f",
+    "groups": {
+      "non-orchestration": {
+        "returncode": 0,
+        "observed_wait_seconds": 247.89152212502086,
+        "pytest_seconds": 246.684
+      },
+      "orchestration-1": {
+        "returncode": 0,
+        "observed_wait_seconds": 930.2481558329891,
+        "pytest_seconds": 929.275
+      },
+      "orchestration-2": {
+        "returncode": 1,
+        "observed_wait_seconds": 930.2471439999936,
+        "pytest_seconds": 518.569
+      },
+      "web": {
+        "returncode": 0,
+        "observed_wait_seconds": 118.47499908300233,
+        "pytest_seconds": 118.259
+      }
+    },
+    "registered_cases": 1130,
+    "observed_cases": 1130,
+    "failed": 1,
+    "errors": 0,
+    "skipped": 8,
+    "seconds": 1048.8038744170044,
+    "frozen_files_unchanged": 250,
+    "passed": false
+  },
+  "package": {
+    "passed": true,
+    "wheel_sha256": "a1470f77286c59191bb3d2be2401878d6fdb4f0fc83c4abbf727acd9b7276f64",
+    "exact_distribution_files": 158,
+    "readme_matches": true,
+    "wheel_cases": 108,
+    "wheel_seconds": 199.96333566700923,
+    "cli": [
+      {
+        "arguments": [
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "brains"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "run",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "ui",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "verify",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "train",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "benchmark",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "connectome",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "shadow-analysis",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "validate-rollout",
+          "--help"
+        ],
+        "returncode": 0
+      }
+    ]
+  },
+  "real_graph": {
+    "returncode": 0,
+    "cases": 5,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "scientific_orchestration_admission": false
+  },
+  "real_model": {
+    "model": "qwen/qwen3.5-9b",
+    "english_request": "Set the answer variable in src/example.py to exactly 1. Preserve all tests, README and user files. Run the tests to verify your change.",
+    "passed": true,
+    "workflow_model_calls": 3,
+    "workflow_tool_calls": 34,
+    "attempts": 3,
+    "current_verified_integration": true,
+    "owner_dirty_bytes_preserved": true,
+    "reserved": 0,
+    "uncertain": false,
+    "seconds": 74.00233766701422,
+    "manual_claims": 0,
+    "owner_commands_after_approval": 0,
+    "explicit_probes": 2,
+    "initial_failed_probe_retained": true,
+    "initial_probe_error": "APITimeoutError",
+    "initial_probe_known_usage": {
+      "prompt_tokens": 673,
+      "completion_tokens": 0,
+      "total_tokens": 673
+    },
+    "provider_receipts_matched": 5,
+    "trained_checkpoint": false,
+    "scientific_promotion": false
+  },
+  "static": {
+    "ruff": "passed orchestration/domain and orchestration tests; corrected test module also passed",
+    "mypy": "passed 13 changed production files",
+    "diff_check": "passed"
+  },
+  "evidence": {
+    "initial_root": "/private/tmp/flycode-managed-core-validation-vnp7b7y6",
+    "final_root": "/private/tmp/flycode-managed-core-final-1obgwi33",
+    "archive": "/Users/Administrator/.cache/flycode/validation/flycode-managed-core-1obgwi33"
+  },
+  "remaining": [
+    "authenticated application attachment and public lifecycle/control",
+    "common verification API/CLI/UI and browser acceptance",
+    "neural orchestration encoder/shadow/replay/admission and full research matrix",
+    "all remaining aggregate Tasks5–8 and unproven scientific criteria §§90–99"
+  ],
+  "independent_audit": {
+    "passed": true,
+    "checks": 3020,
+    "input_hashes": 721,
+    "sha256": "bf8d902fac12015c642148190077667d10bcb274e997d851269a6799de7d8da5",
+    "goal_complete": false
+  }
+}

@@ -2970,3 +2970,29 @@ CLI10, Ruff15/scoped mypy6, реальный FlyWire5 и2 явных Qwen/Jev pr
 миграция использует schema18. Tasks5–8 и §§90–99 остаются открытыми.
 [Отчёт](validation/2026-10-17-durable-model-catalogue.md),
 [план среза](superpowers/plans/2026-10-17-durable-model-catalogue.md).
+
+В проверенном продолжении schema18 добавляет физическое
+владение общей базой: точный kernel lock, внешний path pin и поколение Host.
+Проверки охватывают native/HTTP утрату владения, поздний расход, запуск pytest
+и принятие артефакта после подготовки файлов; исходные RED сохранены.
+Повреждённая/односторонняя инициализация требует trusted repair, а не автоматической
+перезаписи. До финального metadata исправления прошли560 orchestration проверок;
+после композиции исправления на main прошли106 целевых проверок. Exact IDs и
+хэши этих исторических срезов проверены отдельно.
+Внутренний фоновый coordinator исполняет одобренный writer/review/integration
+маршрут через независимые Store connections, сохраняя heartbeat при долгой проверке.
+Native проверки охватывают закрытие клиента, pause, drain до фактического HTTP
+исхода и восстановление worker/review/integration при недоступной исходной папке.
+Поздний acknowledgement и освобождение системного lock повторно запускают сверку;
+неизвестные эффекты удерживают резерв. UI/CLI attachment и защищённый HTTP Stop
+для общего host ещё не реализованы. Финально1130 exact ID:1122pass/8 ожидаемых
+skip,0failures/errors,250 неизменных файлов за1008.627с. Extracted-wheel108/CLI10,
+158 точных package files/README, Ruff/scoped mypy13 и реальный FlyWire5 проходят.
+Реальный English Qwen pipeline завершён за74.002с с3model/34tool calls и текущим
+verified результатом; первый probe timeout сохранён со сверенными673 входными
+токенами, затем один явный повтор прошёл. Исходный полный1121pass/1failure/8skip
+сохранён; исправлены только две ссылки тестовой подмены. Tasks5–8 и §§90–99
+остаются открытыми; научного promotion нет.
+[План продолжения](superpowers/plans/2026-10-17-managed-coordinator.md).
+[Рабочий отчёт](validation/2026-10-17-managed-host-foundation.md).
+[Проверка coordinator core](validation/2026-10-17-managed-coordinator.md).

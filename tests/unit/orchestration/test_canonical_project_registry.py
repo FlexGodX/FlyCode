@@ -182,7 +182,7 @@ def test_schema16_failure_preserves_schema15_arbitrary_ids_and_history(tmp_path,
         connection.close()
     reopened = Store(path)
     try:
-        assert reopened.db.execute('PRAGMA user_version').fetchone()[0] == 17
+        assert reopened.db.execute('PRAGMA user_version').fetchone()[0] == 18
         assert reopened.workflow(owner, workflow.id).project_id == '.'
         assert reopened.db.execute('SELECT COUNT(*) FROM canonical_projects').fetchone()[0] == 0
     finally:

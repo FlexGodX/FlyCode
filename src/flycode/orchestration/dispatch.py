@@ -110,8 +110,15 @@ class Dispatcher:
         return task, previous
 
     def tick(self, scope, *, key) -> ClaimResult:
+        result = self.select(scope, key=key)
+        if result.attempt is not None:
+            self.launch(scope, result.attempt.id)
+        return result
+
+    def select(self, scope, *, key) -> ClaimResult:
         store = self.store
         store._role(scope, ('runtime',))
+        store._host_guard()
         with store.transaction():
             found, saved, _ = store._replay(scope, key, {'dispatch_bound': str(self.root)})
         if found:
@@ -167,8 +174,6 @@ class Dispatcher:
                     reasons.append(getattr(error, 'code', 'review_binding_unavailable'))
             result = store.dispatch_bound(scope, runtime_root=str(self.root), binding_ids=tuple(approved),
                 blocked_reasons=tuple(reasons), key=key)
-        if result.attempt is not None:
-            self._launch(scope, result.attempt.id)
         return result
 
     def _source(self, scope, binding):
@@ -181,8 +186,9 @@ class Dispatcher:
             source = binding.source_root
         registered_source(self.store, binding.project_id, source)
 
-    def _launch(self, scope, attempt_id):
+    def launch(self, scope, attempt_id):
         store = self.store
+        store._host_guard()
         attempt = store._attempt(attempt_id)
         store.task(scope, attempt.task_id)
         if (attempt.state != 'assigned' or store.db.execute('SELECT 1 FROM execution_lanes WHERE attempt_id=?',

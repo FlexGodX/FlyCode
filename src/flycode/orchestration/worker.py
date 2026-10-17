@@ -36,12 +36,19 @@ def main():
 
         from ..agent import run_agent
         from ..brain import make_brain
-        from ..domain import CandidateAction
-        from ..domain.orchestration import WorkerConfig, WorkerReply, WorkerRequest
+        from ..domain import CandidateAction, ToolAction
+        from ..domain.orchestration import (
+            ToolCall,
+            WorkerConfig,
+            WorkerReply,
+            WorkerRequest,
+            WorkerToolOutcome,
+        )
         from ..llm.lmstudio import ModelRoutingTrace
         from ..tools.filesystem import ToolResult
         from .environment import AttemptEnvironment
-        from .store import Store
+        from .store import Store, StoreError
+        from .tools import CandidateMetadataError
 
         config = WorkerConfig.model_validate(wire.receive(rpc))
         sequence = 0
@@ -87,8 +94,20 @@ def main():
                 return ToolResult(**request('message_tool', action.model_dump(mode='json')))
             def read_artifact(action):
                 return ToolResult(**request('artifact_tool', action.model_dump(mode='json')))
+            def admit_tool(action):
+                response = request('tool_begin', action.model_dump(mode='json'))
+                if response.get('blocked'):
+                    error = response['blocked']
+                    kind = CandidateMetadataError if error['metadata'] else StoreError
+                    raise kind(error['code'], error['message'])
+                return ToolCall.model_validate(response['call']), ToolAction.model_validate(response['action'])
+            def finish_tool(call, status, error_class):
+                outcome = WorkerToolOutcome(call_id=call.id, status=status, error_class=error_class)
+                response = request('tool_finish', outcome.model_dump(mode='json'))
+                return ToolCall.model_validate(response['call'])
             environment = AttemptEnvironment(Path(config.repository), connection, config.scope, config.attempt_id, config.fence,
-                message_executor=send_message, artifact_executor=read_artifact)
+                message_executor=send_message, artifact_executor=read_artifact,
+                tool_admitter=admit_tool, tool_finisher=finish_tool)
             result = asyncio.run(run_agent(environment, brain, RemoteCortex(), config.task,
                 run_id=config.attempt_id, on_event=activity, should_stop=finished.is_set))
             request('result', result.model_dump(mode='json'))

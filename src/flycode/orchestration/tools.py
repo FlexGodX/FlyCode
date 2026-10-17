@@ -128,6 +128,7 @@ class Tools:
         store = self.store
         if store.db.in_transaction:
             raise RuntimeError('Tool authorization cannot run in a SQLite transaction')
+        store._host_guard()
         if action.tool == 'read_file' and 'artifact_id' in action.arguments:
             raise StoreError('artifact_route', 'Pinned input reads require the owning artifact service')
         _, task, workflow = store._owned(scope, attempt_id, fence, running=True)
@@ -167,7 +168,9 @@ class Tools:
     def bind_process(self, scope, identity, ref: ProcessRef):
         store = self.store
         store._role(scope, ('runtime',))
+        store._host_guard()
         with store.transaction():
+            store._host_sql()
             call = self.get(scope, identity)
             attempt, task, workflow = store._owned(scope, call.attempt_id, call.fence, running=True)
             if (call.status != 'running' or call.execution_profile != 'registered-pytest-v1'
@@ -185,8 +188,10 @@ class Tools:
 
     def _begin(self, scope, attempt_id, fence, action, *, execution_profile=None):
         store = self.store
+        store._host_guard()
         digest = hashlib.sha256(json.dumps(action.arguments, sort_keys=True, allow_nan=False).encode()).hexdigest()
         with store.transaction():
+            store._host_sql()
             attempt, task, workflow = store._owned(scope, attempt_id, fence, running=True)
             if action.is_mutating:
                 Inputs(store).require(scope, attempt_id, fence, deep=False)
@@ -216,6 +221,7 @@ class Tools:
         store._role(scope, ('runtime',))
         if status not in {'completed', 'failed', 'uncertain'}:
             raise StoreError('tool_status')
+        authority_lost = store._host_late()
         with store.transaction():
             call = self.get(scope, identity)
             if call.status != 'running':
@@ -225,7 +231,7 @@ class Tools:
                     raise StoreError('reconcile_required', 'A terminal tool outcome cannot be overwritten')
             try:
                 attempt, task, workflow = store._owned(scope, call.attempt_id, call.fence, running=True)
-                late = False
+                late = authority_lost or store._host_late()
             except StoreError as error:
                 if error.code not in {'fence', 'wall_deadline'}:
                     raise

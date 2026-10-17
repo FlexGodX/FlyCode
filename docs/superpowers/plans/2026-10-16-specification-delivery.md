@@ -53,6 +53,22 @@ are preserved. Shared physical DB hosting requires schema18 and remains open;
 Tasks5–8 and research admission are not complete.
 [Report](../../validation/2026-10-17-durable-model-catalogue.md).
 
+Validated core continuation: [managed coordinator](2026-10-17-managed-coordinator.md)
+adds schema18 physical leadership and guards to existing runtime services.
+Native/HTTP REDs are retained; broad pre-metadata-correction560 checks and main
+final106 checks pass, with exact IDs and source hashes independently verified.
+The internal standalone coordinator now runs an approved pipeline with separate
+control/stage connections, exact saved-custody recovery and bounded transient
+reconciliation probes. Native owner pause and late HTTP drain are exercised;
+web/CLI client attachment and protected HTTP Stop remain open. Final full1130
+exact IDs:1122pass/8expectedskip,250 unchanged files,1008.627s. Extracted-wheel108/
+CLI10,158 exact package bytes/README, Ruff/mypy13, real FlyWire5 and actual English
+Qwen pipeline3model/34tools/74.002s pass. The first probe timeout/673 known tokens
+and initial full old-seam failure remain retained. No prior full/graph/live result
+is reused as current evidence; aggregate Tasks5–8 remain open.
+[Working report](../../validation/2026-10-17-managed-host-foundation.md).
+[Core report](../../validation/2026-10-17-managed-coordinator.md).
+
 **Architecture:** Существующий одиночный runtime сохраняется как совместимый исполнитель. Новые задачи и попытки имеют единое транзакционное хранилище; tracker — его представление. Независимая проверка связывает verdict с фактическими байтами результата, а диспетчер резервирует ресурсы до вызова исполнителя.
 
 **Tech Stack:** Python >=3.10, Pydantic v2, SQLite, pytest, FastAPI, существующие HTML/CSS/JS, LM Studio.

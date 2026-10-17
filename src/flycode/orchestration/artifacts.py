@@ -172,6 +172,7 @@ class Artifacts:
         store._role(scope, ('runtime',))
         if store.db.in_transaction:
             raise RuntimeError('Artifact publication cannot run in a SQLite transaction')
+        store._host_guard()
         row = store.db.execute('SELECT id FROM artifacts WHERE attempt_id=?', (attempt_id,)).fetchone()
         if row:
             record = self.get(scope, row['id'])
@@ -217,7 +218,9 @@ class Artifacts:
             record = changed(record, patch_hash=hashlib.sha256(raw.encode()).hexdigest())
             atomic_json(directory / 'manifest.json', raw)
             (directory / 'run-result.json').write_bytes(result_bytes)
+            store._host_guard()
             with store.transaction():
+                store._host_sql()
                 winner = store.db.execute('SELECT id FROM artifacts WHERE attempt_id=?', (attempt_id,)).fetchone()
                 if winner is None:
                     attempt, task, workflow = store._owned(scope, attempt_id, fence, running=True)

@@ -22,6 +22,7 @@ from ..domain.orchestration import (
     WorkerRecord,
     WorkerReply,
     WorkerRequest,
+    WorkerToolOutcome,
 )
 from ..llm.protocol import CortexContext
 from ..verification import custody
@@ -32,7 +33,7 @@ from .cortex import AttemptCortex
 from .integration import Integration, registered_source
 from .messages import Messages
 from .store import Store, StoreError, changed
-from .tools import SUPPORTED, Tools
+from .tools import SUPPORTED, CandidateMetadataError, Tools
 from .workspaces import Workspaces
 
 
@@ -51,6 +52,7 @@ class Runtime:
     def reconcile(self, scope, attempt_id):
         store = self.store
         store._role(scope, ('runtime',))
+        store._host_guard()
         if store.db.in_transaction:
             raise RuntimeError('Worker reconciliation cannot run in a SQLite transaction')
         record = self.worker(scope, attempt_id)
@@ -96,6 +98,7 @@ class Runtime:
 
     def launch(self, scope, attempt_id, fence, source: Path, *, brain='functional', seed=0, trust='trusted-local-process',
                message_recipients=(), expected_source_hash=None):
+        self.store._host_guard()
         if trust != 'trusted-local-process':
             raise StoreError('unsupported_sandbox', 'Hostile code requires a supported sandbox')
         if os.name != 'posix':
@@ -248,7 +251,7 @@ class WorkerHandle:
 
     def _connection(self):
         original = self.runtime.store
-        return Store(original.path, catalogue=original.catalogue, clock=original.clock)
+        return Store(original.path, catalogue=original.catalogue, clock=original.clock, host=original.host)
 
     def _capture_stderr(self):
         observed, retained, digest = 0, 0, hashlib.sha256()
@@ -293,6 +296,13 @@ class WorkerHandle:
                     with connection.transaction():
                         connection._owned(self.scope, self.record.attempt_id, self.record.fence, running=True)
                         connection.db.execute('UPDATE workers SET data=? WHERE id=?', (self.record.model_dump_json(), self.record.id))
+                elif request.operation == 'tool_finish':
+                    outcome = WorkerToolOutcome.model_validate(request.payload)
+                    call = Tools(connection).get(self.scope, outcome.call_id)
+                    if call.attempt_id != self.record.attempt_id or call.fence != self.record.fence:
+                        raise StoreError('worker_call_scope')
+                    payload = {'call': Tools(connection).finish(self.scope, call.id,
+                        status=outcome.status, error_class=outcome.error_class).model_dump(mode='json')}
                 elif request.operation == 'error':
                     connection._owned(self.scope, self.record.attempt_id, self.record.fence)
                     self.error = 'worker:' + str(request.payload.get('error_class', 'Unknown'))[:100]
@@ -303,6 +313,16 @@ class WorkerHandle:
                         connection._owned(self.scope, attempt.id, attempt.fence, running=True)
                         payload = {'candidates': [item.model_dump(mode='json') for item in candidates],
                             'model_calls': cortex.model_calls, 'routing': cortex.last_routing.model_dump(mode='json')}
+                    elif request.operation == 'tool_begin':
+                        try:
+                            call, action = Tools(connection).begin(self.scope, attempt.id, attempt.fence,
+                                root=self.directory / 'repository', action=ToolAction.model_validate(request.payload))
+                            payload = {'call': call.model_dump(mode='json'), 'action': action.model_dump(mode='json')}
+                        except StoreError as error:
+                            if error.code != 'resolution_inputs_required' and not isinstance(error, CandidateMetadataError):
+                                raise
+                            payload = {'blocked': {'code': error.code, 'message': str(error).partition(': ')[2],
+                                'metadata': isinstance(error, CandidateMetadataError)}}
                     elif request.operation == 'artifact_tool':
                         result = Artifacts(connection, self.runtime.root).read_input(self.scope, attempt.id, attempt.fence,
                             ToolAction.model_validate(request.payload))

@@ -4,6 +4,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from ..domain import TaskSpec, ToolAction
+from ..domain.orchestration import ToolCall
 from ..environment import SoftwareEnvironment
 from ..tools.filesystem import ToolResult
 from .inputs import Inputs
@@ -14,10 +15,13 @@ from .tools import CandidateMetadataError, Tools
 class AttemptEnvironment(SoftwareEnvironment):
     def __init__(self, root: Path, store: Store, scope, attempt_id: str, fence: int, *,
                  message_executor: Callable[[ToolAction], ToolResult] | None = None,
-                 artifact_executor: Callable[[ToolAction], ToolResult] | None = None):
+                 artifact_executor: Callable[[ToolAction], ToolResult] | None = None,
+                 tool_admitter: Callable[[ToolAction], tuple[ToolCall, ToolAction]] | None = None,
+                 tool_finisher: Callable[[ToolCall, str, str | None], ToolCall] | None = None):
         self.store, self.scope, self.attempt_id, self.fence = store, scope, attempt_id, fence
         self.message_executor = message_executor
         self.artifact_executor = artifact_executor
+        self.tool_admitter, self.tool_finisher = tool_admitter, tool_finisher
         self._blocked_result: ToolResult | None = None
         _, task, _ = store._owned(scope, attempt_id, fence, running=True)
         if task.permissions is None or task.permissions.read_scopes != ('.',):
@@ -43,7 +47,8 @@ class AttemptEnvironment(SoftwareEnvironment):
             # The owning host admits and debits this action before publishing over RPC.
             return await super().step(action)
         try:
-            call, action = self.tools.begin(self.scope, self.attempt_id, self.fence, root=self.repo_root, action=action)
+            call, action = (self.tool_admitter(action) if self.tool_admitter is not None else
+                self.tools.begin(self.scope, self.attempt_id, self.fence, root=self.repo_root, action=action))
         except StoreError as error:
             if error.code != 'resolution_inputs_required' and not isinstance(error, CandidateMetadataError):
                 raise
@@ -55,15 +60,20 @@ class AttemptEnvironment(SoftwareEnvironment):
         try:
             result = await super().step(action)
         except BaseException as error:
-            self.tools.finish(self.scope, call.id, status='uncertain', error_class=type(error).__name__)
+            self._finish(call, 'uncertain', type(error).__name__)
             raise
         if action.tool == 'run_tests' and result.payload.get('status') == 'timeout':
-            self.tools.finish(self.scope, call.id, status='uncertain', error_class='ToolTimeout')
+            self._finish(call, 'uncertain', 'ToolTimeout')
             raise StoreError('reconcile_required', 'Pytest timeout does not prove descendant processes stopped')
-        completed = self.tools.finish(self.scope, call.id, status='completed' if result.success else 'failed')
+        completed = self._finish(call, 'completed' if result.success else 'failed')
         if completed.late:
             raise StoreError('fence', 'Late tool result retained for audit only')
         return result
+
+    def _finish(self, call, status, error_class=None):
+        if self.tool_finisher is not None:
+            return self.tool_finisher(call, status, error_class)
+        return self.tools.finish(self.scope, call.id, status=status, error_class=error_class)
 
     def _run_tool(self, action: ToolAction) -> ToolResult:
         if self._blocked_result is not None:

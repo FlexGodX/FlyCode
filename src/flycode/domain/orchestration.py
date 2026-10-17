@@ -490,8 +490,15 @@ class WorkerConfig(QueueModel):
 
 class WorkerRequest(QueueModel):
     sequence: int = Field(ge=1)
-    operation: Literal['ready', 'candidates', 'activity', 'message', 'message_tool', 'artifact_tool', 'result', 'error']
+    operation: Literal['ready', 'candidates', 'activity', 'message', 'message_tool', 'artifact_tool',
+        'tool_begin', 'tool_finish', 'result', 'error']
     payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class WorkerToolOutcome(QueueModel):
+    call_id: str = Field(min_length=1, max_length=100)
+    status: Literal['completed', 'failed', 'uncertain']
+    error_class: str | None = Field(default=None, max_length=200)
 
 
 class WorkerReply(QueueModel):

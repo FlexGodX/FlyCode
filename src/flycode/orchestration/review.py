@@ -34,6 +34,7 @@ class Reviews:
         store._role(scope, ('runtime',))
         if store.db.in_transaction:
             raise RuntimeError('Review cannot run in a SQLite transaction')
+        store._host_guard()
         if trust != 'trusted-local-process':
             raise StoreError('unsupported_sandbox')
         previous = store.db.execute('SELECT id FROM reviews WHERE attempt_id=?', (attempt_id,)).fetchone()
@@ -87,14 +88,17 @@ class Reviews:
         self.artifacts.get(scope, artifact_id)
         passed = accepted(engine, verdict, roots['integration'], task.acceptance)
         stop_reason = None
+        authority_lost = store._host_late()
         with store.transaction():
             store.task(scope, task.id)
             try:
+                if authority_lost or store._host_late():
+                    raise StoreError('host_fence')
                 current_attempt, current_task, current_workflow = store._owned(scope, attempt_id, fence, running=True)
                 if current_task.paused or current_workflow.state != 'running' or store._counter('queue_paused'):
                     raise StoreError('paused')
             except StoreError as error:
-                if error.code not in {'fence', 'paused', 'wall_deadline'}:
+                if error.code not in {'fence', 'paused', 'wall_deadline', 'host_fence'}:
                     raise
                 passed, stop_reason = False, error.code
             record = ReviewRecord(id=uuid4().hex, artifact_id=artifact_id, patch_hash=artifact.patch_hash,
@@ -140,6 +144,7 @@ class Reviews:
     def reconcile(self, scope, attempt_id) -> ReviewExecution:
         store = self.store
         store._role(scope, ('runtime',))
+        store._host_guard()
         if store.db.in_transaction:
             raise RuntimeError('Review reconciliation cannot run in a SQLite transaction')
         record = self.execution(scope, attempt_id)

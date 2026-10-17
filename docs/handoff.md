@@ -2,6 +2,70 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Managed host and coordinator core — validated, 2026-10-17
+
+Validated changes atop published6c6d33e add schema18, a physical database/path/root/
+lock registration, one-shot kernel-owned Host session and runtime admission
+guards. Actual child ordinary tools now admit/finish through the owning parent
+RPC; bare child Store remains available for existing read/fence observations.
+Host closure revokes sessions and reconciles active attempts in one transaction;
+exact late HTTP/tool acknowledgments retain usage. Artifact publication checks
+physical authority at entry and after capture, plus current session inside SQL.
+Final registered pytest GO admission also checks host authority.
+
+Broad orchestration560 passed1275.56s with independently checked exact IDs and53
+unchanged source/test hashes from a mid-run capture. A final malformed-metadata
+correction was then composed from a pinned isolated copy: main106 passed68.67s,
+exact IDs and53 final file hashes verified. Isolated44/62 also pass. These scopes
+overlap; the560 run is not evidence of post-correction full-suite execution.
+Ruff passes over domain/orchestration, the package and its tests; scoped mypy
+passes12 changed production files. No tests or research are currently running.
+
+Actual REDs and fixture/expectation mistakes are retained. Missing/foreign host
+sessions now refuse startup without rewriting metadata; malformed SQL JSON now
+becomes a host StoreError, preserving exact late HTTP usage while denying fresh
+work. Final record: `/private/tmp/flycode-host-foundation-status.json`; isolated
+parent/final hashes: `/private/tmp/flycode-host-metadata-lab.json`.
+[Report](validation/2026-10-17-managed-host-foundation.md),
+[working plan](superpowers/plans/2026-10-17-managed-coordinator.md).
+
+An internal standalone coordinator now runs the approved writer/review/integration
+route on per-thread Store connections. Native tests cover client close, actual
+review heartbeat/owner pause, graceful drain during held HTTP, and crash recovery
+of exact worker/review/integration custody with missing source roots. Unknown
+effects retain spending/reservations. Pre-recovery observations avoid caching a
+concurrent HTTP acknowledgement; transient lock/source failures retry at bounded
+intervals with deduplicated blocked events. Terminal integration source settlement
+also retries through exact custody. These changes supersede the foundation-only
+source hashes above; application attachment remains separate open work.
+
+Focused108 exact, extracted-wheel108 exact/CLI10,158 package files/README,
+Ruff/scoped mypy13 and real FlyWire5 pass. An actual English Qwen pipeline
+completed in74.002s with3model/34tool calls, three stopped successful attempts,
+current integration, preserved owner bytes and no outstanding reserve. Its first
+probe timeout is retained and reconciled through exact LM Studio evidence:
+673prompt/0completion tokens; one explicit repeat then passed. No checkpoint
+promotion or orchestration research acceptance is inferred.
+
+Initial full1130 completed1121pass/1failure/8expectedskip in1048.804s with250
+unchanged files. The failure was a test fault injector using the renamed private
+`Dispatcher._launch`; two references now use public `launch`, with the same
+assertions. Its whole module passes13/19.44s. Production/wheel bytes are unchanged.
+Final full1130 completed1122pass/8expectedskip,0failures/errors,1008.627s against250
+unchanged files, manifest
+f58674796e280b3985f03112780e42812556ab355ed1c4e16a27aa366d5e7d0e.
+The exact full handle31337 is terminal0; no tests or research remain running.
+Consult `/private/tmp/flycode-managed-core-final-full-root.txt` and
+`/private/tmp/flycode-managed-core-status.json` for publication state. Do not rerun
+these checks without new changes, failures or an unresolved concern.
+[Core report](validation/2026-10-17-managed-coordinator.md).
+
+Do not publish as full-goal completion: web/CLI attachment/control, shared-host UI
+acceptance and neural orchestration remain open. Incomplete one-sided initialization
+requires trusted repair, even if a caller guesses it was effect-free. The fixed
+authority root is server configuration, independent of caller-selected runtime
+state_root. Tasks5–8 and scientific §§90–99 remain open.
+
 ## Durable model catalogue — validated, 2026-10-17
 
 Schema17 explicit probe admissions and legacy terminal publication after cleanup/

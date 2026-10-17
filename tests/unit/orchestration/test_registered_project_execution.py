@@ -57,13 +57,13 @@ def test_registered_root_substitution_blocks_dispatch_before_assignment(register
 
 def test_root_replacement_between_claim_and_launch_starts_no_worker(registered, monkeypatch):
     store, owner, host, workflow, _, _, source, dispatcher, _ = registered
-    original = dispatcher._launch
+    original = dispatcher.launch
 
     def after_claim(scope, attempt_id):
         replace(source)
         return original(scope, attempt_id)
 
-    monkeypatch.setattr(dispatcher, '_launch', after_claim)
+    monkeypatch.setattr(dispatcher, 'launch', after_claim)
     result = dispatcher.tick(host, key='replace-after-claim')
     assert result.attempt is not None
     assert not store.db.execute('SELECT 1 FROM workers').fetchone()
