@@ -1,0 +1,84 @@
+{
+  "source": "56d67a1240f401ed1831777a0adfe244b8d7c5ebca2447e914e49c11e7996941",
+  "base": "f4f9e5eab736925432dc35c04b45bdf77bef5d7d",
+  "frozen_files": 162,
+  "frozen_unchanged": true,
+  "static_assets": {
+    "tasks.css": "923a0806da2a026cbc59425a74f30bf54afcf3951ccf5b3aac3c52601fa2505d",
+    "index.html": "4a396cca69e2d61c4639529fc2a56237ed40423c58bcce216de2e1439d94c1d8",
+    "tasks.html": "badda5c2b1c040986768e23ee90a4b8db834c410e3ab13388da6264c36a48a8f",
+    "styles.css": "bb065ee9a284ebcb871728ff2a7faca17b1e51417415c60c48962985ead3b9e4",
+    "desktop.css": "78d21d398f0be6f881df9755e74fc703b138b947665bf39618973612211a6c82",
+    "tasks.js": "e55539ce737637faacb4b40c139e49f12ba73a303af8591b93714f0866c07dd1",
+    "journal.js": "c50e680535d483750d7c8af9be7e51152dc552bdd81aaebba6813163bbdfc4d0",
+    "desktop.js": "6c47fa168c795dc30674818fc24117c12943eb83f835e9b97808df0222421e04",
+    "app.js": "20de9d2cc181b8c2d3ef4807b810b712bf8c7f12611c91796c557977c274ca53",
+    "favicon.svg": "90561b2255ce82d6d495255a0c785e3729c657412b22028262c4d5ddbef6046f"
+  },
+  "browser_cases": [
+    "canonical_tasks_actual_HTTP_and_controlled_blocked_projection",
+    "desktop_legacy",
+    "projects_legacy_controlled_picker",
+    "projectless_local_HTTP_model"
+  ],
+  "main_browser_pass": true,
+  "wheel_browser_pass": true,
+  "store_audits": [
+    {
+      "surface": "accepted-retry",
+      "counts": {
+        "tasks": 2,
+        "canonical_projects": 1,
+        "attempts": 0,
+        "instances": 0,
+        "model_calls": 0,
+        "tool_calls": 0,
+        "workers": 0
+      },
+      "events": 63,
+      "literal_comment_once": true,
+      "states_and_user_bytes_match": true
+    },
+    {
+      "surface": "publication-wheel-browser",
+      "counts": {
+        "tasks": 2,
+        "canonical_projects": 1,
+        "attempts": 0,
+        "instances": 0,
+        "model_calls": 0,
+        "tool_calls": 0,
+        "workers": 0
+      },
+      "events": 63,
+      "literal_comment_once": true,
+      "states_and_user_bytes_match": true
+    }
+  ],
+  "package": {
+    "full_suite_run": false,
+    "real_models_run": false,
+    "phases": [
+      {
+        "name": "build",
+        "returncode": 0,
+        "seconds": 1.4658144580025692
+      },
+      {
+        "name": "wheel-browser",
+        "returncode": 0,
+        "seconds": 4.718759792012861
+      }
+    ],
+    "distribution_files": 155,
+    "wheel_sha256": "aaf9773d59bdd8b007c4230f84619aef9ff6451e57f51724f7e35181cc284446",
+    "readme_metadata_matches": true,
+    "passed": true
+  },
+  "non_ui_pytest_run": false,
+  "real_graph_run": false,
+  "real_provider_inference_run": false,
+  "main_root": "/private/tmp/flycode-tasks-main-validation-4pssh35w",
+  "archive": "~/.cache/flycode/validation/flycode-tasks-interface-4pssh35w",
+  "remaining": "Task8 fields/filters/runtime/verification/review UX, unique DB host and neural admission remain open; aggregate Tasks5-8 incomplete."
+}

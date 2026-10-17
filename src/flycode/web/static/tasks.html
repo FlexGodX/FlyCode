@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Задачи · FlyCode</title>
+  <link rel="stylesheet" href="/static/styles.css" /><link rel="stylesheet" href="/static/tasks.css" />
+  <script src="/static/tasks.js" defer></script>
+</head>
+<body class="tasks-ui">
+  <div class="tasks-shell">
+    <aside class="tasks-nav" aria-label="Навигация">
+      <a class="tasks-brand" href="/">FlyCode <small>LOCAL</small></a>
+      <nav><a href="/">Чаты</a><a href="/tasks" aria-current="page">Задачи</a><a href="/desktop">Desktop-интерфейс</a></nav>
+      <p>Локальное рабочее пространство</p>
+    </aside>
+    <main class="tasks-main">
+      <header class="tasks-header"><div><p class="eyebrow">РАБОЧЕЕ ПРОСТРАНСТВО</p><h1>Задачи</h1><p id="connection" role="status">Подключаемся…</p></div><button class="primary" id="newDraft" disabled>Новая задача</button></header>
+      <div class="task-views" role="group" aria-label="Представление"><button data-view="board" aria-pressed="true">Доска</button><button data-view="list" aria-pressed="false">Список</button><button data-view="agents" aria-pressed="false">Агенты</button></div>
+      <form class="task-filters" id="filters" role="search">
+        <label>Поиск<input id="query" aria-label="Поиск задач" type="search" maxlength="200" placeholder="Номер, название или описание" /></label>
+        <label>Проект<select id="projectFilter" aria-label="Фильтр проекта"><option value="">Все проекты</option></select></label>
+        <label>Состояние<select id="stateFilter" aria-label="Фильтр состояния"><option value="">Все состояния</option></select></label>
+        <label>Приоритет<select id="priorityFilter" aria-label="Фильтр приоритета"><option value="">Любой</option><option value="3">3 · Высокий</option><option value="2">2 · Средний</option><option value="1">1 · Обычный</option><option value="0">0 · Низкий</option></select></label>
+        <label class="archive-filter"><input id="archivedFilter" type="checkbox" /> С архивом</label>
+      </form>
+      <p class="task-notice" id="notice" role="alert" hidden></p>
+      <div id="taskContent" aria-live="polite"></div>
+    </main>
+  </div>
+  <dialog id="draftDialog" aria-labelledby="draftTitle">
+    <form id="draftForm">
+      <header class="dialog-header"><h2 id="draftTitle">Новая задача</h2><button type="button" data-close="draftDialog" aria-label="Закрыть создание задачи">×</button></header>
+      <p>Сохраните идею в черновиках. Выполнение потребует критериев, разрешения и бюджета.</p>
+      <label>Проект<select id="draftProject" required></select></label>
+      <label>Заголовок<input id="draftName" maxlength="200" required /></label>
+      <label>Описание результата<textarea id="draftObjective" maxlength="20000" rows="5"></textarea></label>
+      <label>Приоритет задачи<select id="draftPriority"><option value="1">1 · Обычный</option><option value="3">3 · Высокий</option><option value="2">2 · Средний</option><option value="0">0 · Низкий</option></select></label>
+      <p id="draftError" role="alert"></p><footer><button type="submit" class="primary">Сохранить черновик</button></footer>
+    </form>
+  </dialog>
+  <dialog id="taskDetail" aria-labelledby="detailTitle">
+    <header class="dialog-header"><h2 id="detailTitle"></h2><button type="button" data-close="taskDetail" aria-label="Закрыть карточку">×</button></header>
+    <div id="detailBody"></div><p id="detailError" role="alert"></p>
+    <section><h3>История и комментарии</h3><div id="taskHistory"></div><button id="moreHistory" hidden>Следующие события</button></section>
+    <form id="commentForm"><label>Комментарий<textarea id="commentText" maxlength="8000" rows="3" required></textarea></label><button type="submit">Добавить комментарий</button></form>
+  </dialog>
+</body>
+</html>

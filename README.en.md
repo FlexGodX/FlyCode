@@ -58,6 +58,12 @@ at `/`; sidebar links switch between them. Both share projects, chats, history
 and model preferences. Projects can use any local folder without Git, selected
 through a native system dialog. Chats without a project keep their files separate.
 
+The [Tasks screen](http://127.0.0.1:8790/tasks) provides a board, list and actual
+agent instances from the shared queue. Save drafts, search tasks, inspect blockers
+and history, post comments and send server-validated commands. Drafts call no
+model. Automatic queue execution and verification control through this screen
+are not connected yet.
+
 - **«Попробовать на демо» (Try a demo)** repairs a real toy bug without models.
 - For your own task, select a project, describe the outcome and press the arrow
   or `⌘ Enter` / `Ctrl Enter`. Local Qwen + Jev are selected by default.
@@ -140,7 +146,8 @@ delivered history. Historical events through `cursor` must not regress the board
 Requests require the local bootstrap's `X-FlyCode-Token`; the server derives scope
 from verified physical folders. Drafts do not call a model. Folder replacement
 denies the previous ID; historical textual IDs are never implicitly imported.
-The background queue host, shared Tasks screen and verification API remain open.
+The shared `/tasks` screen uses these APIs for drafts, comments and commands.
+The background queue host and verification API remain open.
 Python web execution changes now also invalidate the admission fingerprint.
 For registered projects, dispatcher/runtime revalidate the physical folder before
 assignment/launch and after workspace capture; integration checks it before the

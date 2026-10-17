@@ -2,6 +2,31 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Shared Tasks UI — validated, 2026-10-17
+
+Current Python source56d67a1240f401ed1831777a0adfe244b8d7c5ebca2447e914e49c11e7996941
+adds /tasks to worker publicationf4f9e5e. Assets have separate frozen SHA records;
+all162 implementation/static/browser/config files stay unchanged in final checks.
+Actual board/list/instances, filters, non-Git drafts, commands/comments/history
+and authenticated SSE use canonical APIs. No new execution host is started.
+
+Main and extracted-wheel browser pass draft persistence, lost201 replay for
+create/comment, literal text, >50 history, external updates, real409, delayed
+same-task response, 390/320 keyboard/layout and Classic/Desktop navigation.
+A controlled blocked projection prevents an unsupported retry; no actual blocked
+worker execution is claimed. Existing Desktop/projects/projectless browser cases
+pass. SQLite has2tasks/1project and0instances/attempts/workers/model/tool calls;
+user bytes unchanged. Package has145 Python/10static bytes and matching README.
+[Report](validation/2026-10-17-tasks-interface.md). Evidence root
+`/private/tmp/flycode-tasks-main-validation-4pssh35w`.
+
+No non-UI pytest/graph/realLM rerun in this slice. Worker176/15 remain parent
+source evidence, not relabelled. Current-page mutation keys retain uncertain
+intent across retry, not reload. General criteria/budget editing, filters,
+canonical execution/verification hosting and review/evidence UX remain open.
+Unique DB host and neural Task7 still required; Tasks5–8 are NOT complete.
+Older sections retain historical then-isolated UI/worker status.
+
 ## Worker custody — validated, 2026-10-17
 
 Current checked source def68ed993c08d1e9191bb5475c27431bd2b5e6026c3e2e92a743086c9175f11.

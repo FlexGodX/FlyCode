@@ -36,6 +36,13 @@ and pytest outcomes remain held; fork/ready admission are distinct. Unique host
 leadership and Tasks5–8 remain open; Tasks UI is still isolated.
 [Report](../../validation/2026-10-17-worker-custody.md).
 
+Validated bounded UI follow-up: [Tasks interface](2026-10-17-tasks-interface.md).
+The composed main/extracted-wheel browser, existing Desktop/projects/projectless
+cases and actual no-execution Store audit pass. Real lost-reply replay, stale
+responses,409, history pagination and390/320 are covered. No non-UI suite rerun;
+full Task8 fields/filters/execution/verification UX and Tasks5–8 stay open.
+[Report](../../validation/2026-10-17-tasks-interface.md).
+
 **Architecture:** Существующий одиночный runtime сохраняется как совместимый исполнитель. Новые задачи и попытки имеют единое транзакционное хранилище; tracker — его представление. Независимая проверка связывает verdict с фактическими байтами результата, а диспетчер резервирует ресурсы до вызова исполнителя.
 
 **Tech Stack:** Python >=3.10, Pydantic v2, SQLite, pytest, FastAPI, существующие HTML/CSS/JS, LM Studio.

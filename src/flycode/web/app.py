@@ -205,6 +205,10 @@ def create_app(workspace: Path | None = None, data_dir: Path | None = None,
     def index() -> FileResponse:
         return FileResponse(STATIC / "index.html")
 
+    @app.get("/tasks")
+    def tasks() -> FileResponse:
+        return FileResponse(STATIC / "tasks.html")
+
     @app.get("/desktop")
     def desktop() -> HTMLResponse:
         document = (STATIC / "index.html").read_text(encoding="utf-8")

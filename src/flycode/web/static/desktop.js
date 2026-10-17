@@ -5,7 +5,7 @@
   const shell = find(".app-shell");
   const sidebarToggle = find("#menuToggle");
   const inspectorToggle = find("#inspectorToggle");
-  const classic = find(".interface-switch");
+  const classic = find('.interface-switch[href="/desktop"]');
   classic.href = "/";
   classic.firstChild.textContent = "Классический интерфейс";
   find(".brand").href = "/desktop";
