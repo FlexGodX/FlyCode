@@ -14,6 +14,7 @@ from threading import Event
 from ..domain.orchestration import AccessScope, WorkerBinding
 from ..llm.catalogue import ModelCatalogue
 from ..verification.acceptance import input_identity
+from .attach import AttachmentServer
 from .dispatch import Dispatcher
 from .host import Host
 from .integration import Integration
@@ -279,7 +280,7 @@ def main():
     for name in (signal.SIGTERM, signal.SIGINT):
         signal.signal(name, lambda *_: stop.set())
     try:
-        with Host(args.database, args.state_root) as host:
+        with Host(args.database, args.state_root) as host, AttachmentServer(host):
             print(json.dumps({'session': host.session.model_dump(mode='json')}), flush=True)
             Coordinator(host).run(stop.is_set)
         return 0

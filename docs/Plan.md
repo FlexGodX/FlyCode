@@ -2996,3 +2996,19 @@ verified результатом; первый probe timeout сохранён с�
 [План продолжения](superpowers/plans/2026-10-17-managed-coordinator.md).
 [Рабочий отчёт](validation/2026-10-17-managed-host-foundation.md).
 [Проверка coordinator core](validation/2026-10-17-managed-coordinator.md).
+
+Следующий ограниченный срез добавляет защищённый локальный read-only канал
+подключения к standalone coordinator: физическая база/поколение, свежий challenge
+и раздельные HMAC, закрытые права descriptor/socket/parent,8 peers и общий deadline.
+Клиент не восстанавливает очередь и не завершает Host. Native RED сохраняют
+отсутствующий endpoint, ложный atime revoke и две ошибки startup cleanup.
+Финально1142 exact ID:1134pass/8 прежних ожидаемых skip,0fail/error за1085.932с;
+252 неизменных файла. Wheel120 exact/159 package files/README, CLI10, FlyWire5,
+Ruff/mypy3 проходят. Actual English Qwen pipeline85.104с/3model/34tools сохраняет
+одну сессию при отключении клиента;4 HTTP receipts (1probe+3workflow) сверены с
+LM Studio, без retry/fallback. Независимый аудит3561 checks/698 stable hashes
+подтверждает ограниченную приёмку. UI пока не запускает/подключает host;
+защищённый HTTP Stop двух приложений, общий verification UI/CLI/API и нейронная
+оркестрация остаются открытыми. Tasks5–8 и §§90–99 не закрыты.
+[Отчёт endpoint](validation/2026-10-17-coordinator-attachment.md),
+[план attachment](superpowers/plans/2026-10-17-coordinator-attachment.md).

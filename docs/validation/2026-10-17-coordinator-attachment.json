@@ -1,0 +1,231 @@
+{
+  "validation_state": "verified_bounded_endpoint",
+  "goal_complete": false,
+  "parent_commit": "cf629609423130e5acbc5ba7fb4c972cb6e3aabd",
+  "scope": "Private authenticated read-only coordinator endpoint; detached application launch/protected API/UI still open",
+  "frozen_files": 252,
+  "implementation_sha256": "04a02cfe7ab4f70bd0dd414ed719468b988e5176c9c81280e4ce7406fd36568e",
+  "research_implementation_sha256": "60c784c67592db954816533d97790e0edae234f272a56620869cc967c391bc48",
+  "full": {
+    "implementation_sha256": "04a02cfe7ab4f70bd0dd414ed719468b988e5176c9c81280e4ce7406fd36568e",
+    "groups": {
+      "non-orchestration": {
+        "returncode": 0,
+        "observed_wait_seconds": 308.80793141701724,
+        "pytest_seconds": 308.48
+      },
+      "orchestration-1": {
+        "returncode": 0,
+        "observed_wait_seconds": 965.1883927919844,
+        "pytest_seconds": 964.691
+      },
+      "orchestration-2": {
+        "returncode": 0,
+        "observed_wait_seconds": 965.1874468339956,
+        "pytest_seconds": 596.137
+      },
+      "web": {
+        "returncode": 0,
+        "observed_wait_seconds": 120.69259087499813,
+        "pytest_seconds": 117.123
+      }
+    },
+    "registered_cases": 1142,
+    "observed_cases": 1142,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 8,
+    "seconds": 1085.932021582994,
+    "frozen_files_unchanged": 252,
+    "passed": true,
+    "passed_cases": 1134,
+    "expected_skips": [
+      {
+        "classname": "tests.e2e.test_environment_autonomy",
+        "name": "test_agent_repairs_and_runs_fastapi_postgres[bias_control-full]",
+        "reason": "requires prepared biological graph"
+      },
+      {
+        "classname": "tests.e2e.test_environment_autonomy",
+        "name": "test_agent_repairs_and_runs_fastapi_postgres[hard_control-full]",
+        "reason": "requires prepared biological graph"
+      },
+      {
+        "classname": "tests.e2e.test_lmstudio",
+        "name": "test_installed_qwen_and_jev_repair_a_toy_repository",
+        "reason": "set FLYCODE_TEST_LMSTUDIO=1 to run both installed local models"
+      },
+      {
+        "classname": "tests.e2e.test_real_connectome",
+        "name": "test_real_flywire_runs_the_same_tasks[bias_control-toy_arithmetic_bug]",
+        "reason": "requires prepared FlyWire data and FLYCODE_TEST_CONNECTOME=1"
+      },
+      {
+        "classname": "tests.e2e.test_real_connectome",
+        "name": "test_real_flywire_runs_the_same_tasks[bias_control-toy_import_bug]",
+        "reason": "requires prepared FlyWire data and FLYCODE_TEST_CONNECTOME=1"
+      },
+      {
+        "classname": "tests.e2e.test_real_connectome",
+        "name": "test_real_flywire_runs_the_same_tasks[hard_control-toy_arithmetic_bug]",
+        "reason": "requires prepared FlyWire data and FLYCODE_TEST_CONNECTOME=1"
+      },
+      {
+        "classname": "tests.e2e.test_real_connectome",
+        "name": "test_real_flywire_runs_the_same_tasks[hard_control-toy_import_bug]",
+        "reason": "requires prepared FlyWire data and FLYCODE_TEST_CONNECTOME=1"
+      },
+      {
+        "classname": "tests.e2e.test_real_connectome",
+        "name": "test_constrained_training_improves_explicit_multicandidate_task_selection",
+        "reason": "requires prepared FlyWire data and FLYCODE_TEST_CONNECTOME=1"
+      }
+    ]
+  },
+  "focused": {
+    "passed": 12,
+    "seconds": 2.97,
+    "pre_cleanup_combination": {
+      "passed": 62,
+      "seconds": 101.45,
+      "final_acceptance": false
+    }
+  },
+  "package": {
+    "passed": true,
+    "wheel_sha256": "0c2f24d35679d2cdd0540e34fe3b88fa7c39881e67a610385347904c02b33c99",
+    "exact_distribution_files": 159,
+    "readme_matches": true,
+    "wheel_cases": 120,
+    "wheel_seconds": 248.19836874998873,
+    "cli": [
+      {
+        "arguments": [
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "brains"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "run",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "ui",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "verify",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "train",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "benchmark",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "connectome",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "shadow-analysis",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "validate-rollout",
+          "--help"
+        ],
+        "returncode": 0
+      }
+    ]
+  },
+  "real_graph": {
+    "returncode": 0,
+    "cases": 5,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "scientific_orchestration_admission": false
+  },
+  "real_model": {
+    "model": "qwen/qwen3.5-9b",
+    "english_request": "Set the answer variable in src/example.py to exactly 1. Preserve all tests, README and user files. Run the tests to verify your change.",
+    "passed": true,
+    "workflow_model_calls": 3,
+    "workflow_tool_calls": 34,
+    "reserved": {
+      "model_calls": 0,
+      "tool_calls": 0
+    },
+    "uncertain": false,
+    "seconds": 85.10395679200883,
+    "client_detach_preserved_host": true,
+    "same_session_after_pipeline": true,
+    "host_returncode": 0,
+    "owner_dirty_bytes_preserved": true,
+    "manual_claims": 0,
+    "owner_commands_after_approval": 0,
+    "explicit_probes": 1,
+    "provider_requests_matched": 4,
+    "fallback": false,
+    "automatic_retry": false,
+    "trained_checkpoint": false,
+    "scientific_promotion": false
+  },
+  "retained_failures": [
+    "Native ready coordinator had no application attachment endpoint",
+    "Ordinary descriptor read changed atime and falsely revoked valid client",
+    "Unready Host leaked its private socket directory",
+    "Listener-start failure masked original error and skipped endpoint cleanup"
+  ],
+  "setup_limit": "Sandbox socket refusal is retained as environment denial, not a feature RED",
+  "independent_audit": {
+    "passed": true,
+    "checks": 3561,
+    "input_hashes": 698,
+    "sha256": "15dd9ca0bcf867f6c625eb1a83b2e1a2aec9fd0e902a6723b511a14cffeb1ddf",
+    "goal_complete": false
+  },
+  "evidence": {
+    "root": "/private/tmp/flycode-attachment-validation-3cpligps",
+    "closed_focus": "/private/tmp/flycode-attachment-closed-focus",
+    "archive": "/Users/Administrator/.cache/flycode/validation/flycode-coordinator-attachment-3cpligps"
+  },
+  "remaining": [
+    "Trusted detached launcher and authenticated application attachment",
+    "Protected HTTP pause/cancel with two actual applications and missing-root authority",
+    "Shared verification API/CLI/UI and browser acceptance",
+    "Neural orchestration encoder/shadow/replay/admission and full research matrix",
+    "All remaining aggregate Tasks5\u20138 and unproven \u00a7\u00a790\u201399 scientific criteria"
+  ]
+}

@@ -69,6 +69,17 @@ is reused as current evidence; aggregate Tasks5–8 remain open.
 [Working report](../../validation/2026-10-17-managed-host-foundation.md).
 [Core report](../../validation/2026-10-17-managed-coordinator.md).
 
+Validated bounded continuation: [private read-only attachment endpoint](2026-10-17-coordinator-attachment.md).
+Standalone Host now authenticates session-bound clients over a private Unix
+socket; client close never grants recovery or closes its owner. Final1142 exact
+IDs:1134pass/8expectedskip/0fail/error,252 unchanged files,1085.932s. Wheel120/
+159 exact package files/README, CLI10, graph5, Ruff/mypy3 and actual English Qwen
+pipeline85.104s/3model/34tools pass. Independent3561-check/698-hash audit includes
+provider receipts and exact stopped processes. Actual REDs remain retained.
+Detached application launch, protected HTTP controls/shared verification and
+neural orchestration remain open; this increment closes no aggregate Task5–8.
+[Report](../../validation/2026-10-17-coordinator-attachment.md).
+
 **Architecture:** Существующий одиночный runtime сохраняется как совместимый исполнитель. Новые задачи и попытки имеют единое транзакционное хранилище; tracker — его представление. Независимая проверка связывает verdict с фактическими байтами результата, а диспетчер резервирует ресурсы до вызова исполнителя.
 
 **Tech Stack:** Python >=3.10, Pydantic v2, SQLite, pytest, FastAPI, существующие HTML/CSS/JS, LM Studio.

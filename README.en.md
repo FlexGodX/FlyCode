@@ -166,6 +166,10 @@ of clients. Its control loop renews heartbeats during checks; restart reconciles
 saved process custody while retaining unknown effects. Shutdown waits for actual
 HTTP completion before releasing the kernel lock. The interface does not start
 this process yet; automatic client attachment and verification API remain open.
+The process publishes a private local endpoint. An internal client checks physical
+database identity, session generation and an authenticated response to a fresh
+challenge. Client disconnect preserves the Host; slow requests have a bounded
+deadline. This channel is for trusted processes of the same OS user.
 [Plan and current limits](docs/superpowers/plans/2026-10-17-managed-coordinator.md).
 Python web execution changes now also invalidate the admission fingerprint.
 For registered projects, dispatcher/runtime revalidate the physical folder before

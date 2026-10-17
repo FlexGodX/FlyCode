@@ -2,6 +2,48 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Internal attachment endpoint — validated, 2026-10-17
+
+Parent core is PUBLIC `cf629609423130e5acbc5ba7fb4c972cb6e3aabd`; its closed
+archive has7765 regular files/165326303bytes, manifest SHA
+1c237bdc9f8ad29564e0690d583d7464da119d711ef079648dbe163be1d50cfe.
+
+The bounded continuation adds a private authenticated read-only Unix endpoint
+and client to the standalone coordinator. Physical registration/session/generation,
+fresh challenge and separate request/reply MACs are checked; descriptor/socket/
+parent have owner-only permissions. Eight peer slots and an absolute header/body
+deadline isolate the control loop. Disconnect never closes or recovers Host.
+This is a trusted same-UID boundary, not a hostile-user sandbox. No detached
+application launcher or protected API/UI attachment is implemented.
+
+Native endpoint/atime/startup-cleanup REDs are retained. Final attachment12 pass
+2.97s; earlier combined62/101.45s predates cleanup corrections. Final full1142
+exact IDs pass1134/8same expected skips,0fail/error,1085.932s against252 unchanged
+files. All four groups exit0; web73 follows all non-web. Source manifest
+04a02cfe7ab4f70bd0dd414ed719468b988e5176c9c81280e4ce7406fd36568e.
+No tests/research remain running; exact full68868 is terminal0. Wheel120 exact
+IDs/159package bytes/README, CLI10, real FlyWire5 and Ruff/scoped mypy3 pass.
+Actual English Qwen pipeline85.104s/3model/34tools succeeds with preserved owner
+bytes and same-session clients after detach; no manual claim/post-approval owner
+commands, zero reserve/uncertainty and no held source claims. One explicit probe
+plus3 workflow HTTP requests match independent LM Studio timestamp/model/usage
+receipts. No retry/fallback, trained checkpoint or scientific promotion.
+
+Independent final audit passes3561 checks/698 stable input hashes; JSON SHA
+15dd9ca0bcf867f6c625eb1a83b2e1a2aec9fd0e902a6723b511a14cffeb1ddf.
+Root pointer: `/private/tmp/flycode-attachment-validation-root.txt`; publication
+state: `/private/tmp/flycode-delivery-current.json`. Do not repeat accepted checks
+without changed bytes, a failure or unresolved concern. The new bounded report
+records evidence/archive path; private publication receipt resolves exact commit.
+[Report](validation/2026-10-17-coordinator-attachment.md),
+[attachment plan](superpowers/plans/2026-10-17-coordinator-attachment.md).
+
+Next implement the trusted detached launcher and protected application attachment,
+then actual two-app close/HTTP Stop and missing-root owner grants. Common
+verification API/CLI/UI, neural orchestration and aggregate Tasks5–8 remain open.
+The earlier296-run feedback benchmark/ten checkpoints remains historical; real
+Qwen transfer regressed and no trained candidate was promoted.
+
 ## Managed host and coordinator core — validated, 2026-10-17
 
 Validated changes atop published6c6d33e add schema18, a physical database/path/root/
