@@ -81,7 +81,7 @@ class Store:
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=FULL')
         version = self.db.execute('PRAGMA user_version').fetchone()[0]
-        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16):
+        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17):
             self.db.close()
             raise StoreError('schema_version', str(version))
         self.db.executescript('''
@@ -237,6 +237,16 @@ class Store:
                         state TEXT NOT NULL CHECK(state IN ('active','revoked')), data TEXT NOT NULL,
                         UNIQUE(root_device,root_inode))''')
                     self.db.execute('PRAGMA user_version=16')
+            except BaseException:
+                self.db.close()
+                raise
+
+        if version < 17:
+            try:
+                with self.transaction():
+                    self.db.execute('''CREATE TABLE IF NOT EXISTS model_admissions (
+                        model_ref TEXT PRIMARY KEY, endpoint_ref TEXT NOT NULL, data TEXT NOT NULL)''')
+                    self.db.execute('PRAGMA user_version=17')
             except BaseException:
                 self.db.close()
                 raise

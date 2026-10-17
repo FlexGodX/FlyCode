@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+from pathlib import Path
 from threading import Lock
 from typing import Literal
 from urllib.parse import urlsplit
@@ -46,21 +47,43 @@ class ModelDescriptor(BaseModel):
 
 
 class ModelCatalogue:
-    def __init__(self, base_url: str | None = None) -> None:
+    def __init__(self, base_url: str | None = None, *, database: Path | None = None) -> None:
         self.base_url = (base_url or os.environ.get('LMSTUDIO_BASE_URL') or DEFAULT_BASE_URL).rstrip('/')
         self.endpoint_ref = hashlib.sha256(self.base_url.encode()).hexdigest()[:20]
         self.entries: dict[str, ModelDescriptor] = {}
         self.lock = Lock()
         self.probe_owner_id = uuid4().hex
+        self.database = database
+        from ..orchestration.model_catalogue import ModelAdmissions
+
+        self.admissions = ModelAdmissions(database) if database is not None else None
+
+    def _restore(self):
+        previous = self.admissions.load(self.endpoint_ref) if self.admissions is not None else {}
+        if self.admissions is not None:
+            self.entries = {ref: saved.descriptor.model_copy(deep=True) for ref, saved in previous.items()}
+        return previous
+
+    def _save(self, previous, *, proof=None):
+        if self.admissions is not None:
+            try:
+                self.admissions.save(self.entries, previous, proof=proof)
+            except ValueError as exc:
+                from ..orchestration.store import StoreError
+
+                if isinstance(exc, StoreError) and exc.code == 'catalogue_conflict':
+                    raise CatalogueBusy(str(exc)) from exc
+                raise
 
     def discover(self) -> list[ModelDescriptor]:
-        key = os.environ.get('LMSTUDIO_API_KEY') or 'lm-studio'
-        with httpx.Client(timeout=3, trust_env=False) as client:
-            response = client.get(self.base_url + '/models', headers={'Authorization': f'Bearer {key}'})
-            response.raise_for_status()
-            data = response.json()['data']
-        ids = {entry['id'] for entry in data if isinstance(entry.get('id'), str) and 0 < len(entry['id']) <= 200}
         with self.lock:
+            previous = self._restore()
+            key = os.environ.get('LMSTUDIO_API_KEY') or 'lm-studio'
+            with httpx.Client(timeout=3, trust_env=False) as client:
+                response = client.get(self.base_url + '/models', headers={'Authorization': f'Bearer {key}'})
+                response.raise_for_status()
+                data = response.json()['data']
+            ids = {entry['id'] for entry in data if isinstance(entry.get('id'), str) and 0 < len(entry['id']) <= 200}
             for entry in self.entries.values():
                 if entry.model_id not in ids and entry.status != 'unavailable':
                     entry.revision += 1
@@ -74,6 +97,7 @@ class ModelCatalogue:
                     revision = self.entries[ref].revision + 1 if ref in self.entries else 1
                     self.entries[ref] = ModelDescriptor(model_ref=ref, model_id=model_id, display_name=model_id,
                                                         endpoint_ref=self.endpoint_ref, revision=revision)
+            self._save(previous)
             return [entry.model_copy(deep=True) for entry in self.entries.values()]
 
     def resolve(self, model_ref: str, role: ModelRole, capability_version: str) -> ModelDescriptor | None:
@@ -81,6 +105,10 @@ class ModelCatalogue:
         if not self.lock.acquire(blocking=False):
             return None
         try:
+            try:
+                self._restore()
+            except ValueError:
+                return None
             entry = self.entries.get(model_ref)
             if (entry is None or entry.status != 'ready' or role not in entry.roles
                     or entry.capability_version != capability_version or entry.capability_source != 'explicit-local-probe'):
@@ -137,10 +165,12 @@ class ModelCatalogue:
         if not self.lock.acquire(blocking=False):
             raise CatalogueBusy('Model catalogue is busy')
         try:
+            previous = self._restore()
             if model_ref not in self.entries:
                 raise ValueError('Unknown model reference')
             entry = self.entries[model_ref]
             self._runtime(entry)
+            self._save(previous)
             return entry.model_copy(deep=True)
         finally:
             self.lock.release()
@@ -152,17 +182,20 @@ class ModelCatalogue:
         if not self.lock.acquire(blocking=False):
             raise ValueError('Model probe is already running')
         try:
+            previous = self._restore()
             entry = self.entries.get(model_ref)
             if entry is None or entry.status == 'unavailable':
                 raise ValueError('Model unavailable; refresh the catalogue')
             self._runtime(entry)
             if entry.loaded_instance_id is None:
+                self._save(previous)
                 return entry.model_copy(deep=True)
             key = os.environ.get('LMSTUDIO_API_KEY') or 'lm-studio'
             context = CortexContext(task='Inspect sample.py without editing it', behavior_mode='explore',
                                     observation=Observation(task='compatibility probe'))
             transport = HostTransport(self.base_url, entry.loaded_instance_id, role,
-                kind='probe', owner_id=self.probe_owner_id)
+                kind='probe', owner_id=self.probe_owner_id, database=self.database)
+            proof = None
             def execute(request):
                 def admitted():
                     entry.probe_calls += 1
@@ -185,12 +218,16 @@ class ModelCatalogue:
                 entry.status = 'ready'
                 entry.capability_source = 'explicit-local-probe'
                 entry.reason = 'Протокол проверен одним запросом; качество решений и версия весов не установлены.'
+                if transport.last_call_id is not None:
+                    proof = (model_ref, role, transport.last_call_id, transport.owner_id)
             except EndpointBusy as exc:
+                self._save(previous)
                 raise CatalogueBusy(str(exc)) from exc
-            except (APIError, ValueError) as exc:
+            except (APIError, ValueError, IndexError, AttributeError, TypeError, KeyError) as exc:
                 entry.roles = [known for known in entry.roles if known != role]
                 entry.status = 'ready' if entry.roles else 'unsupported'
                 entry.reason = f'Compatibility probe failed: {type(exc).__name__}'
+            self._save(previous, proof=proof)
             return entry.model_copy(deep=True)
         finally:
             self.lock.release()

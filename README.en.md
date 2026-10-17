@@ -91,7 +91,8 @@ not published to the internet.
 History and events live in `~/.local/share/flycode/ui`; override this with
 `--data-dir PATH`. Demo files are under `<data-dir>/<run-id>/repository`.
 Reloading restores the event journal; unfinished tasks are marked interrupted
-on server restart. Rationales are concise action explanations, not hidden model
+on server restart. Final run status is published after cleanup and history
+persistence. Rationales are concise action explanations, not hidden model
 chain of thought. The diagram represents Functional Fly and component calls,
 not a biophysical simulation. Large tool outputs are clipped to 16,000 characters
 in the browser journal.
@@ -118,12 +119,20 @@ one structured candidate; ordinary generation keeps its existing count and limit
 The model transport adapter acquires an endpoint slot and charges the request
 before HTTP, records available token usage and retains unknown timeout outcomes.
 Waiting can be cancelled without sending a request. Single/dual cortex, direct
-clients and explicit probes share the SQLite endpoint ownership index (schema16).
+clients and explicit probes share the SQLite endpoint ownership index (schema17).
 All executors must use the same database through `FLYCODE_STATE_DATABASE`, which
 defaults to `~/.local/share/flycode/state.sqlite`. Unknown outcomes retain the
 endpoint across restart until trusted reconciliation; a busy probe returns409
 without inference. A late response after Stop retains usage without returning
 candidates. Canonical queue UI integration remains unfinished.
+
+Explicitly probed model roles in the web interface persist in the same database
+and restore after restart without another inference request. Admission is bound
+to the exact completed probe, endpoint and loaded-model configuration. Revocation
+is visible to other application instances; stale updates are rejected. Invalid
+evidence refuses eligibility. Internal `ModelCatalogue(..., database=PATH)` uses
+the same mechanism; omitting `database` retains the existing in-memory catalogue.
+The runtime checks current loaded configuration before actual inference.
 
 Legacy chats and the integrator share source-folder admission: equal/nested
 folders and symlink aliases exclude a second executor, while independent folders

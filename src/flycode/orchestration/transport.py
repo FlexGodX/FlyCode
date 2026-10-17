@@ -28,6 +28,7 @@ class HostTransport:
         self.endpoint_ref = hashlib.sha256(base_url.rstrip('/').encode()).hexdigest()[:20]
         self.model_id, self.role, self.kind = model_id, role, kind
         self.owner_id = owner_id or uuid4().hex
+        self.last_call_id: str | None = None
 
     def _get(self, store: Store, identity: str) -> HostModelCall:
         row = store.db.execute('SELECT attempt_id,data FROM model_calls WHERE id=?', (identity,)).fetchone()
@@ -65,6 +66,7 @@ class HostTransport:
 
     def execute(self, request: Callable[[], T], *, should_stop: Callable[[], bool] = lambda: False,
                 timeout: float = 120., on_wait: Callable[[], None] = lambda: None) -> T:
+        self.last_call_id = None
         if not math.isfinite(timeout) or timeout < 0:
             raise ValueError('Endpoint wait limit must be finite and nonnegative')
         store = Store(self.database)
@@ -88,6 +90,7 @@ class HostTransport:
                 if time.monotonic() >= deadline:
                     raise EndpointBusy('Model endpoint is occupied; no request sent')
                 time.sleep(.05)
+            self.last_call_id = call.id
             try:
                 result = request()
             except APIStatusError as error:

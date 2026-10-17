@@ -2954,3 +2954,19 @@ browser проходят реальные lost-reply/409/stale-response/history 
 verification UI и host, расширенные поля/фильтры и нейронный допуск ещё открыты.
 Tasks5–8 не закрыты; non-UI suite здесь не повторялся.
 [Отчёт](validation/2026-10-17-tasks-interface.md).
+
+Следующий проверенный срез schema17 сохраняет явно проверенные роли моделей с
+точными completed probe receipts и configuration hash. Restore не вызывает HTTP;
+read-only snapshot не захватывает writer lock, stale CAS не перезаписывает новый
+допуск/отзыв. Malformed output и увиденная смена конфигурации при занятом endpoint
+отзывают прежнюю роль. Исправлена реальная legacy race: terminal API публикуется
+после source settlement и успешного сохранения истории под lock.
+Финально1076 ID:1068 pass/8 ожидаемых skip,0 failures/errors за1013.932с,
+246 неизменных файлов; extracted-wheel50 без deselection,156 точных package files,
+CLI10, Ruff15/scoped mypy6, реальный FlyWire5 и2 явных Qwen/Jev probe проходят.
+Свежий wheel-процесс восстанавливает роли с отключённой сетью без новых вызовов.
+Старый полный1058/2 failures/8 skip сохранён и не переименован в успешный результат.
+Это зависимость shared coordinator, а не его реализация; будущая leadership
+миграция использует schema18. Tasks5–8 и §§90–99 остаются открытыми.
+[Отчёт](validation/2026-10-17-durable-model-catalogue.md),
+[план среза](superpowers/plans/2026-10-17-durable-model-catalogue.md).

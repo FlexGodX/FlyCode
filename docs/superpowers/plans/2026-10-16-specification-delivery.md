@@ -43,6 +43,16 @@ responses,409, history pagination and390/320 are covered. No non-UI suite rerun;
 full Task8 fields/filters/execution/verification UX and Tasks5–8 stay open.
 [Report](../../validation/2026-10-17-tasks-interface.md).
 
+Validated dependency: [durable model catalogue](2026-10-17-durable-model-catalogue.md).
+Schema17 persists exact completed probe evidence with read-only restore/stale CAS;
+malformed/busy revocation and legacy history settlement have retained actual REDs.
+Final1076 IDs:1068 pass/8 expected skip,246 frozen files;50 extracted-wheel cases,
+156 exact package files/README, CLI10, Ruff15/scoped mypy6, graph5 and two real
+Qwen/Jev probes with network-disabled child restore pass. Earlier full failures
+are preserved. Shared physical DB hosting requires schema18 and remains open;
+Tasks5–8 and research admission are not complete.
+[Report](../../validation/2026-10-17-durable-model-catalogue.md).
+
 **Architecture:** Существующий одиночный runtime сохраняется как совместимый исполнитель. Новые задачи и попытки имеют единое транзакционное хранилище; tracker — его представление. Независимая проверка связывает verdict с фактическими байтами результата, а диспетчер резервирует ресурсы до вызова исполнителя.
 
 **Tech Stack:** Python >=3.10, Pydantic v2, SQLite, pytest, FastAPI, существующие HTML/CSS/JS, LM Studio.

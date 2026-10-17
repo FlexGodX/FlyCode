@@ -198,6 +198,9 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Compare persisted records containing environment package data as canonical JSON: native package tuples reload as JSON lists.
 - Hash only regular files when archiving test evidence; fixture directories can contain FIFOs and other special files.
 - When compacting model context, preserve pinned artifact observations, workspace file reads and tool failure diagnostics; dropping known file text or an edit error can make a real model repeat invalid edits.
+- Derive child-process PYTHONPATH from the imported package location; pytest's pythonpath setting does not populate the PYTHONPATH environment variable.
+- Publish terminal run status only after source settlement and successful history persistence under the manager lock.
+- Check prerequisite exit codes before archive/publication mutations; do not continue a dependent tool sequence after an assertion fails.
 
 ## 12. How this file was built
 

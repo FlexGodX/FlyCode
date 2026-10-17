@@ -1,0 +1,273 @@
+{
+  "version": 1,
+  "status": "verified_ready_for_publication",
+  "parent_commit": "524075e00f6bc2c160c5e3f97adc18007f3872fd",
+  "implementation_sha256": "97dd7e3dc67bcd653c943e84f2d955fd960de8620649a6aac1276bd2e6ab4dc1",
+  "schema_version": 17,
+  "frozen_files": 246,
+  "scope": [
+    "durable explicit model role admissions",
+    "read-only restoration and stale snapshot CAS",
+    "malformed/busy revocation",
+    "legacy run terminal publication after cleanup and history persistence"
+  ],
+  "validation_root": "/private/tmp/flycode-durable-model-final-npiasqf6",
+  "previous_validation_root": "/private/tmp/flycode-durable-model-validation-7pc4q4ob",
+  "final_full": {
+    "implementation_sha256": "97dd7e3dc67bcd653c943e84f2d955fd960de8620649a6aac1276bd2e6ab4dc1",
+    "groups": {
+      "non-orchestration": {
+        "returncode": 0,
+        "observed_wait_seconds": 249.30199737500516,
+        "pytest_seconds": 248.89
+      },
+      "orchestration-1": {
+        "returncode": 0,
+        "observed_wait_seconds": 893.6998865839851,
+        "pytest_seconds": 893.111
+      },
+      "orchestration-2": {
+        "returncode": 0,
+        "observed_wait_seconds": 893.6981957499811,
+        "pytest_seconds": 428.176
+      },
+      "web": {
+        "returncode": 0,
+        "observed_wait_seconds": 120.15329066698905,
+        "pytest_seconds": 117.716
+      }
+    },
+    "registered_cases": 1076,
+    "observed_cases": 1076,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 8,
+    "seconds": 1013.9315214999951,
+    "frozen_files_unchanged": 246,
+    "passed": true,
+    "passed_cases": 1068,
+    "expected_skips_match_previous": true,
+    "skipped_cases": [
+      {
+        "classname": "tests.e2e.test_environment_autonomy",
+        "name": "test_agent_repairs_and_runs_fastapi_postgres[bias_control-full]",
+        "reason": "requires prepared biological graph"
+      },
+      {
+        "classname": "tests.e2e.test_environment_autonomy",
+        "name": "test_agent_repairs_and_runs_fastapi_postgres[hard_control-full]",
+        "reason": "requires prepared biological graph"
+      },
+      {
+        "classname": "tests.e2e.test_lmstudio",
+        "name": "test_installed_qwen_and_jev_repair_a_toy_repository",
+        "reason": "set FLYCODE_TEST_LMSTUDIO=1 to run both installed local models"
+      },
+      {
+        "classname": "tests.e2e.test_real_connectome",
+        "name": "test_constrained_training_improves_explicit_multicandidate_task_selection",
+        "reason": "requires prepared FlyWire data and FLYCODE_TEST_CONNECTOME=1"
+      },
+      {
+        "classname": "tests.e2e.test_real_connectome",
+        "name": "test_real_flywire_runs_the_same_tasks[bias_control-toy_arithmetic_bug]",
+        "reason": "requires prepared FlyWire data and FLYCODE_TEST_CONNECTOME=1"
+      },
+      {
+        "classname": "tests.e2e.test_real_connectome",
+        "name": "test_real_flywire_runs_the_same_tasks[bias_control-toy_import_bug]",
+        "reason": "requires prepared FlyWire data and FLYCODE_TEST_CONNECTOME=1"
+      },
+      {
+        "classname": "tests.e2e.test_real_connectome",
+        "name": "test_real_flywire_runs_the_same_tasks[hard_control-toy_arithmetic_bug]",
+        "reason": "requires prepared FlyWire data and FLYCODE_TEST_CONNECTOME=1"
+      },
+      {
+        "classname": "tests.e2e.test_real_connectome",
+        "name": "test_real_flywire_runs_the_same_tasks[hard_control-toy_import_bug]",
+        "reason": "requires prepared FlyWire data and FLYCODE_TEST_CONNECTOME=1"
+      }
+    ],
+    "junit_sha256": {
+      "non-orchestration": "f3a186fad5354182decf7f7eb760ba06b754a1b51c6c5fd3bc37bc881e4a9a89",
+      "orchestration-1": "3716ec6d90b61c4e782eab1ca0ae0d3cec3a635da995f3eddf5dba39986c3ca6",
+      "orchestration-2": "2a74e04072423697f3dc7cd54d05781fa30a749440ea5b0591c6cecd928eae2e",
+      "web": "416d62fb737969ef3f025af9b7787e1bcb216362d88b35395e653ba38c068dc5"
+    },
+    "registered_ids_sha256": "4b977e1945e1d5c2fb75dd27ae696173aa1330e63015313078014c91a776e666"
+  },
+  "focused_postfix": {
+    "passed": 32,
+    "seconds": 38.31,
+    "junit_sha256": "c9546d9468e10e706a44310582d72670a0205d650e11bb325402e7438c1a4efa"
+  },
+  "package": {
+    "passed": true,
+    "wheel_sha256": "f4c15bedc398635a56b62dfc59c740486dedc1c6717c16f30d084e200f212ae7",
+    "exact_distribution_files": 156,
+    "readme_matches": true,
+    "wheel_cases": 50,
+    "wheel_seconds": 43.49103350000223,
+    "cli": [
+      {
+        "arguments": [
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "brains"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "run",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "ui",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "verify",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "train",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "benchmark",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "connectome",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "shadow-analysis",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "validate-rollout",
+          "--help"
+        ],
+        "returncode": 0
+      }
+    ]
+  },
+  "graph": {
+    "passed": 5,
+    "seconds": 5.36,
+    "junit_sha256": "3cb1d2464246ca57304fe07aa6f4ce8df2c49850d4948cd1a2b0167c94886d27"
+  },
+  "real_provider": {
+    "passed": true,
+    "actual_requests": 2,
+    "seconds": 6.7411574159923475,
+    "restored_in_fresh_process_with_network_disabled": true,
+    "calls": [
+      {
+        "id": "450a278f28e24dab95c31815960c40ab",
+        "model_id": "qwen/qwen3.5-9b",
+        "role": "primary",
+        "owner_kind": "probe",
+        "status": "completed",
+        "usage": {
+          "prompt_tokens": 673,
+          "completion_tokens": 74,
+          "total_tokens": 747
+        },
+        "late": false
+      },
+      {
+        "id": "9685e4ad1b6742c786ed7839fecc8684",
+        "model_id": "jev-style-qwen3.5-2b-decision",
+        "role": "scorer",
+        "owner_kind": "probe",
+        "status": "completed",
+        "usage": {
+          "prompt_tokens": 106,
+          "completion_tokens": 1,
+          "total_tokens": 107
+        },
+        "late": false
+      }
+    ]
+  },
+  "previous_full": {
+    "exit_code": 1,
+    "duration_seconds": 1590.1312737920089,
+    "registered_cases": 1068,
+    "observed_cases": 1068,
+    "failed": 2,
+    "errors": 0,
+    "skipped": 8,
+    "frozen_files_unchanged": 245,
+    "implementation_sha256": "30d529902aaa2d4bb6e15412dc70007d78bc208e7b200009b6e4e5b8bd94afa6"
+  },
+  "retained_failures": [
+    "restart lost explicit role",
+    "nested writer resolution deadlock",
+    "changed exact probe owner",
+    "changed admission configuration",
+    "malformed primary envelopes",
+    "observed configuration revocation lost on endpoint busy",
+    "missing child PYTHONPATH in custody test setup",
+    "completed API state before history persistence"
+  ],
+  "review": {
+    "initial_found": "malformed primary envelope bypassed durable revocation",
+    "correction_review_additional_findings": 0,
+    "static_only": true,
+    "evidence_audit": {
+      "passed": true,
+      "checks": 67,
+      "mismatches": 0,
+      "stable_inputs": 450,
+      "markdown_sha256": "1f2ca613d19676297364f1d2162194c390fe1650f65c37eb1c330b05af781e77",
+      "json_sha256": "02f71fc9f9ac4b21fafa5946cf402d9c706d997b78c78c6e70b1002f4c3f4d75",
+      "scope": "read-only retained evidence audit, no reruns or independent process/packet attestation"
+    }
+  },
+  "limits": [
+    "trusted server-owned database, not same-UID tamper-proof evidence",
+    "unknown provider weights revision",
+    "corruption can block entire endpoint catalogue; no automatic repair/probe/fallback",
+    "history record and journal are separate filesystem writes, no multi-file or power-loss transaction promise",
+    "no unique managed DB host or general canonical execution API/CLI provided by this increment",
+    "aggregate Tasks5\u20138 and scientific \u00a7\u00a790\u201399 remain incomplete"
+  ],
+  "orchestration_admission": false,
+  "goal_complete": false,
+  "artifact_archive": "/Users/Administrator/.cache/flycode/validation/flycode-durable-model-npiasqf6-v2",
+  "retained_archive_v1": {
+    "path": "/Users/Administrator/.cache/flycode/validation/flycode-durable-model-npiasqf6",
+    "manifest_sha256": "41691911d7afc689ffb7729051e02bf40d2339e51c766215dac8dd52c2ea131f",
+    "superseded_reason": "Audit JSON and exact pre-annotation report added in version2; original archive unchanged."
+  }
+}

@@ -73,8 +73,16 @@ def approve(prepared, scope=None, **changes):
     return Pipelines(store, dispatcher.root).approve(scope or owner, workflow.id, writer.id, reviewer.id, integrator.id, **values)
 
 
-def test_recipe_drives_actual_subprocess_dag_with_zero_manual_claims(pipeline_ready, monkeypatch):
+@pytest.mark.parametrize('durable_catalogue', [False, True], ids=['memory-catalogue', 'restored-catalogue'])
+def test_recipe_drives_actual_subprocess_dag_with_zero_manual_claims(pipeline_ready, monkeypatch, durable_catalogue):
     store, owner, host, workflow, _root, writer, reviewer, integrator, dispatcher, source, _ = pipeline_ready
+    if durable_catalogue:
+        from flycode.llm.catalogue import ModelCatalogue
+
+        catalogue = ModelCatalogue(store.catalogue.base_url, database=store.path)
+        catalogue.discover()
+        catalogue.probe(store._profile(writer.allowed_profile_ids[0]).model_ref, 'primary')
+        store.catalogue = ModelCatalogue(catalogue.base_url, database=store.path)
     before = store.budget(owner, workflow.id)
     recipe = approve(pipeline_ready)
     assert approve(pipeline_ready) == recipe
@@ -315,7 +323,7 @@ def test_schema14_upgrade_is_atomic_and_preserves_legacy_state(pipeline_ready, m
     monkeypatch.setattr(sqlite3, 'connect', connect)
     connection = Store(store.path, catalogue=store.catalogue)
     try:
-        assert connection.db.execute('PRAGMA user_version').fetchone()[0] == 16
+        assert connection.db.execute('PRAGMA user_version').fetchone()[0] == 17
         assert (connection.budget(owner, workflow.id), connection.tasks(owner, workflow.id)) == before
     finally:
         connection.close()

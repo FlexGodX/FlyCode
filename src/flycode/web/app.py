@@ -21,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..llm.catalogue import CatalogueBusy, ModelCatalogue
+from ..orchestration.store import default_state_path
 from .folders import choose_folder
 from .projects import FolderPickerRequest, ProjectRequest, project_options
 from .runs import ACTIVE, RunManager, RunRequest
@@ -39,7 +40,7 @@ def create_app(workspace: Path | None = None, data_dir: Path | None = None,
                artifact_root: Path | None = None) -> FastAPI:
     manager = RunManager(workspace or Path.cwd(), data_dir or Path.home() / ".local/share/flycode/ui", artifact_root)
     token = secrets.token_urlsafe(32)
-    model_catalogue = ModelCatalogue()
+    model_catalogue = ModelCatalogue(database=default_state_path())
     model_gate = Lock()
     folder_gate = Lock()
 

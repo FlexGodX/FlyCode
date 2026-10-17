@@ -313,6 +313,8 @@ class RunManager:
         record, stop = self.records[run_id], self.stops[run_id]
         request = record.request
         sink = lambda kind, data: self.emit(run_id, kind, data)
+        result_data = None
+        outcome, failure = 'failed', ''
         try:
             with self.lock:
                 if not stop.is_set():
@@ -341,23 +343,23 @@ class RunManager:
             if memory is not None:
                 brain.save_learning(memory)
                 self.emit(run_id, "memory_saved", {"profile": request.memory_profile})
-            with self.lock:
-                record.result = result.model_dump(mode="json")
-                record.status = "stopped" if stop.is_set() else "completed" if result.success else "incomplete"
+            result_data = result.model_dump(mode="json")
+            outcome = 'completed' if result.success else 'incomplete'
         except Exception as exc:  # noqa: BLE001 - a worker must persist unexpected failures for the UI
-            with self.lock:
-                record.status = "stopped" if stop.is_set() else "failed"
-                record.error = str(exc) if isinstance(exc, ValueError) else f"Run failed: {type(exc).__name__}"
+            failure = str(exc) if isinstance(exc, ValueError) else f"Run failed: {type(exc).__name__}"
         finally:
             brain.close()
             try:
                 execution.finish()
             except (OSError, ValueError) as error:
-                record.status = 'reconciling'
-                record.error = f'Source retained until effects are reconciled: {getattr(error, "code", type(error).__name__)}'
+                outcome = 'reconciling'
+                failure = f'Source retained until effects are reconciled: {getattr(error, "code", type(error).__name__)}'
             with self.lock:
-                self._save(record)
-                self.emit(run_id, "finished", record.model_dump(mode="json"))
+                terminal = record.model_copy(update={'result': result_data, 'error': failure,
+                    'status': outcome if outcome == 'reconciling' else 'stopped' if stop.is_set() else outcome})
+                self._save(terminal)
+                self.records[run_id] = terminal
+                self.emit(run_id, "finished", terminal.model_dump(mode="json"))
 
     def close(self) -> None:
         with self.lock:

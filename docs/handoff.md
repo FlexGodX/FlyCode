@@ -2,6 +2,31 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Durable model catalogue — validated, 2026-10-17
+
+Schema17 explicit probe admissions and legacy terminal publication after cleanup/
+history persistence are validated against parent524075e. Frozen source
+97dd7e3dc67bcd653c943e84f2d955fd960de8620649a6aac1276bd2e6ab4dc1 has246 pinned
+implementation/static/test/config files. Final full collection:1068 pass/8 expected
+skip,1076 exact IDs, zero failures/errors, unchanged bytes,1013.932s. Web73 run
+after all three non-web groups; no orchestration/web skips. All measurements are
+terminal; no source edits or new tests are required for this checked increment.
+
+Postfix32, extracted-wheel50/CLI10, Ruff15/scoped mypy6, real graph5 and two actual
+Qwen/Jev probes plus network-disabled child restore pass. Package156 exact files,
+README metadata and wheel SHA are recorded. Earlier full1058 pass/2 fail/8 skip
+is retained: missing child PYTHONPATH fixture and actual premature-completion
+history race, both corrected with retained assertions/RED evidence. Malformed-
+envelope and busy observed-revocation REDs are also corrected.
+[Report](validation/2026-10-17-durable-model-catalogue.md),
+[bounded plan](superpowers/plans/2026-10-17-durable-model-catalogue.md).
+Final root `/private/tmp/flycode-durable-model-final-npiasqf6`; previous failure root
+`/private/tmp/flycode-durable-model-validation-7pc4q4ob`. Publication state is kept
+in `/private/tmp/flycode-durable-model-status.json`. Unique physical DB coordinator
+needs schema18; Tasks5–8 and scientific §§90–99 remain open. History file/journal
+are separate writes; no power-loss transaction or same-directory manager
+leadership is promised.
+
 ## Shared Tasks UI — validated, 2026-10-17
 
 Current Python source56d67a1240f401ed1831777a0adfe244b8d7c5ebca2447e914e49c11e7996941

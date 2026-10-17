@@ -59,6 +59,43 @@ def test_history_survives_server_restart(tmp_path):
         assert '"kind":"tool_end"' in second.get(f"/api/runs/{run_id}/events").text
 
 
+def test_run_stays_active_until_source_settlement_is_durable(tmp_path, monkeypatch):
+    from flycode.web.execution import SourceExecution
+
+    entered, release = Event(), Event()
+    finish = SourceExecution.finish
+    def gated_finish(execution):
+        entered.set()
+        assert release.wait(15)
+        return finish(execution)
+    monkeypatch.setattr(SourceExecution, 'finish', gated_finish)
+    workspace = tmp_path / 'workspace'
+    workspace.mkdir()
+    data = tmp_path / 'history'
+    with TestClient(create_app(workspace, data), base_url='http://localhost') as first:
+        first.headers['X-FlyCode-Token'] = first.get('/api/bootstrap').json()['token']
+        response = first.post('/api/runs', json={'task': 'Fix arithmetic', 'llm': 'heuristic'})
+        assert response.status_code == 201, response.text
+        run_id = response.json()['id']
+        try:
+            assert entered.wait(15)
+            snapshot = first.get(f'/api/runs/{run_id}').json()
+            assert snapshot['status'] == 'running' and snapshot['result'] is None
+            persisted = json.loads((data / run_id / 'record.json').read_text())
+            assert persisted['status'] == 'running' and persisted['result'] is None
+            assert first.post('/api/runs', json={'task': 'Another task', 'llm': 'heuristic'}).status_code == 409
+        finally:
+            release.set()
+            deadline = time.monotonic() + 15
+            while '"kind":"finished"' not in first.get(f'/api/runs/{run_id}/journal').text:
+                assert time.monotonic() < deadline, 'Run did not publish its final durable journal event'
+                time.sleep(.02)
+        assert wait_run(first, run_id)['status'] == 'completed'
+    with TestClient(create_app(workspace, data), base_url='http://localhost') as second:
+        snapshot = second.get(f'/api/runs/{run_id}').json()
+        assert snapshot['status'] == 'completed' and snapshot['result']['success']
+
+
 @pytest.mark.parametrize("body", [
     {"task": " "}, {"task": "x", "max_steps": 0}, {"task": "x", "llm": "cloud"},
     {"task": "x", "project": "../outside"}, {"task": "x", "project": "/tmp"},

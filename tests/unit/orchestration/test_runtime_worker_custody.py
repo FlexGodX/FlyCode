@@ -270,7 +270,8 @@ def test_custody_forwards_hashed_duplex_fds_and_closes_all_child_ends(tmp_path):
     try:
         with (output / 'stdout.txt').open('wb') as stdout, (output / 'stderr.txt').open('wb') as stderr:
             owned = custody.launch([sys.executable, '-c', script, str(child_rpc.fileno()), str(child_control.fileno())],
-                tmp_path, {'PATH': os.environ.get('PATH', os.defpath), 'PYTHONPATH': os.environ['PYTHONPATH']},
+                tmp_path, {'PATH': os.environ.get('PATH', os.defpath),
+                           'PYTHONPATH': str(Path(wire.__file__).resolve().parents[2])},
                 stdout, stderr, output, 20, lambda: False, lambda state: None, lambda ref: None,
                 on_prepare=prepared.append, version='worker-custody-v1',
                 pass_fds=(child_rpc.fileno(), child_control.fileno()))
