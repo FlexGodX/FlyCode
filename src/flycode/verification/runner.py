@@ -146,7 +146,8 @@ def _pytest_config(sandbox: Path, output: Path) -> Path:
 def run_pytest(sandbox: Path, output: Path, timeout: float, number: int,
                should_stop: Callable[[], bool], *, targets: Sequence[str] = (),
                on_state: Callable[[str], None] = lambda state: None,
-               on_admit: Callable = lambda ref: None) -> CheckAttempt:
+               on_admit: Callable = lambda ref: None,
+               on_prepare: Callable | None = None) -> CheckAttempt:
     from .plan import validate_target
 
     for target in targets:
@@ -189,7 +190,9 @@ def run_pytest(sandbox: Path, output: Path, timeout: float, number: int,
             if not supported():
                 stop_confirmed = True
                 raise OSError('Process custody is unavailable on this platform')
-            receipt = run(argv, sandbox, environment, stdout, stderr, output, timeout, should_stop, on_state, admit)
+            prepared = {'on_prepare': on_prepare} if on_prepare is not None else {}
+            receipt = run(argv, sandbox, environment, stdout, stderr, output, timeout, should_stop, on_state, admit,
+                          **prepared)
             process_started = receipt.started
             process_ref, stop_confirmed = receipt.ref, receipt.stop_confirmed
             process_reason = receipt.reason

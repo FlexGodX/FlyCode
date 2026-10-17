@@ -43,11 +43,18 @@ class Application:
     def __init__(self, directory: Path, source: Path, baseline: Path, candidate: Path):
         self.directory, self.source, self.baseline, self.candidate = directory, source, baseline, candidate
         self.path = directory / 'application.json'
-        self.recovery = (directory / 'recovery' if directory.stat().st_dev == source.stat().st_dev
+        info = source.stat()
+        self.source_identity = (info.st_dev, info.st_ino)
+        self.recovery = (directory / 'recovery' if directory.stat().st_dev == info.st_dev
             else source.parent / ('.flycode-recovery-' + directory.name))
         if self.recovery.is_relative_to(source):
             raise StoreError('integration_scope', 'Recovery must be outside the subject')
         self.rename = Rename()
+
+    def _move(self, source, target, guard, **kwargs):
+        info = self.recovery.stat()
+        self.rename.move(source, target, roots={self.source: self.source_identity,
+            self.recovery: (info.st_dev, info.st_ino)}, guard=guard, **kwargs)
 
     def _save(self, journal):
         atomic_json(self.path, journal.model_dump_json())
@@ -91,7 +98,8 @@ class Application:
                     os.fchmod(stream.fileno(), change.after.mode)
                     os.fsync(stream.fileno())
                 installed = _identity(slot)
-                with directory(target.parent, create=True):
+                with (directory(self.source, identity=self.source_identity) as root,
+                      directory(target.parent, create=True, root=(self.source, root))):
                     pass
             operation = ApplicationOperation(path=change.path, before_identity=original, identity=installed)
             journal = changed(journal, operations=(*journal.operations, operation))
@@ -101,9 +109,9 @@ class Application:
             if version(target) != change.before:
                 raise StoreError('integration_conflict', 'Source changed during preparation')
             if change.after is None:
-                self.rename.move(target, slot)
+                self._move(target, slot, guard)
             else:
-                self.rename.move(slot, target, exchange=change.before is not None)
+                self._move(slot, target, guard, exchange=change.before is not None)
             if change.before is not None and (version(slot) != change.before or _identity(slot) != original):
                 raise StoreError('integration_conflict', 'The displaced source object changed')
         self._save(changed(journal, state='applied'))
@@ -128,7 +136,13 @@ class Application:
         except (OSError, ValueError):
             return False
 
-    def rollback(self, expected: tuple[FileChange, ...]) -> bool:
+    def rollback(self, expected: tuple[FileChange, ...], guard=lambda: None) -> bool:
+        guard()
+
+        def move(*args, **kwargs):
+            guard()
+            self._move(*args, guard=guard, **kwargs)
+
         if not self.path.exists():
             return True
         journal = self._journal(expected)
@@ -150,20 +164,20 @@ class Application:
                     if current is not None or saved is None:
                         clean = False
                         continue
-                    self.rename.move(slot, target)
+                    move(slot, target)
                 elif current == change.after and _identity(target) == operation.identity:
                     if change.before is None:
-                        self.rename.move(target, slot)
+                        move(target, slot)
                         if version(slot) != change.after or _identity(slot) != operation.identity:
-                            self.rename.move(slot, target)
+                            move(slot, target)
                             clean = False
                     elif saved is not None:
                         restored = _identity(slot)
-                        self.rename.move(slot, target, exchange=True)
+                        move(slot, target, exchange=True)
                         if version(slot) != change.after or _identity(slot) != operation.identity:
                             # Preserve the object captured during rollback too.
                             if _identity(target) == restored:
-                                self.rename.move(slot, target, exchange=True)
+                                move(slot, target, exchange=True)
                             clean = False
                     else:
                         clean = False

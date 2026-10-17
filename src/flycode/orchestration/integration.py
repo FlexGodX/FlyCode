@@ -20,6 +20,7 @@ from .application import Application
 from .artifacts import Artifacts
 from .inputs import Inputs
 from .review import Reviews
+from .sources import Sources
 from .store import ACTIVE, Store, StoreError, changed, covers, required_task
 from .tools import Tools
 from .verification import CheckExecutor, _succeed, accepted
@@ -264,6 +265,16 @@ class Integration:
         with self.store.transaction():
             return self.store._invalidate_result(scope, identity, 'result_changed', expected=record)
 
+    def _settle_source(self, scope, identity):
+        row = self.store.db.execute('SELECT id FROM integrations WHERE id=?', (identity,)).fetchone()
+        if row is not None:
+            record = self.get(scope, identity)
+            if record.source_claim_id is not None:
+                try:
+                    Sources(self.store).settle(record.source_claim_id)
+                except StoreError:
+                    pass  # Durable claim stays held until trusted reconciliation proves settlement.
+
     def reconcile(self, scope, identity):
         store = self.store
         store._role(scope, ('runtime',))
@@ -272,10 +283,13 @@ class Integration:
         record = self.get(scope, identity)
         attempt = store._attempt(record.attempt_id)
         if record.state == 'conflict':
+            self._settle_source(scope, identity)
             return record
         if record.state in {'completed', 'invalidated'}:
+            self._settle_source(scope, identity)
             return self.refresh(scope, identity)
         if record.state == 'failed' and attempt.stop_confirmed:
+            self._settle_source(scope, identity)
             return record
         if record.runtime_root != str(self.root) or record.coordinator_identity is None:
             raise StoreError('ownership_unknown')
@@ -288,6 +302,8 @@ class Integration:
             if isinstance(error, StoreError):
                 raise
             raise StoreError('ownership_unknown') from error
+        finally:
+            self._settle_source(scope, identity)
 
     def _recover(self, scope, record):
         store = self.store
@@ -327,12 +343,16 @@ class Integration:
             if unknown:
                 return self._save(scope, record, error='effects_unknown')
             directory = self.root / 'integrations' / record.id
+            rollback_error = 'rollback_conflict'
             try:
-                clean = Application(directory, Path(record.source_root), directory / 'baseline', directory / 'candidate').rollback(record.changes)
-            except (OSError, ValueError):
+                self._source_guard(record)
+                clean = Application(directory, Path(record.source_root), directory / 'baseline', directory / 'candidate').rollback(
+                    record.changes, lambda: self._source_guard(record))
+            except (OSError, ValueError) as error:
                 clean = False
+                rollback_error = getattr(error, 'code', 'rollback_conflict')
             if not clean:
-                return self._save(scope, record, error='rollback_conflict')
+                return self._save(scope, record, error=rollback_error)
             for call in calls:
                 if call.tool == 'integrate' and call.status in {'running', 'uncertain'}:
                     tools.finish(scope, call.id, status='failed', error_class='IntegrationAborted')
@@ -349,8 +369,23 @@ class Integration:
                 store._event(scope, workflow, 'integration_reconciled', task=task, attempt=attempt, integration_id=record.id)
             return record
 
+    def _source_guard(self, record):
+        # Recovery may revoke the attempt's task fence. Source custody remains
+        # separate, and an unknown competing writer still vetoes rollback.
+        if record.source_claim_id is None:
+            raise StoreError('ownership_unknown')
+        sources = Sources(self.store)
+        claim = sources.guard(record.source_claim_id, record.id)
+        if (claim.owner_kind != 'integration' or claim.attempt_id != record.attempt_id
+                or claim.fence != record.fence or claim.root.path != record.source_root):
+            raise StoreError('source_owner')
+        if not self.store.db.in_transaction and sources.prepare(Path(record.source_root)) != claim.root:
+            raise StoreError('source_changed')
+
     def _guard(self, scope, record, *, deep=False):
         attempt, task, workflow = self.store._owned(scope, record.attempt_id, record.fence, running=True)
+        if record.source_claim_id is not None:
+            self._source_guard(record)
         if task.kind != 'review' or attempt.profile_snapshot.role != 'reviewer':
             raise StoreError('permission')
         if task.paused or workflow.state != 'running' or self.store._counter('queue_paused'):
@@ -511,10 +546,13 @@ class Integration:
             return self._conflict(scope, record)
         directory = self.root / 'integrations' / record.id
         directory.mkdir(parents=True, mode=0o700)
-        with locked(directory / 'coordinator.lock', create=True) as descriptor:
-            info = os.fstat(descriptor)
-            record = changed(record, coordinator_identity=(info.st_dev, info.st_ino))
-            return self._execute(scope, record)
+        try:
+            with locked(directory / 'coordinator.lock', create=True) as descriptor:
+                info = os.fstat(descriptor)
+                record = changed(record, coordinator_identity=(info.st_dev, info.st_ino))
+                return self._execute(scope, record)
+        finally:
+            self._settle_source(scope, record.id)
 
     def _conflict(self, scope, record):
         store = self.store
@@ -557,17 +595,23 @@ class Integration:
         source, before = Path(record.source_root), record.source_before
         approval_hashes, hashes = record.approval_hashes, record.artifact_hashes
         artifacts = [self.artifacts.get(scope, identity) for identity in hashes]
+        sources = Sources(store)
+        root_ref = sources.prepare(source)
         with store.transaction():
             self._guard(scope, record)
             if store.db.execute("SELECT 1 FROM integrations WHERE workflow_id=? AND state IN ('preparing','verifying','applying','reconciling')",
                                 (workflow.id,)).fetchone():
                 raise StoreError('integration_busy')
+            claim = sources.acquire(root_ref, owner_kind='integration', owner_id=record.id,
+                coordinator_path=str(self.root / 'integrations' / record.id / 'coordinator.lock'),
+                coordinator_identity=record.coordinator_identity, attempt_id=attempt_id, fence=fence)
+            record = changed(record, source_claim_id=claim.id)
             store._claim_execution(scope, attempt_id, fence, 'integration')
             store.db.execute('INSERT INTO integrations VALUES (?,?,?,?,?)', (record.id, workflow.id, attempt_id, record.state, record.model_dump_json()))
             store._event(scope, workflow, 'integration_started', task=task, attempt=attempt, integration_id=record.id)
         directory = self.root / 'integrations' / record.id
         application = Application(directory, source, directory / 'baseline', directory / 'candidate')
-        executor = CheckExecutor(store, scope, attempt_id, fence)
+        executor = CheckExecutor(store, scope, attempt_id, fence, source_claim_id=claim.id)
         apply_call = None
         try:
             if capture(source, directory / 'baseline').subject_hash != before.subject_hash:
@@ -658,10 +702,16 @@ class Integration:
             record = self.get(scope, record.id)
             effects_unknown = any(call.status in {'running', 'uncertain'} and call.tool != 'integrate'
                 for call in Tools(store).calls(scope, workflow.id) if call.attempt_id == attempt_id)
-            clean = False if effects_unknown else application.rollback(record.changes)
+            clean = False
+            rollback_error = None
+            if not effects_unknown:
+                try:
+                    clean = application.rollback(record.changes, lambda: self._source_guard(record))
+                except (OSError, ValueError) as blocked:
+                    rollback_error = getattr(blocked, 'code', 'rollback_conflict')
             if apply_call is not None:
                 Tools(store).finish(scope, apply_call.id, status='failed' if clean else 'uncertain', error_class=type(error).__name__)
-            record = self._save(scope, record, state='failed' if clean else 'reconciling', error='effects_unknown' if effects_unknown else getattr(error, 'code', type(error).__name__))
+            record = self._save(scope, record, state='failed' if clean else 'reconciling', error='effects_unknown' if effects_unknown else rollback_error or getattr(error, 'code', type(error).__name__))
             if clean:
                 try:
                     store.confirm_stopped(scope, attempt_id, fence, outcome='failed', expenditure_confirmed=True)

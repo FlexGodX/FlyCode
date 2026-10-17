@@ -2,6 +2,7 @@
 
 import asyncio
 import hashlib
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Event, RLock, Thread
@@ -13,9 +14,10 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from ..agent import run_agent
 from ..brain.shadow import ShadowBackend
 from ..domain import TaskSpec
-from ..environment import SoftwareEnvironment
 from ..llm import HeuristicCandidateGenerator, make_lmstudio_cortex
 from ..llm.lmstudio import validate_model_id
+from ..orchestration.sources import Sources
+from ..orchestration.store import Store, StoreError, default_state_path
 from ..policy import ControlMode
 from ..policy.rollout import RolloutConfig
 from ..research.benchmark import ControllerSpec
@@ -23,7 +25,9 @@ from ..research.cortex import CortexConfig
 from ..research.validation import authorize
 from ..telemetry import TelemetryLogger
 from ..telemetry.events import AgentEvent
+from ..verification.custody import locked
 from .artifacts import ArtifactCatalogue, default_artifact_root
+from .execution import LegacyEnvironment, SourceExecution
 from .projects import ProjectRegistry
 
 ACTIVE = {"queued", "running", "stopping"}
@@ -77,6 +81,7 @@ class RunRecord(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     result: dict | None = None
     error: str = ""
+    source_claim_id: str | None = None
 
 
 def bounded(value):
@@ -102,26 +107,48 @@ class RunManager:
         self.records: dict[str, RunRecord] = {}
         self.events: dict[str, list[AgentEvent]] = {}
         self.stops: dict[str, Event] = {}
+        self.source_recovery_error = ''
         self.catalogue = ArtifactCatalogue(artifact_root or default_artifact_root())
-        for path in sorted(self.data_dir.glob("*/record.json"), key=lambda item: item.stat().st_mtime)[-50:]:
+        paths = sorted(self.data_dir.glob("*/record.json"), key=lambda item: item.stat().st_mtime)
+        visible = set(paths[-50:])
+        for path in paths:
             try:
                 record = RunRecord.model_validate_json(path.read_text())
                 if path.parent.name != record.id:
                     continue
                 journal = path.with_name("events.jsonl")
                 events = []
-                if journal.exists():
+                if path in visible and journal.exists():
                     for line in journal.read_text().splitlines():
                         try:
                             events.append(AgentEvent.model_validate_json(line))
                         except ValueError:
                             break  # A process can exit partway through the final append.
-                self.records[record.id], self.events[record.id] = record, events
-                if record.status in ACTIVE:
-                    record.status = "interrupted"
-                    record.error = "Server stopped before the run completed"
-                    record.result = None
-                    self._save(record)
+                if path in visible:
+                    self.records[record.id], self.events[record.id] = record, events
+                if record.status in ACTIVE | {'reconciling', 'interrupted'}:
+                    before = record.model_dump_json()
+                    if record.status in ACTIVE:
+                        record.status = "interrupted"
+                        record.error = "Server stopped before the run completed"
+                    store = Store(default_state_path())
+                    try:
+                        if record.source_claim_id is None:
+                            record.source_claim_id = self._quarantine(store, record)
+                        try:
+                            Sources(store).settle(record.source_claim_id)
+                        except StoreError as error:
+                            reason = f'source retained: {error.code}'
+                            if reason not in record.error:
+                                record.error += f'; {reason}'
+                    except (OSError, ValueError) as error:
+                        self.source_recovery_error = f'Source ownership needs reconciliation: {error}'
+                        record.status = 'reconciling'
+                        record.error = self.source_recovery_error
+                    finally:
+                        store.close()
+                    if record.model_dump_json() != before:
+                        self._save(record)
             except (OSError, ValueError):
                 continue
 
@@ -138,6 +165,23 @@ class RunManager:
         if any(part.startswith(".") and part != "." for part in Path(project).parts):
             raise ValueError("Hidden directories are not projects")
         return path
+
+    def _quarantine(self, store, record):
+        existing = store.db.execute("SELECT id FROM source_claims WHERE owner_kind='legacy' AND owner_id=?",
+                                    (record.id,)).fetchone()
+        if existing is not None:
+            return existing['id']
+        try:
+            root = (self.data_dir / record.id / 'repository' if record.request.project in (None, 'demo')
+                    else self.project_path(record.request.project))
+            reference = Sources(store).prepare(root)
+        except (OSError, ValueError):
+            reference = Sources(store).prepare(Path('/'))
+        path = self.data_dir / record.id / f'recovery-{uuid4().hex}.lock'
+        with locked(path, create=True) as descriptor:
+            info = os.fstat(descriptor)
+            return Sources(store).acquire(reference, owner_kind='legacy', owner_id=record.id,
+                coordinator_path=path, coordinator_identity=(info.st_dev, info.st_ino), quarantine=True).id
 
     def _save(self, record: RunRecord) -> None:
         directory = self.data_dir / record.id
@@ -169,19 +213,45 @@ class RunManager:
         if request.llm == "heuristic" and repo is not None:
             raise ValueError("Offline demonstration is available only in the demo project")
         with self.lock:
+            if self.source_recovery_error:
+                raise RuntimeError(self.source_recovery_error)
             if any(record.status in ACTIVE for record in self.records.values()):
                 raise RuntimeError("An agent is already running; stop it before starting another")
             brain, cortex_config, memory, admission = self._prepare(request, repo)
-            record = RunRecord(id=run_id, request=request)
+            directory = self.data_dir / run_id
+            directory.mkdir(mode=0o700)
+            actual = repo or directory / 'repository'
+            actual.mkdir(parents=True, exist_ok=True)
+            try:
+                execution = SourceExecution(actual, directory, run_id, claim_root=directory if repo is None else None)
+            except BaseException as error:
+                brain.close()
+                if isinstance(error, StoreError) and error.code == 'source_busy':
+                    raise RuntimeError('Source folder is occupied; wait for confirmed stop (source_busy)') from error
+                raise
+            record = RunRecord(id=run_id, request=request, source_claim_id=execution.claim.id)
             self.records[run_id], self.events[run_id], self.stops[run_id] = record, [], Event()
-            self._save(record)
-            if request.project is None:
-                cast(Path, repo).mkdir()
-            self.emit(run_id, "status", {"phase": "queued"})
-            if admission is not None:
-                self.emit(run_id, "admission", admission)
-            Thread(target=self._execute, args=(run_id, repo, brain, cortex_config, memory),
-                   daemon=True, name=f"flycode-{run_id[:8]}").start()
+            thread = None
+            try:
+                self._save(record)
+                self.emit(run_id, "status", {"phase": "queued"})
+                if admission is not None:
+                    self.emit(run_id, "admission", admission)
+                thread = Thread(target=self._execute, args=(run_id, repo, brain, cortex_config, memory, execution),
+                                daemon=True, name=f"flycode-{run_id[:8]}")
+                thread.start()
+            except BaseException as error:
+                self.stops[run_id].set()
+                record.status, record.error = 'failed', str(error)
+                if thread is None or isinstance(error, RuntimeError) and thread.ident is None:
+                    brain.close()
+                    execution.finish()
+                else:
+                    with execution.sources() as sources:
+                        sources.mark_uncertain(execution.claim.id, 'thread_start_unknown')
+                    record.status = 'reconciling'
+                self._save(record)
+                raise
             return record.model_dump(mode="json")
 
     def _prepare(self, request: RunRequest, repo: Path | None):
@@ -238,7 +308,8 @@ class RunManager:
                 self.emit(run_id, "status", {"phase": "stopping"})
             return record.model_dump(mode="json")
 
-    def _execute(self, run_id: str, repo: Path | None, brain, config: CortexConfig, memory: Path | None) -> None:
+    def _execute(self, run_id: str, repo: Path | None, brain, config: CortexConfig, memory: Path | None,
+                 execution: SourceExecution) -> None:
         record, stop = self.records[run_id], self.stops[run_id]
         request = record.request
         sink = lambda kind, data: self.emit(run_id, kind, data)
@@ -251,12 +322,16 @@ class RunManager:
                 model=request.model, decision_model=request.decision_model,
                 base_url=config.base_url, timeout=config.request_timeout,
                 max_model_calls=config.max_model_calls, on_event=sink, should_stop=stop.is_set,
+                primary_request_executor=execution.executor(config.base_url, request.model, 'primary',
+                    stop.is_set, config.request_timeout, sink),
+                decision_request_executor=execution.executor(config.base_url, request.decision_model, 'scorer',
+                    stop.is_set, config.request_timeout, sink) if request.decision_model is not None else None,
             ))
             task = TaskSpec(id=run_id, task=request.task, fixture="toy_arithmetic_bug" if repo is None else None,
                             seed=request.seed, max_steps=request.max_steps,
                             max_tool_calls=request.max_tool_calls or request.max_steps)
             result = asyncio.run(run_agent(
-                SoftwareEnvironment(repo or self.data_dir / run_id / "repository", seed=request.seed),
+                LegacyEnvironment(execution, seed=request.seed, should_stop=stop.is_set),
                 brain, cortex, task,
                 control_mode=ControlMode.HARD_CONTROL if request.execution_mode == "autonomous" else ControlMode.BIAS_CONTROL,
                 autonomous_guard=request.execution_mode == "autonomous",
@@ -275,6 +350,11 @@ class RunManager:
                 record.error = str(exc) if isinstance(exc, ValueError) else f"Run failed: {type(exc).__name__}"
         finally:
             brain.close()
+            try:
+                execution.finish()
+            except (OSError, ValueError) as error:
+                record.status = 'reconciling'
+                record.error = f'Source retained until effects are reconciled: {getattr(error, "code", type(error).__name__)}'
             with self.lock:
                 self._save(record)
                 self.emit(run_id, "finished", record.model_dump(mode="json"))

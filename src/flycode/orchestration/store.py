@@ -81,7 +81,7 @@ class Store:
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=FULL')
         version = self.db.execute('PRAGMA user_version').fetchone()[0]
-        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14):
+        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15):
             self.db.close()
             raise StoreError('schema_version', str(version))
         self.db.executescript('''
@@ -213,6 +213,17 @@ class Store:
                     self.db.execute('CREATE TABLE IF NOT EXISTS pipelines (id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL UNIQUE REFERENCES workflows(id), data TEXT NOT NULL)')
                     self.db.execute('CREATE TABLE IF NOT EXISTS pipeline_receipts (pipeline_id TEXT NOT NULL REFERENCES pipelines(id), stage TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(pipeline_id,stage))')
                     self.db.execute('PRAGMA user_version=14')
+            except BaseException:
+                self.db.close()
+                raise
+
+        if version < 15:
+            try:
+                with self.transaction():
+                    self.db.execute('''CREATE TABLE IF NOT EXISTS source_claims (
+                        id TEXT PRIMARY KEY, owner_kind TEXT NOT NULL, owner_id TEXT NOT NULL,
+                        state TEXT NOT NULL, data TEXT NOT NULL, UNIQUE(owner_kind,owner_id))''')
+                    self.db.execute('PRAGMA user_version=15')
             except BaseException:
                 self.db.close()
                 raise

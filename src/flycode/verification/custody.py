@@ -80,7 +80,8 @@ def stopped(ref: ProcessRef):
         os.close(descriptor)
 
 
-def run(argv, sandbox, environment, stdout, stderr, output, timeout, should_stop, on_state, on_admit):
+def run(argv, sandbox, environment, stdout, stderr, output, timeout, should_stop, on_state, on_admit,
+        *, on_prepare=lambda ref: None, version='pytest-custody-v1'):
     import fcntl
 
     descriptor = os.open(output / 'process.lock', os.O_CREAT | os.O_EXCL | os.O_RDWR | os.O_NOFOLLOW, 0o600)
@@ -92,12 +93,13 @@ def run(argv, sandbox, environment, stdout, stderr, output, timeout, should_stop
         fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
         request = {'argv': argv, 'sandbox': str(sandbox), 'environment': environment, 'timeout': timeout}
         info = os.fstat(descriptor)
-        ref = ProcessRef(id=uuid4().hex, directory=str(output.resolve()), device=info.st_dev, inode=info.st_ino,
+        ref = ProcessRef(version=version, id=uuid4().hex, directory=str(output.resolve()), device=info.st_dev, inode=info.st_ino,
             request_hash=hashlib.sha256(json.dumps(request, sort_keys=True).encode()).hexdigest())
         receipt = ProcessReceipt(ref=ref)
         _write(receipt)
         launch = output / 'process-launch.json'
         launch.write_text(json.dumps({'request': request, 'ref': ref.model_dump(mode='json')}))
+        on_prepare(ref)
         environment = {**environment, 'PYTHONPATH': str(Path(__file__).resolve().parents[2]), 'PYTHONNOUSERSITE': '1'}
         supervisor = subprocess.Popen([sys.executable, '-m', 'flycode.verification.custody', str(launch),
             str(child.fileno()), str(descriptor), str(stdout.fileno()), str(stderr.fileno())],

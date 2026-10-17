@@ -102,6 +102,7 @@ class IntegrationRecord(QueueModel):
     runtime_root: str | None = None
     previous_result_id: str | None = None
     coordinator_identity: tuple[int, int] | None = None
+    source_claim_id: str | None = None
     source_before: SubjectSnapshot
     artifact_hashes: dict[str, str]
     review_ids: tuple[str, ...]

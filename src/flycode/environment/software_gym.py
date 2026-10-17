@@ -84,8 +84,7 @@ class SoftwareEnvironment:
         if criteria.get("service_urls"):
             self._services["required_urls"] = list(criteria["service_urls"])
 
-        self._observation = observe(
-            self.repo_root,
+        self._observation = self._observe(
             task=task.task,
             task_id=task.id,
             step_number=self._step_number,
@@ -117,8 +116,7 @@ class SoftwareEnvironment:
             self._apply_side_effects(action, result_success, payload, error_message)
 
         self._step_number += 1
-        current = observe(
-            self.repo_root,
+        current = self._observe(
             task=previous.task,
             task_id=previous.task_id,
             step_number=self._step_number,
@@ -165,6 +163,9 @@ class SoftwareEnvironment:
 
     def _run_tool(self, action: ToolAction):
         return run_tool(action.tool, self.repo_root, **action.arguments)
+
+    def _observe(self, **arguments):
+        return observe(self.repo_root, **arguments)
 
     # ------------------------------------------------------------ bookkeeping
     def _apply_side_effects(

@@ -164,7 +164,7 @@ def test_schema12_upgrade_preserves_worker_bindings_and_canonical_history(review
     store.db.execute('PRAGMA user_version=12')
     connection = Store(store.path, catalogue=store.catalogue, clock=store.clock)
     try:
-        assert connection.db.execute('PRAGMA user_version').fetchone()[0] == 14
+        assert connection.db.execute('PRAGMA user_version').fetchone()[0] == 15
         assert connection.db.execute('SELECT COUNT(*) FROM review_bindings').fetchone()[0] == 0
         assert Dispatcher(connection, dispatcher.root).binding(host, task.id) == binding
         after = {table: [tuple(row) for row in connection.db.execute('SELECT * FROM '+table+' ORDER BY rowid')] for table in tables}

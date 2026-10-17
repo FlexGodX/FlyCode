@@ -2,6 +2,77 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Shared source admission — validated, 2026-10-17
+
+The checked source adds schema15 source claims shared by legacy RunManager and
+Integration. Claims exclude equal/ancestor/symlink source aliases, bind exact
+coordinator objects and process receipts, and retain unknown model/external
+effects. Legacy tools/Git observations use `tool-custody-v1`; `on_prepare` persists
+ownership before supervisor spawn. Run IDs own actual HostTransport rows.
+All unfinished/unproved legacy records are scanned independently of the UI's
+50-chat window; missing pre-upgrade stop proof creates a durable quarantine.
+The demo owns its private parent directory because fixture materialization
+legitimately recreates the repository inode. Ordinary registered-folder identity
+remains pinned. Snapshot metadata disables repository Git fsmonitor/filters.
+
+Actual two-manager RED was201 instead of409. Source+snapshot+custody composition
+passed34 cases before later migration/startup additions. Actual RunManager/
+Integration exclusion in both orders and late HTTP usage passed3 cases18.05s.
+Legacy startup/migration/Stop/observation tests passed8 cases11.81s. Existing web
+compatibility passed34 cases41.05s after fixing the demo inode regression; the
+earlier4 failures and interrupted global-cache catalogue scans are retained.
+Ruff and scoped mypy51 passed before the final rollback correction. These are
+targeted results, not final full/package/native acceptance.
+
+Review additionally reproduced three unsafe rollback cases under a newly added
+legacy quarantine. The merged correction guards every rename, including
+restorative exchanges, and keeps old integrations without claims unreleasable.
+A byte-identical root replacement also produced a real RED; physical root and
+ancestor identity are now rechecked outside SQL before source writes. The final
+combined targeted run passed45 cases66.79s; an additional real RunManager host
+crash with an owned TERM-ignoring pytest descendant passed1 case7.19s. Source
+stays held until every bound group is stopped; no canonical attempts are created.
+The first full run retained961 pass/3 fail/8 skip; always forwarding an optional
+`on_prepare` broke three existing positional custody wrappers. Passing that keyword
+only for an actual callback fixed the regression (original3 RED, related13 GREEN).
+Corrected source438e then passed964/8 skipped (972 exact IDs),167 extracted-wheel,
+CLI10, real graph5 and native pipeline/Stop; independent audit confirms3 released
+claims,27 stopped process receipts, zero unknown outcomes/reservations, and a
+0.000783s Stop response with1332 late primary tokens retained. These measurements
+are preserved, but not publication acceptance: subsequent review reproduced
+wrong-root writes after the final guard, including native apply/rollback and mkdir.
+
+The merged correction verifies/pins native root descriptors and traverses both
+parents relative to them; parent creation uses the same physical-root boundary.
+Six direct/nested/mkdir/post-pin cases and existing source/atomic/rollback tests
+pass38 cases47.33s in the main checkout; Ruff and scoped mypy53 pass. Denied local
+HTTP setup (30 pass/8 errors) is retained separately from feature REDs. Once a
+root descriptor is pinned, concurrent user relocation can still permit an effect
+on that original physical directory; this is not hostile-filesystem isolation.
+Final source e09ab693b05a7ada96f6675118a3e8e25ca76d7f5f2828f24be6340ce52b61e9
+passed970/8 expected skips (978 exact IDs once),642.303s; extracted wheel191
+passed332.160s, all142 Python files/README metadata exact, CLI10 and enabled
+real FlyWire5 passed. Ruff/scoped mypy53 pass. Three non-web groups run in parallel,
+then53 web tests serially. Prior978 outcome969/1 fail/8 skip is retained: the
+unchanged15s learning observer expired under CPU competition, without model calls;
+the exact case alone and final full/package runs pass with original assertions.
+
+Final actual English pipeline PASS66.532s,3 models/34 tools; four succeeded tasks,
+three stopped attempts, two stage receipts and current result. Real legacy Stop
+PASS21.495s, response0.002014s, one completed late primary/1333 tokens charged,
+unchanged user bytes, no canonical records, subsequent admission only after stop.
+Independent audit confirms three released claims,27 stopped receipts, all five
+model outcomes known and zero outstanding reservations/uncertainty. Final root:
+`/private/tmp/flycode-source-serial-web-validation-9ippln27`; sealed archive target:
+`~/.cache/flycode/validation/flycode-shared-source-9ippln27`.
+[Report](validation/2026-10-17-shared-source-admission.md).
+
+Aggregate Tasks5–8 remain open; neural orchestration/admission/replay and shared
+API/UI are not delivered. Next isolated development holds a schema16 physical
+project registry and protected draft/command/comment/history/SSE API; these are
+not in this publication. Finish their scope/replay review and compatibility,
+then unique host leadership and physical-root revalidation before execution.
+
 ## Approved writer/review/integration pipeline — 2026-10-17
 
 Current source bab0a9d9cd07e13a32a32eec2b75cd0414bfa8f4b28659d36abf72a39cbfe417.

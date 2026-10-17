@@ -2887,3 +2887,27 @@ manager recovery и CLI/API/UI ещё требуют подключения. Tas
 encoder/readout/replay/admission; старые single-agent инструменты его не заменяют.
 Топология/checkpoints/defaults не меняются, Tasks5–8 остаются открыты.
 [Отчёт](validation/2026-10-17-approved-pipeline-dispatch.md).
+
+Проверенный срез shared source admission: schema15 связывает старые
+чаты и интегратор общими claims папок/вложенных путей и физическими identity.
+Локальные инструменты и наблюдения старого чата получают process custody до
+spawn; поздний HTTP usage остаётся связан с run ID. Все незавершённые записи,
+включая interrupted и историю за пределами50 чатов, проверяются при restart;
+неизвестный прежний владелец удерживает quarantine. Apply и каждый rollback
+rename проверяют общий допуск; подмена корня блокирует запись вне SQL.
+Снимок не выполняет настроенные Git fsmonitor/filter. Объединённые targeted
+проверки45 прошли66.79с; отдельный реальный crash RunManager с потомком pytest
+прошёл7.19с. Первый полный набор сохранил3 compatibility failures, исправленные
+условной передачей on_prepare; следующая версия прошла964/8 skip,167 wheel,
+CLI10, graph5 и реальные pipeline/Stop. Последующая проверка воспроизвела подмену
+корня после последнего guard; исправление закрепляет root FD для rename и mkdir,
+38 связанных проверок и Ruff/mypy53 проходят. Финальные978 ID проверены по одному:
+970 pass/8 ожидаемых skip за642.303с; wheel191, CLI10, реальный FlyWire5 проходят.
+Web53 выполняются последовательно после трёх non-web групп; прежний timeout
+неизменённого15с observer и все ранние исходы сохранены. Реальная English цепочка
+прошла66.532с (3 model/34 tool), Stop21.495с с ответом0.002014с и1333 поздними
+токенами. Независимо проверены3 released claims/27 stopped receipts, текущий
+verdict, сохранность user bytes и нулевые неизвестные расходы/резервы.
+[Отчёт](validation/2026-10-17-shared-source-admission.md).
+Это не закрывает Tasks5–8, multi-writer/child wait, общий API/UI или нейронный
+оркестратор. [План среза](superpowers/plans/2026-10-17-shared-source-admission.md).

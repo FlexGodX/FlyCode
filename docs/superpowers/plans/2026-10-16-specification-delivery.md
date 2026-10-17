@@ -4,6 +4,16 @@
 
 **Goal:** Реализовать изменения §§100–103 с проверяемыми результатами, общей очередью задач и явным отделением исследовательских допусков.
 
+Current follow-up: [shared source admission](2026-10-17-shared-source-admission.md)
+is validated after the approved pipeline publication. Schema15/legacy custody
+and anchored native rename/mkdir have final978-ID evidence:970 pass/8 expected
+skip,191 extracted-wheel cases, CLI10, real graph5, Ruff/mypy53 and actual English
+pipeline/legacy Stop. Independent audit checks three released claims/27 stopped
+receipts, current verdict and zero unknown outcomes/reservations. Prior failures
+remain; web tests run serially after non-web groups with unchanged assertions.
+[Report](../../validation/2026-10-17-shared-source-admission.md). Tasks5–8 stay open;
+canonical registry/API development is isolated, not part of this publication.
+
 **Architecture:** Существующий одиночный runtime сохраняется как совместимый исполнитель. Новые задачи и попытки имеют единое транзакционное хранилище; tracker — его представление. Независимая проверка связывает verdict с фактическими байтами результата, а диспетчер резервирует ресурсы до вызова исполнителя.
 
 **Tech Stack:** Python >=3.10, Pydantic v2, SQLite, pytest, FastAPI, существующие HTML/CSS/JS, LM Studio.

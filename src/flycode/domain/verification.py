@@ -96,7 +96,7 @@ class CaseResult(VerificationModel):
 
 
 class ProcessRef(VerificationModel):
-    version: Literal['pytest-custody-v1'] = 'pytest-custody-v1'
+    version: Literal['pytest-custody-v1', 'tool-custody-v1'] = 'pytest-custody-v1'
     id: str = Field(pattern=r'^[0-9a-f]{32}$')
     directory: str
     device: int = Field(ge=0)

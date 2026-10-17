@@ -79,6 +79,33 @@ def group_exists(group):
         return False
 
 
+def test_tool_custody_persists_owner_binding_before_supervisor_spawn(tmp_path, monkeypatch):
+    from flycode.verification import custody
+
+    output = tmp_path / 'output'
+    output.mkdir()
+    binding = tmp_path / 'binding.json'
+    effect = tmp_path / 'effect'
+    spawn = subprocess.Popen
+
+    def bound_spawn(*args, **kwargs):
+        assert binding.exists(), 'A process was spawned before durable owner binding'
+        return spawn(*args, **kwargs)
+
+    def prepare(ref):
+        binding.write_text(ref.model_dump_json())
+
+    monkeypatch.setattr(custody.subprocess, 'Popen', bound_spawn)
+    with (output / 'stdout.txt').open('wb') as stdout, (output / 'stderr.txt').open('wb') as stderr:
+        receipt = custody.run([sys.executable, '-c', f'from pathlib import Path; Path({str(effect)!r}).touch()'],
+            tmp_path, dict(os.environ), stdout, stderr, output, 10, lambda: False, lambda state: None,
+            lambda ref: None, on_prepare=prepare, version='tool-custody-v1')
+    assert receipt.ref.version == 'tool-custody-v1'
+    assert json.loads(binding.read_text()) == receipt.ref.model_dump(mode='json')
+    assert receipt.stop_confirmed and receipt.reason == 'completed' and receipt.exit_code == 0
+    assert effect.exists()
+
+
 @pytest.mark.skipif(os.name != 'posix', reason='POSIX process ownership contract')
 def test_registered_runner_reports_normal_completion_and_confirmed_stop(tmp_path):
     from flycode.verification.runner import run_pytest

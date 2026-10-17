@@ -72,21 +72,35 @@ def input_files(root: Path) -> tuple[dict[str, bytes], list[str]]:
     return files, sorted(excluded)
 
 
+def _metadata_git(root, *arguments, overrides=()):
+    environment = {key: value for key, value in os.environ.items() if not key.startswith('GIT_')}
+    environment.update(GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1', GIT_OPTIONAL_LOCKS='0',
+                       GIT_TERMINAL_PROMPT='0')
+    return subprocess.run(['git', '--no-optional-locks', '-c', 'core.fsmonitor=false',
+        '-c', f'core.hooksPath={os.devnull}', '-c', f'core.attributesFile={os.devnull}',
+        '-c', 'submodule.recurse=false', *overrides, '-C', str(root), *arguments],
+        env=environment, check=False, capture_output=True, timeout=5)
+
+
 def capture(root: Path, destination: Path | None = None, *, ref: SubjectRef | None = None) -> SubjectSnapshot:
     root = root.resolve(strict=True)
     if destination is not None and destination.resolve().is_relative_to(root):
         raise ValueError('Snapshot storage must be outside the source project')
     files, excluded = input_files(root)
     try:
-        base_result = subprocess.run(['git', '-C', str(root), 'rev-parse', 'HEAD'],
-                                     check=False, capture_output=True, timeout=5)
+        base_result = _metadata_git(root, 'rev-parse', 'HEAD')
         base = base_result.stdout.decode().strip() if base_result.returncode == 0 else None
-        prefix_result = subprocess.run(['git', '-C', str(root), 'rev-parse', '--show-prefix'],
-                                       check=False, capture_output=True, timeout=5)
+        prefix_result = _metadata_git(root, 'rev-parse', '--show-prefix')
         prefix = prefix_result.stdout.decode(errors='replace').removesuffix('\n')
-        status = subprocess.run(['git', '--no-optional-locks', '-C', str(root), 'status', '--porcelain=v1', '-z',
-                                 '--untracked-files=all', '--', '.'],
-                                check=False, capture_output=True, timeout=5)
+        filters = _metadata_git(root, 'config', '--null', '--name-only', '--get-regexp',
+                                r'^filter\..*\.(clean|smudge|process|required)$')
+        if filters.returncode not in (0, 1):
+            raise OSError('Git filter configuration is unavailable')
+        drivers = {name.rsplit('.', 1)[0] for name in filters.stdout.decode().split('\0') if name}
+        overrides = [argument for driver in sorted(drivers) for option in
+                     ('clean=', 'smudge=', 'process=', 'required=false') for argument in ('-c', f'{driver}.{option}')]
+        status = _metadata_git(root, 'status', '--porcelain=v1', '-z', '--ignore-submodules=all',
+                               '--untracked-files=all', '--', '.', overrides=overrides)
         inventory = []
         if status.returncode == 0 and prefix_result.returncode == 0:
             records = iter(status.stdout.decode(errors='replace').split('\0'))

@@ -112,12 +112,24 @@ one structured candidate; ordinary generation keeps its existing count and limit
 The model transport adapter acquires an endpoint slot and charges the request
 before HTTP, records available token usage and retains unknown timeout outcomes.
 Waiting can be cancelled without sending a request. Single/dual cortex, direct
-clients and explicit probes share the SQLite endpoint ownership index (schema14).
+clients and explicit probes share the SQLite endpoint ownership index (schema15).
 All executors must use the same database through `FLYCODE_STATE_DATABASE`, which
 defaults to `~/.local/share/flycode/state.sqlite`. Unknown outcomes retain the
 endpoint across restart until trusted reconciliation; a busy probe returns409
 without inference. A late response after Stop retains usage without returning
 candidates. Canonical queue UI integration remains unfinished.
+
+Legacy chats and the integrator share source-folder admission: equal/nested
+folders and symlink aliases exclude a second executor, while independent folders
+can proceed separately. Local tool and Git-observation processes have durable
+receipts and group shutdown; HTTP usage is bound to the actual chat ID. Recovery
+releases admission only after confirmed stop. Unfinished old history without stop
+proof, missing receipts and external Docker/DB/HTTP effects require trusted
+reconciliation; there is no forced auto-unlock. Snapshot Git metadata does not
+execute configured fsmonitor or filters. Integration file moves and parent-folder
+creation stay bound to the original physical folder: replacing its pathname cannot
+redirect those writes into a replacement directory. Chat history creates neither
+canonical tasks nor verified verdicts.
 
 `AttemptCortex` binds the existing `run_agent` to the canonical attempt's objective,
 acceptance criteria and model budget. Admission pins the actual loaded LM Studio

@@ -1,0 +1,157 @@
+{
+  "status": "validated bounded shared-source admission; aggregate Tasks5\u20138 remain open",
+  "source": "e09ab693b05a7ada96f6675118a3e8e25ca76d7f5f2828f24be6340ce52b61e9",
+  "full": {
+    "exact_ids": 978,
+    "outcomes": {
+      "passed": 970,
+      "skipped": 8
+    },
+    "wall_seconds": 642.3033264580008
+  },
+  "wheel_tests": {
+    "passed": 191
+  },
+  "graph_tests": {
+    "passed": 5
+  },
+  "python_files": 142,
+  "wheel_sha256": "4401355f38f7c7f6eede707e25fd5b4b0dec8e60784297dc7a8bf9b13463dc38",
+  "native": {
+    "counts": {
+      "workflows": 1,
+      "tasks": 4,
+      "attempts": 3,
+      "pipelines": 1,
+      "pipeline_receipts": 2,
+      "workers": 1,
+      "artifacts": 1,
+      "reviews": 1,
+      "integrations": 1,
+      "tool_calls": 34
+    },
+    "budget": {
+      "limit": {
+        "model_calls": 60,
+        "tool_calls": 120
+      },
+      "spent": {
+        "model_calls": 3,
+        "tool_calls": 34
+      },
+      "reserved": {
+        "model_calls": 0,
+        "tool_calls": 0
+      },
+      "free": {
+        "model_calls": 57,
+        "tool_calls": 86
+      },
+      "uncertain": false
+    },
+    "model_calls_including_probe_and_legacy": 5,
+    "current_result": "511fa2bc1a3844058f9dfd02fd03abc8",
+    "manual_claims": 0,
+    "later_owner_commands": 0,
+    "source_claims_released": 3,
+    "independently_stopped_process_receipts": 27,
+    "late_primary_tokens": 1333,
+    "stop_response_seconds": 0.002014083001995459
+  },
+  "aggregate_tasks_5_to_8_complete": false,
+  "parent_publication": "3872024145c853054b4e88f20829ff8ece79ce34",
+  "validation_root": "/private/tmp/flycode-source-serial-web-validation-9ippln27",
+  "archive_destination": "~/.cache/flycode/validation/flycode-shared-source-9ippln27",
+  "measurement_files": 227,
+  "post_phases": [
+    {
+      "name": "ruff",
+      "returncode": 0,
+      "seconds": 0.043162916001165286
+    },
+    {
+      "name": "mypy",
+      "returncode": 0,
+      "seconds": 0.594517999998061
+    },
+    {
+      "name": "build",
+      "returncode": 0,
+      "seconds": 1.481001791980816
+    },
+    {
+      "name": "wheel-pytest",
+      "returncode": 0,
+      "seconds": 332.1601171250222
+    },
+    {
+      "name": "extracted-cli",
+      "returncode": 0,
+      "seconds": 0.14793604100123048
+    },
+    {
+      "name": "real-graph",
+      "returncode": 0,
+      "seconds": 5.364759000018239
+    },
+    {
+      "name": "probe",
+      "returncode": 0,
+      "seconds": 12.402860667003551
+    },
+    {
+      "name": "live-pipeline",
+      "returncode": 0,
+      "seconds": 67.036803666997
+    },
+    {
+      "name": "live-legacy",
+      "returncode": 0,
+      "seconds": 21.929192209005123
+    }
+  ],
+  "native_pipeline_seconds": 66.53189633300644,
+  "legacy_stop_seconds": 21.495172333001392,
+  "prior_outcomes": [
+    {
+      "root": "/private/tmp/flycode-source-validation-pux1pw8i",
+      "outcomes": {
+        "passed": 961,
+        "failure": 3,
+        "skipped": 8
+      },
+      "exact_ids": 972,
+      "reason": "Optional custody callback keyword broke three positional wrappers; fixed conditional forwarding, original RED retained."
+    },
+    {
+      "root": "/private/tmp/flycode-source-validation-qyou6em_",
+      "outcomes": {
+        "passed": 964,
+        "skipped": 8
+      },
+      "exact_ids": 972,
+      "wheel_passed": 167,
+      "rejected_for_publication": "Later native final-rename/mkdir root substitution defect; original measurements retained."
+    },
+    {
+      "root": "/private/tmp/flycode-source-final-validation-aa9e8uo0",
+      "outcomes": {
+        "passed": 969,
+        "failure": 1,
+        "skipped": 8
+      },
+      "exact_ids": 978,
+      "reason": "Unchanged 15s web observer expired under parallel CPU competition; model not invoked. Same exact test alone passed, both actual runs8.21/8.24s. Final full serializes web after non-web groups; assertions/deadlines unchanged."
+    }
+  ],
+  "limits": [
+    "Shared database required for all executors.",
+    "Unknown external Docker/database/HTTP effects retain source ownership; no force unlock.",
+    "Unfinished old history without exact stop proof remains quarantined.",
+    "Descriptor pins prevent path substitution; user relocation may still affect the original physical folder. No hostile-filesystem sandbox.",
+    "Schema16 registry and canonical API exist only in isolated development copy, not this publication.",
+    "General multi-writer/child-wait/recovery, common UI/CLI/API, neural orchestration and scientific admission remain open."
+  ],
+  "training": false,
+  "default_promotion": false
+}

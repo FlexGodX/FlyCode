@@ -4,6 +4,7 @@ from pathlib import Path
 
 from ..domain.verification import CheckAttempt, EvidenceManifest, VerificationVerdict
 from ..verification.engine import VerificationEngine
+from .sources import Sources
 from .store import Store, StoreError, changed
 from .tools import Tools
 
@@ -17,9 +18,10 @@ def accepted(engine: VerificationEngine, verdict: VerificationVerdict, root: Pat
 
 
 class CheckExecutor:
-    def __init__(self, store: Store, scope, attempt_id, fence):
+    def __init__(self, store: Store, scope, attempt_id, fence, *, source_claim_id=None):
         self.store, self.scope, self.attempt_id, self.fence = store, scope, attempt_id, fence
         self.pulse, self.uncertain = store.clock(), False
+        self.source_claim_id = source_claim_id
 
     def should_stop(self):
         try:
@@ -43,7 +45,9 @@ class CheckExecutor:
             return CheckAttempt(number=number, argv=[], exit_code=None, duration=0, state='cancelled', cancelled=True,
                 error_class='policy', reasons=[error.code])
         try:
-            result = invocation(on_admit=lambda ref: tools.bind_process(self.scope, call.id, ref))
+            prepared = ({'on_prepare': lambda ref: Sources(self.store).bind_process(self.source_claim_id, ref)}
+                if self.source_claim_id is not None else {})
+            result = invocation(on_admit=lambda ref: tools.bind_process(self.scope, call.id, ref), **prepared)
         except BaseException as error:
             tools.finish(self.scope, call.id, status='uncertain', error_class=type(error).__name__)
             self.uncertain = True

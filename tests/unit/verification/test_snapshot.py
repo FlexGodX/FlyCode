@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+import sys
 
 import pytest
 
@@ -66,3 +67,24 @@ def test_repository_root_rename_keeps_both_relative_names(repository):
     root, _ = repository
     git(root, 'mv', 'private sibling.py', 'renamed sibling.py')
     assert capture(root).inventory == ['R  renamed sibling.py', 'private sibling.py']
+
+
+@pytest.mark.parametrize('extension', ['fsmonitor', 'filter'])
+def test_snapshot_metadata_never_executes_project_git_extensions(repository, tmp_path, extension):
+    root, project = repository
+    marker = tmp_path / 'unexpected-git-effect'
+    script = tmp_path / 'extension.py'
+    script.write_text('import sys\nfrom pathlib import Path\n'
+        f'Path({str(marker)!r}).touch()\n'
+        'sys.stdout.buffer.write(sys.stdin.buffer.read())\n')
+    command = f'{sys.executable} {script}'
+    if extension == 'fsmonitor':
+        git(root, 'config', 'core.fsmonitor', command)
+    else:
+        (root / '.git/info/attributes').write_text('*.py filter=effect\n')
+        git(root, 'config', 'filter.effect.clean', command)
+    (project / 'original module.py').write_text('VALUE = 9\n')
+    snapshot = capture(project)
+    assert snapshot.base is not None
+    assert snapshot.inventory == [' M original module.py']
+    assert not marker.exists(), 'Read-only source capture executed a repository Git extension'
