@@ -137,3 +137,42 @@ def test_missing_or_invalid_loaded_capacity_never_sends_probe(model_server, capa
     entry = catalogue.probe(catalogue.discover()[0].model_ref, 'primary')
     assert entry.status == 'unavailable' and entry.context_limit is None
     assert model_server.requests == []
+
+
+def test_primary_probe_requests_one_candidate_without_changing_generation_default(model_server):
+    from flycode.domain import Observation
+    from flycode.llm.catalogue import ModelCatalogue
+    from flycode.llm.openai_compatible import OpenAICompatibleLLM
+    from flycode.llm.protocol import CortexContext
+
+    model_server.respond = lambda request: model_server.completion(json.dumps({'candidates': [
+        {'tool': 'read_file', 'arguments': {'path': 'sample.py'}}]}))
+    catalogue = ModelCatalogue(model_server.url)
+    entry = catalogue.discover()[0]
+    ready = catalogue.probe(entry.model_ref, 'primary')
+    assert ready.status == 'ready' and ready.roles == ['primary'] and ready.probe_calls == 1
+    probe_schema = model_server.requests[0]['response_format']['json_schema']['schema']['properties']['candidates']
+    assert probe_schema['minItems'] == probe_schema['maxItems'] == 1
+    context = CortexContext(task='Inspect sample.py without changing it.', behavior_mode='explore',
+        observation=Observation(task='ordinary generation'))
+    assert context.n_candidates == 4
+    generator = OpenAICompatibleLLM(model='reasoner', base_url=model_server.url, api_key='test', structured_output=True)
+    assert generator.generate_candidates(context)
+    ordinary_schema = model_server.requests[1]['response_format']['json_schema']['schema']['properties']['candidates']
+    assert ordinary_schema['maxItems'] == context.n_candidates == 4
+    assert len(model_server.requests) == 2
+
+
+@pytest.mark.parametrize('reply', ['', '{}', '{"candidates": []}', '{"candidates": [',
+    '{"candidates": [{"tool": "unsupported", "arguments": {}}]}'])
+def test_single_candidate_probe_still_rejects_empty_malformed_or_unsupported_output(model_server, reply):
+    from flycode.llm.catalogue import ModelCatalogue
+
+    model_server.respond = lambda request: model_server.completion(reply)
+    catalogue = ModelCatalogue(model_server.url)
+    entry = catalogue.discover()[0]
+    rejected = catalogue.probe(entry.model_ref, 'primary')
+    assert rejected.status == 'unsupported' and not rejected.roles and rejected.probe_calls == 1
+    assert catalogue.resolve(entry.model_ref, 'primary', entry.capability_version) is None
+    schema = model_server.requests[0]['response_format']['json_schema']['schema']['properties']['candidates']
+    assert schema['maxItems'] == 1 and len(model_server.requests) == 1

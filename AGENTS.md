@@ -15,7 +15,9 @@ These rules override everything else in this file when in conflict:
 Goal: understand the problem and the codebase before producing a diff.
 
 - State your plan in one or two sentences before editing. For anything non-trivial, produce a numbered list of steps with a verification check for each.
+- Discover exact paths with `rg --files` before any content search/read; never put guessed filenames in a read/search call.
 - Read the files you will touch. Read the files that call the files you will touch. Claude Code: use subagents for exploration so the main context stays clean.
+- Read helper signatures, object attributes, required Pydantic fields and ownership checks before calling project APIs or constructing their models; validate `model_copy` update keys against the model definition.
 - Match existing patterns in the codebase. If the project uses pattern X, use pattern X, even if you'd do it differently in a greenfield repo.
 - Surface assumptions out loud: "I'm assuming you want X, Y, Z. If that's wrong, say so." Do not bury assumptions inside the implementation.
 - If two approaches exist, present both with tradeoffs. Do not pick one silently. Exception: trivial tasks (typo, rename, log line) where the diff fits in one sentence.
@@ -176,8 +178,7 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Treat Hermes in this project’s plan as FlyCode itself: the host for connected agents orchestrated by the fly controller. Do not request a separate Hermes repository.
 - Verify helper reuse through observable delegation; passing numeric examples alone does not establish that an existing helper was used.
 - Use FlyCode’s implemented tools first for benchmarks, training and verification; retain their failure evidence before using external fallback tools.
-- Locate helper definitions and read signatures, Pydantic fields and ownership checks before using project APIs in integration code; read model-call attempt ownership from the SQL column because HostModelCall JSON has owner_id/owner_kind instead. Read archived measurement harness requirements, including required report environment variables, before launching them.
-- Before reading or searching a new source/test file, locate its exact path with `rg --files`; finish discovery before issuing reads/searches, and never put guessed filenames in the discovery batch.
+- Read model-call attempt ownership from the SQL column because HostModelCall JSON has owner_id/owner_kind instead. Read archived measurement harness requirements, including required report environment variables, before launching them.
 - Reap an owned process throughout group-absence polling; it may become waitable after the initial permission error.
 - Test custody blocking with a held ownership lock or an explicit owned Popen handle; never SIGSTOP a PID inferred only from `os.getppid()`.
 - In negative input-path tests, use a known present non-conflicting entry from `PatchArtifact.target.files`; do not assume every fixture includes README.

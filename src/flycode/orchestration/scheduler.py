@@ -1,5 +1,7 @@
 """Deterministic baseline and mandatory oldest-first dispatch (ORC-05)."""
 
+from collections.abc import Callable
+
 from ..domain.orchestration import WorkItem
 
 
@@ -11,7 +13,7 @@ def baseline(task: WorkItem, now: float, cost: float) -> float:
 
 
 def ordered(tasks: list[WorkItem], now: float, successful_starts: int, *, root: bool = False,
-            cost: float = 0.) -> list[WorkItem]:
+            cost: float | Callable[[WorkItem], float] = 0.) -> list[WorkItem]:
     def age(task):
         return task.queued_at if task.queued_at is not None else task.created_at
 
@@ -19,4 +21,4 @@ def ordered(tasks: list[WorkItem], now: float, successful_starts: int, *, root: 
         return sorted(tasks, key=lambda task: (age(task), task.id))
     if root:
         return sorted(tasks, key=lambda task: (-task.priority, age(task), task.id))
-    return sorted(tasks, key=lambda task: (-baseline(task, now, cost), age(task), task.id))
+    return sorted(tasks, key=lambda task: (-baseline(task, now, cost(task) if callable(cost) else cost), age(task), task.id))

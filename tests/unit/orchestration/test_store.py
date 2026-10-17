@@ -804,3 +804,96 @@ def test_profile_context_is_pinned_to_loaded_capacity_without_registration_http(
     result = store.claim(runtime, request(instance, task, key='reconfigured-load'))
     assert result.attempt is None and 'model_unavailable' in result.reasons
     assert len(model_server.requests) == calls
+
+
+def test_auto_claim_reserves_remaining_budget_without_refunding_prior_retry(setup):
+    from flycode.domain.orchestration import AutoClaimRequest, BudgetAmount
+
+    store, owner, runtime, _, instance, _, _, _ = setup
+    wf, task = queued(setup)
+    first = store.claim(runtime, request(instance, task)).attempt
+    first = store.confirm_started(runtime, first.id, first.fence)
+    deadline = store.workflow(owner, wf.id).deadline_at
+    store.spend(runtime, first.id, first.fence, BudgetAmount(model_calls=1, tool_calls=2), key='actual-first-effects')
+    store.confirm_stopped(runtime, first.id, first.fence, outcome='retry_wait', expenditure_confirmed=True)
+    command(store, owner, store.task(owner, task.id), 'retry')
+    idle = store.instance(runtime, instance.id)
+    call = AutoClaimRequest(instance_id=idle.id, expected_instance_revision=idle.revision, idempotency_key='auto-retry')
+    assigned = store.claim_next(runtime, call)
+    assert assigned.attempt is not None, assigned.reasons
+    assert assigned.attempt.initial_budget == BudgetAmount(model_calls=9, tool_calls=18)
+    assert store.budget(owner, wf.id).spent == BudgetAmount(model_calls=1, tool_calls=2)
+    assert store.workflow(owner, wf.id).deadline_at == deadline
+    assert store._attempt(first.id).spent == BudgetAmount(model_calls=1, tool_calls=2)
+    assert store.claim_next(runtime, call) == assigned
+    assert len(store.attempts(owner, wf.id)) == 2
+
+
+def test_auto_claim_uses_each_candidates_actual_reservation_cost(setup):
+    from flycode.domain.orchestration import AutoClaimRequest, BudgetAmount
+
+    store, owner, runtime, _, instance, now, _, permission = setup
+    wf, root = queued(setup)
+    expensive = store.create_task(owner, wf.id, draft(permission, parent_id=root.id), key='expensive')
+    command(store, owner, expensive, 'enqueue')
+    now[0] += 1
+    cheap = store.create_task(owner, wf.id, draft(permission, parent_id=root.id,
+        budget=BudgetAmount(model_calls=2, tool_calls=4)), key='cheap')
+    cheap = command(store, owner, cheap, 'enqueue')
+    assigned = store.claim_next(runtime, AutoClaimRequest(instance_id=instance.id,
+        expected_instance_revision=instance.revision, idempotency_key='auto-cost'))
+    assert assigned.attempt is not None, assigned.reasons
+    assert assigned.attempt.task_id == cheap.id
+    assert assigned.attempt.initial_budget == BudgetAmount(model_calls=2, tool_calls=4)
+    assert store.task(owner, expensive.id).current_attempt_id is None
+
+
+def test_auto_claim_two_connections_preserve_verification_reserve(setup):
+    from flycode.domain.orchestration import (
+        AutoClaimRequest,
+        BudgetAmount,
+        WorkflowBudget,
+        WorkflowDraft,
+    )
+    from flycode.orchestration.store import Store
+
+    store, owner, runtime, profile, first, now, catalogue, permission = setup
+    readonly = permission.model_copy(update={'write_scopes': ()})
+    wf = store.create_workflow(owner, WorkflowDraft(project_id='p', task=draft(permission),
+        budget=WorkflowBudget(max_model_calls=10, max_tool_calls=20)), key='small-workflow')
+    root = command(store, owner, store.task(owner, wf.root_task_id), 'enqueue')
+    for index in range(2):
+        child = store.create_task(owner, wf.id, draft(readonly, parent_id=root.id,
+            budget=BudgetAmount(model_calls=10, tool_calls=20)), key='child-' + str(index))
+        command(store, owner, child, 'enqueue')
+    store.start_next(owner, key='select-small')
+    second = store.register_instance(runtime, profile.id)
+    barrier = Barrier(2)
+    def compete(instance):
+        connection = Store(store.path, catalogue=catalogue, clock=lambda: now[0])
+        try:
+            barrier.wait(timeout=3)
+            return connection.claim_next(runtime, AutoClaimRequest(instance_id=instance.id,
+                expected_instance_revision=instance.revision, idempotency_key='auto-race-' + instance.id))
+        finally:
+            connection.close()
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(compete, (first, second)))
+    assert sum(result.attempt is not None for result in results) == 1
+    assert store.budget(owner, wf.id).reserved == BudgetAmount(model_calls=8, tool_calls=16)
+    assert store.budget(owner, wf.id).free == BudgetAmount(model_calls=2, tool_calls=4)
+    assert store.budget(owner, wf.id).spent == BudgetAmount()
+    assert sum(event.kind == 'attempt_assigned' for event in store.events(owner, wf.id)) == 1
+
+
+def test_explicit_claim_without_workflow_budget_retains_incomplete_reasons(setup):
+    from flycode.domain.orchestration import WorkflowDraft
+
+    store, owner, host, _, instance, _, _, permission = setup
+    wf = store.create_workflow(owner, WorkflowDraft(project_id='p', task=draft(permission)), key='no-limits')
+    task = store.task(owner, wf.root_task_id)
+    result = store.claim(host, request(instance, task, key='unapproved-claim'))
+    assert result.attempt is None
+    assert set(result.reasons) == {'root_not_active', 'task_not_ready', 'incomplete'}
+    assert not store.attempts(owner, wf.id)
+    assert not any(event.kind == 'attempt_assigned' for event in store.events(owner, wf.id))

@@ -98,15 +98,21 @@ The internal runtime now executes attempts in separate processes; CLI/API and
 screen integration remain unfinished. The current interface
 still runs one task at a time. See the checked
 [delivery plan](docs/superpowers/plans/2026-10-16-specification-delivery.md).
+The internal `Dispatcher` automatically selects a task/instance pair using global
+priority and the remaining budget. The owner first approves the exact folder and
+task version; changed files or contracts block launch. Bindings persist in the
+shared database. This slice launches workers; automatic review/integration and
+child waiting remain unfinished. An explicit primary compatibility probe requests
+one structured candidate; ordinary generation keeps its existing count and limits.
 The model transport adapter acquires an endpoint slot and charges the request
 before HTTP, records available token usage and retains unknown timeout outcomes.
 Waiting can be cancelled without sending a request. Single/dual cortex, direct
-clients and explicit probes share the SQLite endpoint ownership index (schema11).
+clients and explicit probes share the SQLite endpoint ownership index (schema12).
 All executors must use the same database through `FLYCODE_STATE_DATABASE`, which
 defaults to `~/.local/share/flycode/state.sqlite`. Unknown outcomes retain the
 endpoint across restart until trusted reconciliation; a busy probe returns409
 without inference. A late response after Stop retains usage without returning
-candidates. Canonical queue UI and dispatcher integration remain unfinished.
+candidates. Canonical queue UI integration remains unfinished.
 
 `AttemptCortex` binds the existing `run_agent` to the canonical attempt's objective,
 acceptance criteria and model budget. Admission pins the actual loaded LM Studio

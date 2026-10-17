@@ -175,6 +175,30 @@ class WorkflowSpec(QueueModel):
     dispatch_count: int = Field(default=0, ge=0)
 
 
+class WorkerBinding(QueueModel):
+    id: str
+    task_id: str
+    workflow_id: str
+    project_id: str
+    owner_id: str
+    revision: int = Field(ge=1)
+    previous_id: str | None = None
+    semantic_revision: int
+    workflow_semantic_revision: int
+    contract_hash: str
+    source_root: str
+    runtime_root: str
+    source_hash: str = Field(pattern='^[0-9a-f]{64}$')
+    brain: str
+    seed: int = Field(ge=0, le=2**32 - 1)
+    created_at: float
+
+    def matches(self, task: WorkItem, workflow: WorkflowSpec) -> bool:
+        return (self.task_id == task.id and self.workflow_id == workflow.id and self.project_id == task.project_id
+            and self.semantic_revision == task.semantic_revision and self.contract_hash == task.contract_hash
+            and self.workflow_semantic_revision == workflow.semantic_revision and task.kind != 'review')
+
+
 class AgentProfileDraft(QueueModel):
     role: Literal['planner', 'researcher', 'developer', 'reviewer', 'decider']
     model_ref: str = Field(min_length=1)
@@ -229,6 +253,7 @@ class AgentAttempt(QueueModel):
     profile_id: str
     profile_version: int
     profile_snapshot: AgentProfile
+    execution_binding_id: str | None = None
     instance_id: str
     fence: int
     state: AttemptState = 'assigned'
@@ -265,6 +290,12 @@ class ClaimRequest(QueueModel):
         if (self.task_id is None) != (self.expected_task_revision is None):
             raise ValueError('Preferred task requires its revision')
         return self
+
+
+class AutoClaimRequest(QueueModel):
+    instance_id: str
+    expected_instance_revision: int = Field(ge=1)
+    idempotency_key: str = Field(min_length=1, max_length=200)
 
 
 class ClaimResult(QueueModel):

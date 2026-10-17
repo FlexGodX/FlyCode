@@ -49,7 +49,7 @@ class Runtime:
         return WorkerRecord.model_validate_json(row['data'])
 
     def launch(self, scope, attempt_id, fence, source: Path, *, brain='functional', seed=0, trust='trusted-local-process',
-               message_recipients=()):
+               message_recipients=(), expected_source_hash=None):
         if trust != 'trusted-local-process':
             raise StoreError('unsupported_sandbox', 'Hostile code requires a supported sandbox')
         if os.name != 'posix':
@@ -66,7 +66,7 @@ class Runtime:
                 content=MessageProgress(kind='progress', summary='Route admission.'))
             message_recipients = route.recipients
             Messages(self.store).recipients(scope, attempt, message_recipients)
-        workspace = self.workspaces.prepare(scope, attempt_id, fence, source)
+        workspace = self.workspaces.prepare(scope, attempt_id, fence, source, expected_source_hash=expected_source_hash)
         Integration(self.store, self.root).begin_resolution(scope, attempt_id, fence, workspace)
         directory = self.workspaces.root / workspace.id
         record = WorkerRecord(id=uuid4().hex, attempt_id=attempt_id, fence=fence, created_at=self.store.clock())

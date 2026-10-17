@@ -2849,3 +2849,18 @@ JSON; trusted HostTransport сохраняет failed и776/874 токенов. 
 вызовов0, пользовательских workflow/tools0, обхода compatibility gate нет.
 Все10 checkpoints неизменны; Task5–8 и научный допуск открыты.
 [Отчёт корректируемых аргументов](validation/2026-10-17-candidate-metadata-feedback.md).
+
+
+Срез owner-bound worker dispatch 2026-10-17: schema12 хранит неизменяемые
+одобрения точной папки и контракта задачи. Dispatcher выбирает пару task/instance
+по общей baseline/aging и оставшемуся бюджету, затем запускает существующий
+Runtime без ручного claim. Изменённый источник, устаревшее одобрение и пауза/отмена
+до spawn не создают нового writer. Capture не удерживает SQL-транзакцию; прежние
+лимиты, deadline и резерв20% сохранены. Финальный полный набор886 passed/8 skipped
+(894 ID), wheel40, реальный FlyWire5, Ruff/mypy48 и CLI10 прошли. Один английский
+Qwen smoke через tick создал приватный исправленный artifact за81.14с,3 модели/5
+инструментов; исходные0/dirty байты сохранены, группа остановлена. Компактный
+primary probe прошёл; предыдущие два timeout остаются неудачами. Smoke завершён
+отменой без сброса расхода и не заявляет review/integration/verified completion.
+Полный dispatcher, child wait, neural orchestration и CLI/API/UI ещё открыты;
+Tasks5–8 не завершены. [Отчёт](validation/2026-10-17-bound-worker-dispatch.md).

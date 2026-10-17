@@ -2,6 +2,43 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Owner-bound automatic worker dispatch — 2026-10-17
+
+Schema12 adds immutable versioned WorkerBinding and backward-compatible optional
+AgentAttempt.execution_binding_id. Dispatcher.bind/tick automatically select a
+server-approved source/task/instance pair; all ranking/remaining reservations and
+assignment events use the existing Store. No manual claim is needed for this
+worker slice. Source capture stays outside SQL and is rechecked before spawn.
+Unstarted pause/cancel/source races settle only without worker/execution admission;
+uncertain effects still retain custody. Approval replay survives folder removal,
+while a new tick rejects the unavailable source. Existing explicit claim remains.
+
+Frozen source299775468f46bcef4bb465e13b6d6edc6427f9a4d0c877fcc22cff7bc85e98fe:
+886 pass/8 skip,894 exact IDs once,715.153s; wheel40 pass84.46s, graph5 pass,
+Ruff/mypy48 and extracted CLI10 pass; all134 Python files and README metadata
+match. First full source f0b04e9 retains884 pass/8 skip/1 old test-wrapper failure;
+forwarding the optional workspace keyword fixes the wrapper, preserving its actual
+peer-stop assertion. Final dispatcher/peer-stop21 pass12.53s.
+[Report](validation/2026-10-17-bound-worker-dispatch.md).
+
+Compact one-candidate explicit Qwen probe passes (ordinary generation unchanged).
+Actual English worker via tick passes81.14s: one private artifact,3 models/5 tools,
+zero manual claims, owner0/dirty preserved and process group stopped. Four total
+completed calls including probe,5,008 tokens, no unknown endpoint. Smoke is
+cancelled at private-artifact boundary with original spend/deadline; no review,
+integration or verified workflow completion claim. Prior two c8 probe timeouts
+remain failed. No neural/default/checkpoint/admission change.
+
+Archive: ~/.cache/flycode/validation/flycode-bound-worker-ryjboeik. Current worker
+slice does not close Tasks5–8. Next exact-review prototype is isolated at the path
+in /private/tmp/flycode-dispatch-composition-root.txt; schema13/prototype source is
+NOT merged. It has initial real registered-check/authority/tamper/recovery tests,
+not full/package/live acceptance. Preserve its REDs. Future-output recipes,
+integration routing, quiescent parent wait and UI/API/CLI remain missing. An
+aggregate root with sibling writer/reviewer/integrator avoids parent/dependency
+cycles; a review starts on a published pin, not author succeeded. Do not reuse
+old single-agent admission for dispatch or redefine the original13 neural inputs.
+
 ## Correctable candidate metadata — 2026-10-17
 
 Internal `CandidateMetadataError` preserves external permission rejection while

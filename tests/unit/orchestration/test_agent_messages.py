@@ -517,8 +517,8 @@ def test_blocked_progress_does_not_abort_agent_or_refund_execution_budget(peers,
             Messages(store).send(host, first.id, first.fence, draft(second, key=str(index)))
     else:
         prepare = runtime.workspaces.prepare
-        def stop_peer_after_route_validation(*args):
-            workspace = prepare(*args)
+        def stop_peer_after_route_validation(*args, **kwargs):
+            workspace = prepare(*args, **kwargs)
             current = store.task(owner, second.task_id)
             store.command(owner, current.id, TaskCommand(operation='cancel', expected_revision=current.revision,
                 idempotency_key='stop-peer'))

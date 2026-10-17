@@ -77,7 +77,7 @@ class Workspaces:
     def repository(self, scope, attempt_id) -> Path:
         return self.root / self.get(scope, attempt_id).id / 'repository'
 
-    def prepare(self, scope, attempt_id: str, fence: int, source: Path) -> WorkspaceRecord:
+    def prepare(self, scope, attempt_id: str, fence: int, source: Path, *, expected_source_hash=None) -> WorkspaceRecord:
         store = self.store
         if store.db.in_transaction:
             raise RuntimeError('Workspace preparation cannot run in a SQLite transaction')
@@ -87,7 +87,8 @@ class Workspaces:
             raise StoreError('workspace_location', 'Workspace storage must be outside the project')
         previous = self._record(scope, attempt_id)
         if previous:
-            if previous.source_root != str(source) or previous.fence != fence:
+            if (previous.source_root != str(source) or previous.fence != fence
+                    or (expected_source_hash is not None and previous.snapshot.subject_hash != expected_source_hash)):
                 raise StoreError('idempotency', 'Attempt already has a different workspace')
             return self.get(scope, attempt_id)
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -96,7 +97,8 @@ class Workspaces:
         staging.mkdir(mode=0o700)
         try:
             snapshot = capture(source, staging / 'baseline')
-            if task.base_snapshot_hash is not None and task.base_snapshot_hash != snapshot.subject_hash:
+            if ((task.base_snapshot_hash is not None and task.base_snapshot_hash != snapshot.subject_hash)
+                    or (expected_source_hash is not None and expected_source_hash != snapshot.subject_hash)):
                 raise StoreError('snapshot_changed', 'The approved input snapshot changed')
             repository = staging / 'repository'
             shutil.copytree(staging / 'baseline', repository)

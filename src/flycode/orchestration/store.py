@@ -21,6 +21,7 @@ from ..domain.orchestration import (
     AgentInstance,
     AgentProfile,
     AgentProfileDraft,
+    AutoClaimRequest,
     BudgetAmount,
     BudgetLedger,
     ClaimRequest,
@@ -30,6 +31,7 @@ from ..domain.orchestration import (
     TaskCommand,
     TaskDraft,
     ToolCall,
+    WorkerBinding,
     WorkerRecord,
     WorkflowBudget,
     WorkflowDraft,
@@ -76,7 +78,7 @@ class Store:
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=FULL')
         version = self.db.execute('PRAGMA user_version').fetchone()[0]
-        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11):
+        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12):
             self.db.close()
             raise StoreError('schema_version', str(version))
         self.db.executescript('''
@@ -176,6 +178,17 @@ class Store:
                     self.db.execute('''CREATE TABLE IF NOT EXISTS review_executions (
                         id TEXT PRIMARY KEY REFERENCES attempts(id), state TEXT NOT NULL, data TEXT NOT NULL)''')
                     self.db.execute('PRAGMA user_version=11')
+            except BaseException:
+                self.db.close()
+                raise
+
+        if version < 12:
+            try:
+                with self.transaction():
+                    self.db.execute("""CREATE TABLE IF NOT EXISTS worker_bindings (id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id),
+                        current INTEGER NOT NULL, data TEXT NOT NULL)""")
+                    self.db.execute('CREATE UNIQUE INDEX IF NOT EXISTS current_worker_binding ON worker_bindings(task_id) WHERE current=1')
+                    self.db.execute('PRAGMA user_version=12')
             except BaseException:
                 self.db.close()
                 raise
@@ -734,7 +747,7 @@ class Store:
             self._remember(scope, key, selected.project_id if selected else None, digest, selected)
             return selected
 
-    def _eligibility(self, scope, workflow, task, instance, profile, reserve):
+    def _eligibility(self, scope, workflow, task, instance, profile, reserve, tasks, attempts, ledger):
         reasons = []
         if self._counter('queue_paused'):
             reasons.append('queue_paused')
@@ -762,13 +775,11 @@ class Store:
             reasons.append('profile_permission')
         if not self._binding_current(profile):
             reasons.append('model_unavailable')
-        tasks = self.tasks(scope, workflow.id)
         if any(item.parent_id == task.id and required_task(item) for item in tasks):
             reasons.append('aggregate_parent')
         by_id = {item.id: item for item in tasks}
         if any(by_id[identity].state != 'succeeded' or not required_task(by_id[identity]) for identity in task.dependencies):
             reasons.append('dependency')
-        attempts = self.attempts(scope, workflow.id)
         active = [attempt for attempt in attempts if attempt.state in ACTIVE]
         limits = workflow.budget
         if limits is None or task.budget is None:
@@ -787,7 +798,6 @@ class Store:
                         for a in task.permissions.write_scopes for b in other.permissions.write_scopes):
                     reasons.append('write_scope_conflict')
                     break
-        ledger = self.budget(scope, workflow.id)
         if reserve.model_calls > ledger.free.model_calls or reserve.tool_calls > ledger.free.tool_calls:
             reasons.append('budget_exhausted')
         if (sum(a.spent.model_calls + a.reserved.model_calls for a in previous) + reserve.model_calls > task.budget.model_calls
@@ -804,13 +814,36 @@ class Store:
 
     def claim(self, scope, request: ClaimRequest) -> ClaimResult:
         self._role(scope, ('runtime',))
-        request = ClaimRequest.model_validate(request.model_dump())
-        self.refresh_results(scope, self.task(scope, request.task_id).workflow_id if request.task_id else None)
+        return self._claim(scope, ClaimRequest.model_validate(request.model_dump()))
+
+    def claim_next(self, scope, request: AutoClaimRequest) -> ClaimResult:
+        self._role(scope, ('runtime',))
+        return self._claim(scope, AutoClaimRequest.model_validate(request.model_dump()))
+
+    def _remaining_reservation(self, workflow, task, ledger, attempts) -> BudgetAmount:
+        if task.budget is None or workflow.budget is None:
+            return BudgetAmount()
+        previous = [attempt for attempt in attempts if attempt.task_id == task.id]
+        models = task.budget.model_calls - sum(a.spent.model_calls + a.reserved.model_calls for a in previous)
+        tools = task.budget.tool_calls - sum(a.spent.tool_calls + a.reserved.tool_calls for a in previous)
+        model_free, tool_free = ledger.free.model_calls, ledger.free.tool_calls
+        if task.kind != 'review':
+            development = [attempt for attempt in attempts if not attempt.verification]
+            model_free = min(model_free, max(0, math.floor(workflow.budget.max_model_calls * (1 - workflow.budget.verification_fraction))
+                - sum(a.spent.model_calls + a.reserved.model_calls for a in development)))
+            tool_free = min(tool_free, max(0, math.floor(workflow.budget.max_tool_calls * (1 - workflow.budget.verification_fraction))
+                - sum(a.spent.tool_calls + a.reserved.tool_calls for a in development)))
+        return BudgetAmount(model_calls=max(0, min(models, model_free)), tool_calls=max(0, min(tools, tool_free)))
+
+    def _claim(self, scope, request) -> ClaimResult:
+        automatic = isinstance(request, AutoClaimRequest)
+        preferred_id = None if automatic else request.task_id
+        self.refresh_results(scope, self.task(scope, preferred_id).workflow_id if preferred_id else None)
         with self.transaction():
             instance = self.instance(scope, request.instance_id)
             profile = self._profile(instance.profile_id)
-            preferred = self.task(scope, request.task_id) if request.task_id else None
-            found, result, digest = self._replay(scope, request.idempotency_key, {'claim': request.model_dump(mode='json')})
+            preferred = self.task(scope, preferred_id) if preferred_id else None
+            found, result, digest = self._replay(scope, request.idempotency_key, {'claim_next' if automatic else 'claim': request.model_dump(mode='json')})
             if found:
                 return ClaimResult.model_validate(result)
             if instance.revision != request.expected_instance_revision:
@@ -818,41 +851,119 @@ class Store:
             if preferred and preferred.revision != request.expected_task_revision:
                 raise StoreError('revision', 'Stale task', preferred)
             workflows = [self._workflow(preferred.workflow_id)] if preferred else [w for w in self.workflows(scope) if w.active_slot]
-            eligible, rejected = [], []
+            eligible, rejected, reservations = [], [], {}
             for workflow in workflows:
-                tasks = [preferred] if preferred else self.tasks(scope, workflow.id)
+                all_tasks, attempts = self.tasks(scope, workflow.id), self.attempts(scope, workflow.id)
+                ledger = self.budget(scope, workflow.id) if workflow.budget is not None else None
+                tasks = [preferred] if preferred else all_tasks
                 for task in tasks:
-                    reasons = self._eligibility(scope, workflow, task, instance, profile, request.reserve)
+                    reserve = self._remaining_reservation(workflow, task, ledger, attempts) if automatic else request.reserve
+                    reasons = self._eligibility(scope, workflow, task, instance, profile, reserve, all_tasks, attempts, ledger)
+                    if not reserve.model_calls + reserve.tool_calls:
+                        reasons.append('budget_exhausted')
                     if reasons:
                         rejected.extend(reasons)
                     else:
                         eligible.append(task)
+                        reservations[task.id] = reserve
             attempt = None
             workflow = self._workflow(eligible[0].workflow_id) if eligible else None
             if eligible:
                 assert workflow is not None
                 ledger = self.budget(scope, workflow.id)
-                cost = max(request.reserve.model_calls / max(ledger.free.model_calls, 1),
-                           request.reserve.tool_calls / max(ledger.free.tool_calls, 1))
+                def cost(task):
+                    reserve = reservations[task.id]
+                    return max(reserve.model_calls / max(ledger.free.model_calls, 1),
+                               reserve.tool_calls / max(ledger.free.tool_calls, 1))
                 task = ordered(eligible, self.clock(), workflow.dispatch_count, cost=cost)[0]
-                identity, fence = uuid4().hex, task.fence + 1
-                attempt = AgentAttempt(id=identity, workflow_id=workflow.id, task_id=task.id,
-                    workflow_revision=workflow.revision, workflow_semantic_revision=workflow.semantic_revision,
-                    task_revision=task.revision, semantic_revision=task.semantic_revision, contract_hash=task.contract_hash,
-                    profile_id=profile.id, profile_version=profile.version, profile_snapshot=profile, instance_id=instance.id,
-                    fence=fence, initial_budget=request.reserve, reserved=request.reserve, verification=task.kind == 'review',
-                    created_at=self.clock(), lease_until=self.clock() + 30.)
-                self._save_attempt(attempt)
-                self.db.execute('INSERT INTO reservations VALUES (?,?,?,?,?,?,?)',
-                    (identity, request.reserve.model_calls, request.reserve.tool_calls, 0, 0, int(attempt.verification), 0))
-                task = changed(task, current_attempt_id=identity, fence=fence, state='assigned',
-                               revision=task.revision + 1, updated_at=self.clock())
-                self._save_task(task)
-                self._save_instance(changed(instance, current_attempt_id=identity, state='assigned', revision=instance.revision + 1))
-                self._event(scope, workflow, 'attempt_assigned', task=task, attempt=attempt,
-                            revision=task.revision, fence=fence, reservation=request.reserve.model_dump())
+                reserve = reservations[task.id]
+                attempt = self._assign(scope, workflow, task, instance, profile, reserve)
             result = ClaimResult(attempt=attempt, reasons=() if attempt else tuple(sorted(set(rejected))) or ('no_eligible_task',))
             self._remember(scope, request.idempotency_key, workflow.project_id if workflow else (preferred.project_id if preferred else None), digest, result)
+            return result
+
+    def _assign(self, scope, workflow, task, instance, profile, reserve, binding_id=None):
+        if not self.db.in_transaction:
+            raise RuntimeError('Assignment must be atomic')
+        identity, fence = uuid4().hex, task.fence + 1
+        attempt = AgentAttempt(id=identity, workflow_id=workflow.id, task_id=task.id,
+            workflow_revision=workflow.revision, workflow_semantic_revision=workflow.semantic_revision,
+            task_revision=task.revision, semantic_revision=task.semantic_revision, contract_hash=task.contract_hash,
+            profile_id=profile.id, profile_version=profile.version, profile_snapshot=profile, instance_id=instance.id, execution_binding_id=binding_id,
+            fence=fence, initial_budget=reserve, reserved=reserve, verification=task.kind == 'review',
+            created_at=self.clock(), lease_until=self.clock() + 30.)
+        self._save_attempt(attempt)
+        self.db.execute('INSERT INTO reservations VALUES (?,?,?,?,?,?,?)',
+            (identity, reserve.model_calls, reserve.tool_calls, 0, 0, int(attempt.verification), 0))
+        task = changed(task, current_attempt_id=identity, fence=fence, state='assigned',
+                       revision=task.revision + 1, updated_at=self.clock())
+        self._save_task(task)
+        self._save_instance(changed(instance, current_attempt_id=identity, state='assigned', revision=instance.revision + 1))
+        self._event(scope, workflow, 'attempt_assigned', task=task, attempt=attempt,
+                    revision=task.revision, fence=fence, reservation=reserve.model_dump())
+        return attempt
+
+    def dispatch_bound(self, scope, *, runtime_root, binding_ids, key, blocked_reasons=()):
+        self._role(scope, ('runtime',))
+        self.refresh_results(scope)
+        with self.transaction():
+            found, result, digest = self._replay(scope, key, {'dispatch_bound': runtime_root})
+            if found:
+                return ClaimResult.model_validate(result)
+            rejected = list(blocked_reasons)
+            selected_workflow = None
+            attempt = None
+            instances = sorted(self.instances(scope), key=lambda item: item.id)
+            for workflow in self.workflows(scope):
+                if not workflow.active_slot:
+                    continue
+                tasks, attempts = self.tasks(scope, workflow.id), self.attempts(scope, workflow.id)
+                if any(item.state == 'assigned' for item in attempts):
+                    rejected.append('dispatch_admission_pending')
+                    continue
+                ledger = self.budget(scope, workflow.id) if workflow.budget is not None else None
+                bindings = {row['task_id']: WorkerBinding.model_validate_json(row['data']) for row in self.db.execute(
+                    'SELECT binding.task_id,binding.data FROM worker_bindings binding JOIN tasks ON tasks.id=binding.task_id '
+                    'WHERE binding.current=1 AND tasks.workflow_id=?', (workflow.id,))}
+                eligible, pairs, reservations = [], {}, {}
+                for task in tasks:
+                    binding = bindings.get(task.id)
+                    if binding is None or binding.runtime_root != runtime_root:
+                        rejected.append('worker_binding_required')
+                        continue
+                    if not binding.matches(task, workflow):
+                        rejected.append('execution_binding_stale')
+                        continue
+                    if binding.id not in binding_ids:
+                        rejected.append('binding_unverified')
+                        continue
+                    reserve = self._remaining_reservation(workflow, task, ledger, attempts)
+                    for instance in instances:
+                        profile = self._profile(instance.profile_id)
+                        reasons = self._eligibility(scope, workflow, task, instance, profile, reserve, tasks, attempts, ledger)
+                        if not reserve.model_calls + reserve.tool_calls:
+                            reasons.append('budget_exhausted')
+                        if reasons:
+                            rejected.extend(reasons)
+                        else:
+                            if task.id not in pairs:
+                                eligible.append(task)
+                                pairs[task.id] = (instance, profile, binding)
+                                reservations[task.id] = reserve
+                if eligible:
+                    def cost(task, ledger=ledger, reservations=reservations):
+                        reserve = reservations[task.id]
+                        return max(reserve.model_calls / max(ledger.free.model_calls, 1),
+                            reserve.tool_calls / max(ledger.free.tool_calls, 1))
+                    task = ordered(eligible, self.clock(), workflow.dispatch_count, cost=cost)[0]
+                    instance, profile, binding = pairs[task.id]
+                    attempt = self._assign(scope, workflow, task, instance, profile, reservations[task.id], binding.id)
+                    self._event(scope, workflow, 'worker_dispatched', task=task, attempt=attempt,
+                        binding_id=binding.id, candidate_id=task.id + ':' + instance.id)
+                    selected_workflow = workflow
+                    break
+            result = ClaimResult(attempt=attempt, reasons=() if attempt else tuple(sorted(set(rejected))) or ('no_eligible_task',))
+            self._remember(scope, key, selected_workflow.project_id if selected_workflow else None, digest, result)
             return result
 
     def _owned(self, scope, attempt_id, fence, *, running=False):

@@ -173,7 +173,7 @@ class ModelCatalogue:
                 if role == 'primary':
                     client = OpenAICompatibleLLM(model=entry.loaded_instance_id, base_url=self.base_url, api_key=key,
                         structured_output=True, max_tokens=1536, timeout=30, request_executor=execute)
-                    if not client.generate_candidates(context):
+                    if not client.generate_candidates(context.model_copy(update={'n_candidates': 1})):
                         raise ValueError('No valid structured candidates')
                 else:
                     scorer = JevStyleDecisionClient(entry.loaded_instance_id, self.base_url, key, timeout=30,
