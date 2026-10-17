@@ -5,8 +5,18 @@ from subprocess import SubprocessError
 from uuid import uuid4
 
 from ..brain import BRAIN_REGISTRY
-from ..domain.orchestration import ClaimResult, WorkerBinding
+from ..domain.orchestration import (
+    ClaimResult,
+    IntegrationBinding,
+    ReviewBinding,
+    WorkerBinding,
+    stage_binding,
+)
 from ..verification.snapshot import capture
+from .integration import Integration
+from .integration_bindings import IntegrationBindings
+from .review import Reviews
+from .review_bindings import ReviewBindings
 from .runtime import Runtime, WorkerHandle
 from .store import Store, StoreError
 from .tools import SUPPORTED
@@ -17,6 +27,18 @@ class Dispatcher:
         self.store, self.root = store, Path(root).resolve()
         self.runtime = Runtime(store, self.root)
         self.handles: dict[str, WorkerHandle] = {}
+
+    def bind_integration(self, scope, task_id, artifact_ids, review_ids, **kwargs) -> IntegrationBinding:
+        return IntegrationBindings(self.store, self.root).bind(scope, task_id, artifact_ids, review_ids, **kwargs)
+
+    def integration_binding(self, scope, task_id) -> IntegrationBinding:
+        return IntegrationBindings(self.store, self.root).get(scope, task_id)
+
+    def bind_review(self, scope, task_id, artifact_id, **kwargs) -> ReviewBinding:
+        return ReviewBindings(self.store, self.root).bind(scope, task_id, artifact_id, **kwargs)
+
+    def review_binding(self, scope, task_id) -> ReviewBinding:
+        return ReviewBindings(self.store, self.root).get(scope, task_id)
 
     def binding(self, scope, task_id) -> WorkerBinding:
         self.store.task(scope, task_id)
@@ -94,12 +116,20 @@ class Dispatcher:
         if found:
             result = ClaimResult.model_validate(saved)
         else:
-            approved, reasons = [], []
+            approved, reasons, pipeline_blocked = [], [], set()
+            from .pipeline import Pipelines
+            for workflow in store.workflows(scope):
+                blocked = Pipelines(store, self.root).advance(scope, workflow.id)
+                reasons.extend(blocked)
+                if blocked:
+                    pipeline_blocked.add(workflow.id)
             hashes: dict[str, str | None] = {}
+            binding: WorkerBinding | ReviewBinding | IntegrationBinding
             for row in store.db.execute('SELECT binding.data FROM worker_bindings binding JOIN tasks ON tasks.id=binding.task_id '
                     'JOIN workflows ON workflows.id=tasks.workflow_id WHERE binding.current=1 AND workflows.slot=1').fetchall():
                 binding = WorkerBinding.model_validate_json(row['data'])
-                if binding.project_id not in scope.project_ids or binding.runtime_root != str(self.root):
+                if (binding.project_id not in scope.project_ids or binding.runtime_root != str(self.root)
+                        or binding.workflow_id in pipeline_blocked):
                     continue
                 task, workflow = store.task(scope, binding.task_id), store.workflow(scope, binding.workflow_id)
                 if not binding.matches(task, workflow):
@@ -116,6 +146,18 @@ class Dispatcher:
                     reasons.append('snapshot_changed')
                 else:
                     approved.append(binding.id)
+            for row in store.db.execute('SELECT binding.data FROM review_bindings binding JOIN tasks ON tasks.id=binding.task_id '
+                    'JOIN workflows ON workflows.id=tasks.workflow_id WHERE binding.current=1 AND workflows.slot=1').fetchall():
+                binding = stage_binding(row['data'])
+                if (binding.project_id not in scope.project_ids or binding.runtime_root != str(self.root)
+                        or binding.workflow_id in pipeline_blocked):
+                    continue
+                try:
+                    service = IntegrationBindings if isinstance(binding, IntegrationBinding) else ReviewBindings
+                    service(store, self.root).verify(scope, binding)
+                    approved.append(binding.id)
+                except (OSError, ValueError) as error:
+                    reasons.append(getattr(error, 'code', 'review_binding_unavailable'))
             result = store.dispatch_bound(scope, runtime_root=str(self.root), binding_ids=tuple(approved),
                 blocked_reasons=tuple(reasons), key=key)
         if result.attempt is not None:
@@ -129,8 +171,25 @@ class Dispatcher:
         if (attempt.state != 'assigned' or store.db.execute('SELECT 1 FROM execution_lanes WHERE attempt_id=?',
                 (attempt_id,)).fetchone()):
             return
-        binding = store._load('worker_bindings', attempt.execution_binding_id, WorkerBinding)
+        review_mode = store.task(scope, attempt.task_id).kind == 'review'
+        if review_mode:
+            row = store.db.execute('SELECT data FROM review_bindings WHERE id=?', (attempt.execution_binding_id,)).fetchone()
+            binding = stage_binding(row['data'])
+        else:
+            binding = store._load('worker_bindings', attempt.execution_binding_id, WorkerBinding)
         try:
+            if isinstance(binding, IntegrationBinding):
+                IntegrationBindings(store, self.root).verify(scope, binding)
+                store.confirm_started(scope, attempt_id, attempt.fence)
+                Integration(store, self.root).run(scope, attempt_id, attempt.fence, tuple(binding.artifact_hashes), binding.review_ids,
+                    approval_hashes=binding.approval_hashes, reruns=binding.reruns, previous_result_id=binding.previous_result_id)
+                return
+            if review_mode:
+                ReviewBindings(store, self.root).verify(scope, binding)
+                store.confirm_started(scope, attempt_id, attempt.fence)
+                Reviews(store, self.root).run(scope, attempt_id, attempt.fence, binding.artifact_id,
+                    approval_hash=binding.approval_hash, reruns=binding.reruns)
+                return
             self.handles[attempt_id] = self.runtime.launch(scope, attempt_id, attempt.fence, Path(binding.source_root),
                 brain=binding.brain, seed=binding.seed, expected_source_hash=binding.source_hash)
         except (OSError, ValueError, SubprocessError) as error:
@@ -142,7 +201,27 @@ class Dispatcher:
                 has_effect = store.db.execute('SELECT 1 FROM execution_lanes WHERE attempt_id=?', (attempt_id,)).fetchone()
                 worker = store.db.execute('SELECT 1 FROM workers WHERE attempt_id=?', (attempt_id,)).fetchone()
                 current = store._attempt(attempt_id)
-                if (not has_effect and not worker and current.started_at is None
-                        and current.state in {'assigned', 'stopping', 'reconciling'}):
+                no_review_calls = (review_mode and not store.db.execute('SELECT 1 FROM tool_calls WHERE attempt_id=?', (attempt_id,)).fetchone()
+                    and not store.db.execute('SELECT 1 FROM model_calls WHERE attempt_id=?', (attempt_id,)).fetchone())
+                if (not has_effect and not worker and (current.started_at is None or no_review_calls)
+                        and current.state in {'assigned', 'running', 'stopping', 'reconciling'}):
                     outcome = 'retry_wait' if task.paused or workflow.state == 'pausing' else 'failed'
                     store._confirm_stopped(scope, attempt_id, attempt.fence, outcome=outcome, expenditure_confirmed=True)
+            if review_mode and store.db.execute('SELECT 1 FROM review_executions WHERE id=?', (attempt_id,)).fetchone():
+                try:
+                    Reviews(store, self.root).reconcile(scope, attempt_id)
+                except (OSError, ValueError) as recovery_error:
+                    with store.transaction():
+                        store._event(scope, store.workflow(scope, attempt.workflow_id), 'review_dispatch_recovery_blocked',
+                            task=store.task(scope, attempt.task_id), attempt=store._attempt(attempt_id),
+                            reason=getattr(recovery_error, 'code', type(recovery_error).__name__))
+            if isinstance(binding, IntegrationBinding):
+                row = store.db.execute('SELECT id FROM integrations WHERE attempt_id=?', (attempt_id,)).fetchone()
+                if row is not None:
+                    try:
+                        Integration(store, self.root).reconcile(scope, row['id'])
+                    except (OSError, ValueError) as recovery_error:
+                        with store.transaction():
+                            store._event(scope, store.workflow(scope, attempt.workflow_id), 'integration_dispatch_recovery_blocked',
+                                task=store.task(scope, attempt.task_id), attempt=store._attempt(attempt_id),
+                                reason=getattr(recovery_error, 'code', type(recovery_error).__name__))

@@ -416,6 +416,12 @@ class Integration:
                 raise StoreError('verification_failed', current=verdict)
         return record
 
+    def _resolution_inputs(self, scope, workflow_id, artifacts):
+        return tuple(self.get(scope, row['id']) for row in self.store.db.execute(
+            "SELECT id FROM integrations WHERE workflow_id=? AND state='conflict' ORDER BY rowid", (workflow_id,))
+            if any(item.task_id == self.get(scope, row['id']).resolution_task_id
+                and item.attempt_id in self.get(scope, row['id']).resolution_attempts for item in artifacts))
+
     def run(self, scope, attempt_id, fence, artifact_ids, review_ids, *, approval_hashes, reruns=0,
             previous_result_id=None, trust='trusted-local-process'):
         store = self.store
@@ -469,10 +475,7 @@ class Integration:
         elif any(artifact.base.subject_hash != before.subject_hash for artifact in artifacts):
             raise StoreError('integration_conflict', 'The captured source base changed')
         author_attempts = {artifact.task_id: artifact.attempt_id for artifact in artifacts}
-        resolved = tuple(self.get(scope, row['id']) for row in store.db.execute(
-            "SELECT id FROM integrations WHERE workflow_id=? AND state='conflict' ORDER BY rowid", (workflow.id,))
-            if any(item.task_id == self.get(scope, row['id']).resolution_task_id
-                and item.attempt_id in self.get(scope, row['id']).resolution_attempts for item in artifacts))
+        resolved = self._resolution_inputs(scope, workflow.id, artifacts)
         resolved_tasks = set().union(*(self._requirements(scope, item) for item in resolved))
         tasks = [item for item in store.tasks(scope, workflow.id) if required_task(item)]
         root_task = store.task(scope, workflow.root_task_id)

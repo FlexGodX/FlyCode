@@ -901,6 +901,34 @@ changes no attempts/artifacts/spend. No resolver review/integration or neural
 benefit/promotion claim. Next RED: recoverable malformed-argument feedback while
 preserving whitelist/fence/budget/deadline. Aggregate Tasks5–8 remain open.
 
+**Approved pipeline increment (2026-10-17, checked bounded route):** schema14
+adds immutable exact review/integration bindings and a one-shot owner recipe for
+one sibling writer/reviewer/integrator under an aggregate root. Runtime advances
+only the current stopped publication and its approved review; input semantic pins,
+ready state, binding, receipt and outbox commit atomically. Oracle/budget/profile/
+criteria/source changes block old authority, metadata preserves it. Explicit fresh
+review/reintegration after root reopen remains separately supported.
+[Plan](2026-10-17-approved-pipeline-dispatch.md),
+[report](../../validation/2026-10-17-approved-pipeline-dispatch.md).
+
+Source bab0a9d9cd07e13a32a32eec2b75cd0414bfa8f4b28659d36abf72a39cbfe417:
+full931 passed/8 skipped (939 IDs once,537.337s), extracted wheel87 passed,
+138 Python/README bytes exact, CLI10, real FlyWire5, Ruff/mypy48 passed. Actual
+English Qwen pipeline58.348s, zero manual claims/later owner commands,3 model
+calls/34 tools; all three attempts stopped/succeeded, four tasks completed with a
+current result, two unique materialization receipts, user binary/README preserved.
+Four completed model records including compact probe/5105 tokens, no unknown calls
+or reservation. Three repeated failing worker tests remain recorded overhead.
+Independent audit passed; no training/default change or scientific promotion.
+
+Do not close Task5/6: general recipes, automatic retry/replan/reopen, child wait,
+manager recovery and shared UI are incomplete. A concrete next boundary is shared
+legacy/canonical source-write admission: RunManager writes the registered folder,
+while endpoint serialization covers only HTTP and its thread Event/interrupted
+history is not a process/effect stop proof. Add actual cross-connection/resource/
+legacy-write crash REDs and a versioned custody adapter before exposing common
+execution. Preserve legacy history/defaults; no fake canonical task or verdict.
+
 ### Task 7: Нейронные назначения и исследования (18/19/23/24)
 
 **Files:** create `src/flycode/orchestration/{encoder,policy}.py`; research orchestration adapter; tests replay, failure injection and scoped admission.

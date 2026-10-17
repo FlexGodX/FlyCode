@@ -2,7 +2,58 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
-## Owner-bound automatic worker dispatch — 2026-10-17
+## Approved writer/review/integration pipeline — 2026-10-17
+
+Current source bab0a9d9cd07e13a32a32eec2b75cd0414bfa8f4b28659d36abf72a39cbfe417.
+Schema14 extends the same Store with immutable review/integration bindings,
+initial owner recipes and actor-independent stage receipts. Dispatcher.tick
+performs one initially approved aggregate-root + sibling writer/reviewer/
+integrator route without manual claims or later owner commands. Pins,
+materialization, enqueue, binding and outbox/receipt are atomic; deep FS/evidence
+checks run outside SQL. Changed oracle/budget/task/profile/source blocks old
+approval. Exact explicit bindings support fresh review/reintegration after root
+reopen without confusing immutable producer stamps and current owner generation.
+
+Full931 pass/8 skip (939 exact IDs once),537.337s; extracted wheel87 pass147.486s,
+real FlyWire5 pass, scoped Ruff12/mypy48 and CLI10 pass. All138 Python files and
+README metadata match frozen bytes. Wheel SHA256
+0edc62fa17f49b345be4090a10f186e5ef532c2eabebba421b8ecf28a46a0b47.
+Retained REDs include authority/oracle/budget/metadata races, other-runtime-root
+scope, invalid test API and denied HTTP setup; do not describe setup mistakes as
+feature REDs. All source/model/package measurements are terminal and unchanged.
+
+Actual English Qwen pipeline PASS58.348s: three stopped successful attempts,
+one artifact/review/integration, two materialization receipts, four succeeded
+tasks and a current Integration.current result. Workflow3 models/34 tools,
+reserved0/uncertainfalse; user binary and README preserved, source answer1.
+Writer retains three failed tests + edit + passing tests; this overhead is not
+an efficacy improvement. Explicit primary probe PASS24.208s; four known model
+calls including probe/5,105 tokens. Zero manual claims/later owner commands;
+independent audit also checks six initial owner command keys and host actors.
+[Report](validation/2026-10-17-approved-pipeline-dispatch.md),
+[bounded plan](superpowers/plans/2026-10-17-approved-pipeline-dispatch.md).
+Publication archive destination: ~/.cache/flycode/validation/flycode-approved-pipeline-1biujgpa.
+
+Aggregate Tasks5–8 remain open. Next priority is shared legacy/canonical source
+admission and owned-process custody before shared UI execution: read-only caller
+analysis finds RunManager writes registered source directly, Integration guards
+only canonical attempts, and HostTransport serializes HTTP rather than source.
+No actual legacy/integrator race experiment has run yet. Add its RED before code;
+legacy ACTIVE/interrupted/thread Event is not process/effect stop proof. Preserve
+/api/runs history/defaults per TRK-09; do not create fake WorkItems or success.
+General multi-writer recipes, automatic recipe retry/replan/reopen, quiescent
+parent wait and manager recovery remain open. Exact old multi-writer integration
+and explicit reopen are separately tested; they do not close automatic routing.
+
+Task7 exploration is read-only: legacy NeuralStimulus/Full13-input tool readout
+and single-agent admission1 cannot authorize dispatch. Need separate versioned
+encoder/readout/state, per-candidate-ID output, zero-influence telemetry/replay
+and orchestration admission; biological adjacency unchanged.6families×3seeds,
+>=30 dispatches/variant and >=10 actual safe interventions remain unmeasured.
+Standalone296-English-run benchmark/two rejected feedback checkpoints remain
+separate; no checkpoint/default/promotion change in this delivery.
+
+## Previous worker-only publication — 2026-10-17
 
 Schema12 adds immutable versioned WorkerBinding and backward-compatible optional
 AgentAttempt.execution_binding_id. Dispatcher.bind/tick automatically select a
@@ -29,15 +80,10 @@ cancelled at private-artifact boundary with original spend/deadline; no review,
 integration or verified workflow completion claim. Prior two c8 probe timeouts
 remain failed. No neural/default/checkpoint/admission change.
 
-Archive: ~/.cache/flycode/validation/flycode-bound-worker-ryjboeik. Current worker
-slice does not close Tasks5–8. Next exact-review prototype is isolated at the path
-in /private/tmp/flycode-dispatch-composition-root.txt; schema13/prototype source is
-NOT merged. It has initial real registered-check/authority/tamper/recovery tests,
-not full/package/live acceptance. Preserve its REDs. Future-output recipes,
-integration routing, quiescent parent wait and UI/API/CLI remain missing. An
-aggregate root with sibling writer/reviewer/integrator avoids parent/dependency
-cycles; a review starts on a published pin, not author succeeded. Do not reuse
-old single-agent admission for dispatch or redefine the original13 neural inputs.
+Archive: ~/.cache/flycode/validation/flycode-bound-worker-ryjboeik. That
+publication ended at a private worker artifact. Its archived schema13 review
+prototype was unmerged at the time; the current schema14 delivery above supersedes
+that prototype status. Preserve the old REDs/source identity as historical data.
 
 ## Correctable candidate metadata — 2026-10-17
 

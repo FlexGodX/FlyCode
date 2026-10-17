@@ -1,0 +1,96 @@
+{
+  "kind": "bounded-owner-approved-pipeline-engineering-validation",
+  "source": "bab0a9d9cd07e13a32a32eec2b75cd0414bfa8f4b28659d36abf72a39cbfe417",
+  "parent_commit": "11e8db7b4521365311af644de79c259a072ca29c",
+  "schema": 14,
+  "full": {
+    "exact_ids": 939,
+    "outcomes": {
+      "passed": 931,
+      "skipped": 8
+    },
+    "wall_seconds": 537.3370867500053
+  },
+  "wheel": {
+    "tests": {
+      "passed": 87
+    },
+    "python_files": 138,
+    "sha256": "0edc62fa17f49b345be4090a10f186e5ef532c2eabebba421b8ecf28a46a0b47",
+    "source_and_readme_bytes_match": true
+  },
+  "graph_tests": {
+    "passed": 5
+  },
+  "cli_brains": 10,
+  "scoped_mypy_files": 48,
+  "ruff_changed_python_files": 12,
+  "native": {
+    "passed": true,
+    "elapsed_seconds": 58.34844520800107,
+    "english_request": "Set the answer variable in src/example.py to exactly 1. Preserve all tests, README and user files. Run the tests to verify your change.",
+    "manual_claims": 0,
+    "owner_commands_after_approval": 0,
+    "attempts": 3,
+    "tasks": 4,
+    "stage_receipts": 2,
+    "current_verified_result": true,
+    "owner_dirty_bytes_preserved": true,
+    "source_answer": 1,
+    "budget": {
+      "limit": {
+        "model_calls": 60,
+        "tool_calls": 120
+      },
+      "spent": {
+        "model_calls": 3,
+        "tool_calls": 34
+      },
+      "reserved": {
+        "model_calls": 0,
+        "tool_calls": 0
+      },
+      "free": {
+        "model_calls": 57,
+        "tool_calls": 86
+      },
+      "uncertain": false
+    },
+    "model_tokens_including_probe": 5105,
+    "writer_model_tokens": 4358,
+    "worker_tool_sequence": [
+      "run_tests:failed",
+      "run_tests:failed",
+      "run_tests:failed",
+      "edit_file:completed",
+      "run_tests:completed"
+    ],
+    "review_checks": 4,
+    "integration_checks": 24,
+    "integration_apply_operations": 1,
+    "unknown_outcomes": 0,
+    "model_calls_including_probe": 4
+  },
+  "probe": {
+    "passed": true,
+    "elapsed_seconds": 24.208171749996836,
+    "model_id": "qwen/qwen3.5-9b",
+    "weights_revision": null,
+    "automatic_loading": false,
+    "fallback": false,
+    "calls": 1
+  },
+  "independent_audit_passed": true,
+  "aggregate_tasks_5_to_8_complete": false,
+  "trained_checkpoint_activated": false,
+  "scientific_promotion": false,
+  "limitations": [
+    "one writer/reviewer/integrator recipe",
+    "no automatic recipe retry/replan/reopen",
+    "shared legacy/canonical source admission and custody remain open",
+    "quiescent child wait and manager recovery open",
+    "shared UI/CLI/API open",
+    "orchestration encoder/shadow/replay/admission research open"
+  ],
+  "raw_archive_destination": "~/.cache/flycode/validation/flycode-approved-pipeline-1biujgpa"
+}

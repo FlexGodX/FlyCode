@@ -2686,7 +2686,7 @@ MOD-01..07 и MS-01..12 задают поведение и приёмку. Эт�
 |---|---|---|---|
 | 1 | §102, выбор моделей | Single/dual и generic HTTP контракты, CLI, catalogue/probes и две панели проверены; live single/dual repair и отдельный acceptance plan прошли | Single/dual/generic, независимые панели и совместимость истории проверены |
 | 2 | Фаза 21 | Pytest-основа готова: owner contract/oracle, exact case IDs, baseline/target/regression/integration и evidence; runtime completion gate открыт | Снимок → реальный pytest → структурированное evidence → текущий verdict |
-| 3 | Фазы 15/16 и 26/27 | SQLite-контракты, атомарное назначение/резервирование, fencing, restart и tracker projection проверены; executor/API/UI ещё не подключены | Единые задачи/попытки, транзакционная очередь и назначение без дублей |
+| 3 | Фазы 15/16 и 26/27 | SQLite-контракты, атомарное назначение/резервирование, fencing, restart и tracker projection проверены; внутренний dispatcher исполняет ограниченный writer/review/integration маршрут, общий host/API/UI ещё не подключены | Единые задачи/попытки, транзакционная очередь и назначение без дублей |
 | 4 | Фазы 22/17 и 28/29 | Внутренний verified-delivery e2e, result invalidation/reopen, fresh reverify и ограниченная crash reconciliation реализованы; остальные acceptance ещё открыты | Изоляция, восстановление, review, интеграция и verified completion |
 | 5 | Фазы 18/23 | Не реализовано | Реальные события командного исполнения, shadow и проверки отказов |
 | 6 | Фазы 19/24 | Не реализовано | Новый scoped admission после измеренных вмешательств и сравнений |
@@ -2864,3 +2864,26 @@ primary probe прошёл; предыдущие два timeout остаются
 отменой без сброса расхода и не заявляет review/integration/verified completion.
 Полный dispatcher, child wait, neural orchestration и CLI/API/UI ещё открыты;
 Tasks5–8 не завершены. [Отчёт](validation/2026-10-17-bound-worker-dispatch.md).
+
+
+Срез approved pipeline dispatch 2026-10-17: schema14 хранит точные review/
+integration bindings и первоначальное owner approval для aggregate root и трёх
+sibling этапов writer/reviewer/integrator. Последующие runtime ticks закрепляют
+текущую остановленную публикацию и её принятый review, атомарно создают input pins,
+binding, ready, receipt и outbox без поддельного owner scope. Изменение oracle,
+общего бюджета, task/profile/source блокирует старый допуск; семантика DAG не
+меняется от закрепления ожидаемых входов. Свежий dispatched review/reintegration
+после reopen сохраняет provenance автора и старый результат.
+Проверены931 passed/8 skipped (939 ID), wheel87,138 Python/README bytes, CLI10,
+FlyWire5, Ruff/mypy48. Actual English Qwen pipeline58.348с:3 модели/34 tools,
+три остановленные успешные попытки, четыре succeeded задачи, текущий verdict,
+ноль ручных claim и owner-команд после исходного approval. Dirty/README сохранены,
+source1 применён только интегратором; резерв0, неопределённости0. Вместе с probe
+четыре завершённых model calls/5105 токенов. Повторные три неудачных worker-теста
+остаются расходом, а не выигрышем эффективности. Независимая сверка прошла.
+Маршрут ограничен одним writer/reviewer/integrator. Общий legacy/canonical source
+admission, процессная custody старого RunManager, multi-writer recipes, child wait,
+manager recovery и CLI/API/UI ещё требуют подключения. Task7 требует отдельного
+encoder/readout/replay/admission; старые single-agent инструменты его не заменяют.
+Топология/checkpoints/defaults не меняются, Tasks5–8 остаются открыты.
+[Отчёт](validation/2026-10-17-approved-pipeline-dispatch.md).

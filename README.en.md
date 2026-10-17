@@ -101,13 +101,18 @@ still runs one task at a time. See the checked
 The internal `Dispatcher` automatically selects a task/instance pair using global
 priority and the remaining budget. The owner first approves the exact folder and
 task version; changed files or contracts block launch. Bindings persist in the
-shared database. This slice launches workers; automatic review/integration and
-child waiting remain unfinished. An explicit primary compatibility probe requests
+shared database. The dispatcher executes independent exact-artifact review and
+integration through registered checks. The owner can approve a bounded route in
+advance: one writer, one reviewer and one integrator under an aggregate root.
+The canonical queue then advances stages without manual claims. Changed criteria,
+oracle, permissions or budgets block the old authority. General multi-writer
+recipes, automatic replanning and child waiting remain unfinished.
+An explicit primary compatibility probe requests
 one structured candidate; ordinary generation keeps its existing count and limits.
 The model transport adapter acquires an endpoint slot and charges the request
 before HTTP, records available token usage and retains unknown timeout outcomes.
 Waiting can be cancelled without sending a request. Single/dual cortex, direct
-clients and explicit probes share the SQLite endpoint ownership index (schema12).
+clients and explicit probes share the SQLite endpoint ownership index (schema14).
 All executors must use the same database through `FLYCODE_STATE_DATABASE`, which
 defaults to `~/.local/share/flycode/state.sqlite`. Unknown outcomes retain the
 endpoint across restart until trusted reconciliation; a busy probe returns409
@@ -157,7 +162,7 @@ reviewer persists its input/oracle binding and coordinator custody before checks
 after coordinator/check shutdown and effect reconciliation. Older unfinished
 review lanes without custody proof stay blocked; recovery creates no approval.
 This is an
-internal trusted-local foundation: dispatcher and CLI/API/UI wiring remain open.
+internal trusted-local foundation: the general host loop and CLI/API/UI wiring remain open.
 Worker stderr is retained outside the repository copy with a64KiB bound; events
 carry its path, hash, size and truncation status without the error text.
 

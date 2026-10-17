@@ -26,8 +26,10 @@ from ..domain.orchestration import (
     BudgetLedger,
     ClaimRequest,
     ClaimResult,
+    IntegrationBinding,
     ModelCall,
     QueueEvent,
+    ReviewBinding,
     TaskCommand,
     TaskDraft,
     ToolCall,
@@ -37,6 +39,7 @@ from ..domain.orchestration import (
     WorkflowDraft,
     WorkflowSpec,
     WorkItem,
+    stage_binding,
 )
 from ..domain.results import IntegrationRecord
 from .scheduler import ordered
@@ -78,7 +81,7 @@ class Store:
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=FULL')
         version = self.db.execute('PRAGMA user_version').fetchone()[0]
-        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12):
+        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14):
             self.db.close()
             raise StoreError('schema_version', str(version))
         self.db.executescript('''
@@ -189,6 +192,27 @@ class Store:
                         current INTEGER NOT NULL, data TEXT NOT NULL)""")
                     self.db.execute('CREATE UNIQUE INDEX IF NOT EXISTS current_worker_binding ON worker_bindings(task_id) WHERE current=1')
                     self.db.execute('PRAGMA user_version=12')
+            except BaseException:
+                self.db.close()
+                raise
+
+        if version < 13:
+            try:
+                with self.transaction():
+                    self.db.execute("""CREATE TABLE IF NOT EXISTS review_bindings (id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id),
+                        current INTEGER NOT NULL, data TEXT NOT NULL)""")
+                    self.db.execute('CREATE UNIQUE INDEX IF NOT EXISTS current_review_binding ON review_bindings(task_id) WHERE current=1')
+                    self.db.execute('PRAGMA user_version=13')
+            except BaseException:
+                self.db.close()
+                raise
+
+        if version < 14:
+            try:
+                with self.transaction():
+                    self.db.execute('CREATE TABLE IF NOT EXISTS pipelines (id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL UNIQUE REFERENCES workflows(id), data TEXT NOT NULL)')
+                    self.db.execute('CREATE TABLE IF NOT EXISTS pipeline_receipts (pipeline_id TEXT NOT NULL REFERENCES pipelines(id), stage TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(pipeline_id,stage))')
+                    self.db.execute('PRAGMA user_version=14')
             except BaseException:
                 self.db.close()
                 raise
@@ -906,6 +930,8 @@ class Store:
     def dispatch_bound(self, scope, *, runtime_root, binding_ids, key, blocked_reasons=()):
         self._role(scope, ('runtime',))
         self.refresh_results(scope)
+        from .pipeline import Pipelines
+        pipelines = Pipelines(self, runtime_root)
         with self.transaction():
             found, result, digest = self._replay(scope, key, {'dispatch_bound': runtime_root})
             if found:
@@ -917,6 +943,13 @@ class Store:
             for workflow in self.workflows(scope):
                 if not workflow.active_slot:
                     continue
+                pipeline = self.db.execute('SELECT id FROM pipelines WHERE workflow_id=?', (workflow.id,)).fetchone()
+                if pipeline is not None:
+                    try:
+                        pipelines._guard(scope, pipelines.get(scope, pipeline['id']))
+                    except StoreError as error:
+                        rejected.append(error.code)
+                        continue
                 tasks, attempts = self.tasks(scope, workflow.id), self.attempts(scope, workflow.id)
                 if any(item.state == 'assigned' for item in attempts):
                     rejected.append('dispatch_admission_pending')
@@ -925,6 +958,9 @@ class Store:
                 bindings = {row['task_id']: WorkerBinding.model_validate_json(row['data']) for row in self.db.execute(
                     'SELECT binding.task_id,binding.data FROM worker_bindings binding JOIN tasks ON tasks.id=binding.task_id '
                     'WHERE binding.current=1 AND tasks.workflow_id=?', (workflow.id,))}
+                bindings.update({row['task_id']: stage_binding(row['data']) for row in self.db.execute(
+                    'SELECT binding.task_id,binding.data FROM review_bindings binding JOIN tasks ON tasks.id=binding.task_id '
+                    'WHERE binding.current=1 AND tasks.workflow_id=?', (workflow.id,))})
                 eligible, pairs, reservations = [], {}, {}
                 for task in tasks:
                     binding = bindings.get(task.id)
@@ -937,10 +973,26 @@ class Store:
                     if binding.id not in binding_ids:
                         rejected.append('binding_unverified')
                         continue
+                    if isinstance(binding, ReviewBinding):
+                        from .review_bindings import ReviewBindings
+                        try:
+                            ReviewBindings(self, runtime_root).verify_metadata(scope, binding)
+                        except StoreError as error:
+                            rejected.append(error.code)
+                            continue
+                    if isinstance(binding, IntegrationBinding):
+                        from .integration_bindings import IntegrationBindings
+                        try:
+                            IntegrationBindings(self, runtime_root).verify_metadata(scope, binding)
+                        except StoreError as error:
+                            rejected.append(error.code)
+                            continue
                     reserve = self._remaining_reservation(workflow, task, ledger, attempts)
                     for instance in instances:
                         profile = self._profile(instance.profile_id)
                         reasons = self._eligibility(scope, workflow, task, instance, profile, reserve, tasks, attempts, ledger)
+                        if isinstance(binding, ReviewBinding) and instance.id == binding.author_instance_id:
+                            reasons.append('review_independence')
                         if not reserve.model_calls + reserve.tool_calls:
                             reasons.append('budget_exhausted')
                         if reasons:

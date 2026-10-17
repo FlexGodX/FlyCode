@@ -199,6 +199,78 @@ class WorkerBinding(QueueModel):
             and self.workflow_semantic_revision == workflow.semantic_revision and task.kind != 'review')
 
 
+class ReviewBinding(QueueModel):
+    mode: Literal['review'] = 'review'
+    id: str
+    task_id: str
+    workflow_id: str
+    project_id: str
+    owner_id: str
+    revision: int = Field(ge=1)
+    previous_id: str | None = None
+    semantic_revision: int
+    workflow_semantic_revision: int
+    contract_hash: str
+    runtime_root: str
+    artifact_id: str
+    patch_hash: str
+    artifact_hash: str
+    author_attempt_id: str
+    author_fence: int
+    author_instance_id: str
+    author_semantic_revision: int
+    author_contract_hash: str
+    approval_hash: str = Field(pattern='^[0-9a-f]{64}$')
+    reruns: int = Field(default=0, ge=0, le=2)
+    created_at: float
+
+    def matches(self, task: WorkItem, workflow: WorkflowSpec) -> bool:
+        return (self.task_id == task.id and self.workflow_id == workflow.id and self.project_id == task.project_id
+            and self.semantic_revision == task.semantic_revision and self.contract_hash == task.contract_hash
+            and self.workflow_semantic_revision == workflow.semantic_revision and task.kind == 'review'
+            and task.input_artifacts == {self.artifact_id: self.patch_hash})
+
+
+class IntegrationBinding(QueueModel):
+    mode: Literal['integration'] = 'integration'
+    id: str
+    task_id: str
+    workflow_id: str
+    project_id: str
+    owner_id: str
+    revision: int = Field(ge=1)
+    previous_id: str | None = None
+    semantic_revision: int
+    workflow_semantic_revision: int
+    contract_hash: str
+    runtime_root: str
+    source_root: str
+    source_hash: str = Field(pattern='^[0-9a-f]{64}$')
+    artifact_hashes: dict[str, str]
+    artifact_records: dict[str, str]
+    review_ids: tuple[str, ...]
+    review_records: dict[str, str]
+    author_attempts: dict[str, str]
+    contracts: dict[str, str]
+    semantic_revisions: dict[str, int]
+    approval_hashes: dict[str, str]
+    previous_result_id: str | None = None
+    resolved_conflicts: tuple[str, ...] = ()
+    reruns: int = Field(default=0, ge=0, le=2)
+    created_at: float
+
+    def matches(self, task: WorkItem, workflow: WorkflowSpec) -> bool:
+        return (self.task_id == task.id and self.workflow_id == workflow.id and self.project_id == task.project_id
+            and self.semantic_revision == task.semantic_revision and self.contract_hash == task.contract_hash
+            and self.workflow_semantic_revision == workflow.semantic_revision and task.kind == 'review'
+            and task.input_artifacts == self.artifact_hashes)
+
+
+def stage_binding(raw: str) -> ReviewBinding | IntegrationBinding:
+    data = json.loads(raw)
+    return (IntegrationBinding if data.get('mode') == 'integration' else ReviewBinding).model_validate(data)
+
+
 class AgentProfileDraft(QueueModel):
     role: Literal['planner', 'researcher', 'developer', 'reviewer', 'decider']
     model_ref: str = Field(min_length=1)
