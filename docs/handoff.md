@@ -2,6 +2,69 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Canonical projects and Tasks API — validated, 2026-10-17
+
+Checked schema16/Tasks API follows sealed source15 publication3a480b2.
+Immutable physical project UUIDs prevent equal legacy selectors from sharing
+authority across workspaces. Host registration/resolve validates root/ancestors
+outside SQL; tombstones never silently rebind. Internal revoke requires proven
+quiescence, preserves spending/history and releases only the idle workflow slot.
+
+Protected HTTP endpoints expose root/child drafts, owner revision/idempotency
+commands, literal comments, durable history, scoped keyset pages and agents.
+Scopes derive afresh from server-known physical folders; clients cannot issue
+actor/role authority. No background dispatcher/recovery/model is started by the
+adapter. Legacy project options/history/model defaults/UI remain separate.
+
+Actual HTTP REDs retain cursor overflow, missed offline comments and scope
+expansion after a foreign global frontier. SSE now separates scan/delivery:
+snapshot cursor bounds current board state, replay_after/SSE ID bound history,
+and old events cannot be treated as newer board deltas. Owned uvicorn thread
+shutdown is verified. Web Python now joins implementation identity after an
+actual RED showed it previously did not change the fingerprint. Source15 full
+evidence separately pinned all227 files including web bytes and stays retained.
+
+Isolated compatibility92 passed109.75s before identity inclusion; subsequent
+identity/API/tracker25 passed3.63s. Main composed compatibility98 passed112.41s;
+changed-file Ruff and scoped follow-imports=silent mypy65 pass. Expanded imports
+previously reported22 diagnostics in11 unchanged dependencies; scoped checking
+does not claim a clean expanded import graph or change those dependencies.
+
+Current frozen source:
+da83bc70be5bdc9937aa7064d9d866a3ee9b800bba966174233751779b17f9b5.
+232 measurement files,1017 exact default cases:1009 pass/8 expected skips,
+651.131s (71 serial-web after three parallel non-web groups);282 extracted-wheel
+cases pass336.931s,145 Python files/README metadata exact, CLI10 and real graph5
+pass. All four process codes0, stage ordering and hashes independently verified.
+Root `/private/tmp/flycode-canonical-api-validation-2rmy4w7t`; all full/post/model
+measurements terminal. Pointer `/private/tmp/flycode-canonical-api-validation-root.txt`.
+Earlier root gucs0ft2 rejected the launcher's obsolete978 count before any test
+spawn; retain it as preparation failure, not product RED. Fixed runner reads the
+registered count; its non-launching preamble and all hashes were checked.
+
+Actual English internal pipeline PASS55.721s,3 models/34 tools, four succeeded
+tasks/three stopped attempts/two receipts/current verdict. This does not establish
+canonical HTTP execution: the new adapter starts no dispatcher/recovery/inference.
+Real legacy Stop PASS14.976s, response0.001688s,1333 late primary tokens retained.
+Independent audit: five known model outcomes, three released claims/27 stopped
+receipts, zero unknown outcomes/reservations and preserved user bytes. Archive
+destination `~/.cache/flycode/validation/flycode-canonical-api-2rmy4w7t`.
+[Report](validation/2026-10-17-canonical-project-tasks-api.md).
+
+Unique host leadership, fresh physical project authority before runtime/effects,
+execution/verification endpoints, UI/CLI and neural orchestration remain open.
+Reviewed physical-execution guard exists ONLY in isolated copy:
+`/private/tmp/flycode-registered-execution-tshda3vb`; immutable patch
+`/private/tmp/flycode-registered-execution.patch` SHA941b7a808fe014626d19121e9debb1913bfd4795f883f647345052ca40c40728.
+Its83 focused cases/Ruff/mypy52 pass. Dispatch/launch/baseline/apply checks preserve
+physical authority; already admitted private-copy tools may continue spending,
+and revoked authority can retain a reconciling result/held claim rather than
+force rollback. This guard is not included in current1017-ID measurements.
+Next worker-custody design must preserve duplex RPC and actual worker process
+semantics while forwarding hashed FDs through both supervisor spawns; persisted
+PID alone cannot establish stop. Neither that design nor a daemon is delivered.
+[Bounded plan](superpowers/plans/2026-10-17-canonical-project-tasks-api.md).
+
 ## Shared source admission — validated, 2026-10-17
 
 The checked source adds schema15 source claims shared by legacy RunManager and

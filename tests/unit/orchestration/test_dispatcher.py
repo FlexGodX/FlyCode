@@ -302,7 +302,7 @@ def test_schema11_upgrade_keeps_old_attempt_bytes_reservations_and_commands(setu
     store.db.execute('PRAGMA user_version=11')
     connection = Store(store.path, catalogue=catalogue, clock=store.clock)
     try:
-        assert connection.db.execute('PRAGMA user_version').fetchone()[0] == 15
+        assert connection.db.execute('PRAGMA user_version').fetchone()[0] == 16
         assert connection._attempt(original.id).execution_binding_id is None
         assert connection.budget(owner, wf.id) == store.budget(owner, wf.id)
         assert connection.db.execute('SELECT COUNT(*) FROM worker_bindings').fetchone()[0] == 0

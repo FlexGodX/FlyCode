@@ -81,7 +81,7 @@ class Store:
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=FULL')
         version = self.db.execute('PRAGMA user_version').fetchone()[0]
-        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15):
+        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16):
             self.db.close()
             raise StoreError('schema_version', str(version))
         self.db.executescript('''
@@ -224,6 +224,19 @@ class Store:
                         id TEXT PRIMARY KEY, owner_kind TEXT NOT NULL, owner_id TEXT NOT NULL,
                         state TEXT NOT NULL, data TEXT NOT NULL, UNIQUE(owner_kind,owner_id))''')
                     self.db.execute('PRAGMA user_version=15')
+            except BaseException:
+                self.db.close()
+                raise
+
+        if version < 16:
+            try:
+                with self.transaction():
+                    self.db.execute('''CREATE TABLE IF NOT EXISTS canonical_projects (
+                        id TEXT PRIMARY KEY, root_path TEXT NOT NULL UNIQUE,
+                        root_device INTEGER NOT NULL, root_inode INTEGER NOT NULL,
+                        state TEXT NOT NULL CHECK(state IN ('active','revoked')), data TEXT NOT NULL,
+                        UNIQUE(root_device,root_inode))''')
+                    self.db.execute('PRAGMA user_version=16')
             except BaseException:
                 self.db.close()
                 raise
@@ -748,6 +761,8 @@ class Store:
             if not self._counter('queue_paused') and not self.db.execute('SELECT 1 FROM workflows WHERE slot=1').fetchone():
                 candidates = []
                 for workflow in self.workflows(scope):
+                    if self._project_revoked(workflow.project_id):
+                        continue
                     task = self._task(workflow.root_task_id)
                     if workflow.state == 'draft' and task.state == 'ready' and not task.paused and not task.archived:
                         self._ready(task, workflow)
@@ -782,8 +797,14 @@ class Store:
             self._remember(scope, key, selected.project_id if selected else None, digest, selected)
             return selected
 
+    def _project_revoked(self, project_id):
+        row = self.db.execute('SELECT state FROM canonical_projects WHERE id=?', (project_id,)).fetchone()
+        return row is not None and row['state'] != 'active'
+
     def _eligibility(self, scope, workflow, task, instance, profile, reserve, tasks, attempts, ledger):
         reasons = []
+        if self._project_revoked(task.project_id):
+            reasons.append('project_revoked')
         if self._counter('queue_paused'):
             reasons.append('queue_paused')
         if task.paused or workflow.state in {'paused', 'pausing'}:
@@ -920,6 +941,8 @@ class Store:
     def _assign(self, scope, workflow, task, instance, profile, reserve, binding_id=None):
         if not self.db.in_transaction:
             raise RuntimeError('Assignment must be atomic')
+        if self._project_revoked(task.project_id):
+            raise StoreError('project_revoked')
         identity, fence = uuid4().hex, task.fence + 1
         attempt = AgentAttempt(id=identity, workflow_id=workflow.id, task_id=task.id,
             workflow_revision=workflow.revision, workflow_semantic_revision=workflow.semantic_revision,

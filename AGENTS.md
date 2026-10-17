@@ -180,7 +180,8 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Use FlyCode’s implemented tools first for benchmarks, training and verification; retain their failure evidence before using external fallback tools.
 - Use `.venv/bin/python` for local Python commands; do not assume `python` is on PATH. A denied HTTP/process test setup is not a feature RED.
 - Set an isolated `FLYCODE_ARTIFACT_ROOT` for web/full-suite verification unless testing catalogue discovery; the user cache can contain entire archived test trees.
-- Read model-call attempt ownership from the SQL column because HostModelCall JSON has owner_id/owner_kind instead. Read archived measurement harness requirements, including required report environment variables, before launching them.
+- Read model-call attempt ownership from the SQL column because HostModelCall JSON has owner_id/owner_kind instead.
+- Before reusing a measurement harness, read startup assertions/report variables and check launcher counts against the registered collection; execute its non-launching preamble before spawning tests.
 - Reap an owned process throughout group-absence polling; it may become waitable after the initial permission error.
 - Test custody blocking with a held ownership lock or an explicit owned Popen handle; never SIGSTOP a PID inferred only from `os.getppid()`.
 - In negative input-path tests, use a known present non-conflicting entry from `PatchArtifact.target.files`; do not assume every fixture includes README.

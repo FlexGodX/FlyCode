@@ -112,7 +112,7 @@ one structured candidate; ordinary generation keeps its existing count and limit
 The model transport adapter acquires an endpoint slot and charges the request
 before HTTP, records available token usage and retains unknown timeout outcomes.
 Waiting can be cancelled without sending a request. Single/dual cortex, direct
-clients and explicit probes share the SQLite endpoint ownership index (schema15).
+clients and explicit probes share the SQLite endpoint ownership index (schema16).
 All executors must use the same database through `FLYCODE_STATE_DATABASE`, which
 defaults to `~/.local/share/flycode/state.sqlite`. Unknown outcomes retain the
 endpoint across restart until trusted reconciliation; a busy probe returns409
@@ -130,6 +130,18 @@ execute configured fsmonitor or filters. Integration file moves and parent-folde
 creation stay bound to the original physical folder: replacing its pathname cannot
 redirect those writes into a replacement directory. Chat history creates neither
 canonical tasks nor verified verdicts.
+
+The protected Tasks API uses the same store: `/api/tasks/projects` registers a
+server-known physical folder under its own ID, `/api/tasks` creates/lists drafts,
+and task `/commands`, `/comments` and `/events` routes preserve commands/history.
+`/api/tasks/events` streams a snapshot and events, resuming through `Last-Event-ID`
+or `after`. Snapshot `cursor` bounds current board state; `replay_after` bounds
+delivered history. Historical events through `cursor` must not regress the board.
+Requests require the local bootstrap's `X-FlyCode-Token`; the server derives scope
+from verified physical folders. Drafts do not call a model. Folder replacement
+denies the previous ID; historical textual IDs are never implicitly imported.
+The background queue host, shared Tasks screen and verification API remain open.
+Python web execution changes now also invalidate the admission fingerprint.
 
 `AttemptCortex` binds the existing `run_agent` to the canonical attempt's objective,
 acceptance criteria and model budget. Admission pins the actual loaded LM Studio

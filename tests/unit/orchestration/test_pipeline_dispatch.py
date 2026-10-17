@@ -315,7 +315,7 @@ def test_schema14_upgrade_is_atomic_and_preserves_legacy_state(pipeline_ready, m
     monkeypatch.setattr(sqlite3, 'connect', connect)
     connection = Store(store.path, catalogue=store.catalogue)
     try:
-        assert connection.db.execute('PRAGMA user_version').fetchone()[0] == 15
+        assert connection.db.execute('PRAGMA user_version').fetchone()[0] == 16
         assert (connection.budget(owner, workflow.id), connection.tasks(owner, workflow.id)) == before
     finally:
         connection.close()

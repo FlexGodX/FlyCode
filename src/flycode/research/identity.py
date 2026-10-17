@@ -12,7 +12,7 @@ def implementation_fingerprint() -> str:
     root = Path(__file__).resolve().parents[1]
     files = [root / 'agent.py', root / 'cli.py']
     for package in ('brain', 'cognition', 'domain', 'policy', 'safety', 'llm', 'environment', 'tools', 'research',
-                    'verification', 'orchestration', 'tracker', 'training', 'telemetry'):
+                    'verification', 'orchestration', 'tracker', 'training', 'telemetry', 'web'):
         files.extend((root / package).rglob('*.py'))
     digest = hashlib.sha256()
     for path in sorted(files):

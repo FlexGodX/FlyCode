@@ -70,3 +70,16 @@ class ProjectRegistry(BaseModel):
         if root.resolve() != root or not root.is_dir():
             raise ValueError("Папка проекта недоступна или перемещена")
         return root
+
+
+def project_options(workspace: Path, registry: ProjectRegistry) -> list[dict]:
+    projects = [{'id': 'demo', 'name': 'Демо-проект', 'description': 'Отдельная папка для каждого запуска'},
+                {'id': '.', 'name': workspace.name, 'description': str(workspace)}]
+    for path in sorted(workspace.iterdir()):
+        if path.name.startswith('.') or not path.is_dir() or not path.resolve().is_relative_to(workspace):
+            continue
+        if (path / '.git').exists() or (path / 'pyproject.toml').exists() or (path / 'package.json').exists():
+            projects.append({'id': f'./{path.name}', 'name': path.name, 'description': str(path)})
+    registered = [project.model_dump() for project in registry.projects]
+    registered_ids = {project['id'] for project in registered}
+    return registered + [project for project in projects if project['id'] not in registered_ids]

@@ -52,3 +52,20 @@ def task_card(task: WorkItem, workflow: WorkflowSpec, tasks: list[WorkItem], att
     if attempt and task.current_attempt_id == attempt.id and attempt.state in {'stopping', 'reconciling'}:
         blockers.append('stop_unconfirmed')
     return TaskCard(task=task, column=COLUMNS[task.state], attempt=attempt, last_event=event, blockers=tuple(blockers))
+
+
+class TaskPage(QueueModel):
+    items: list[TaskCard]
+    next_cursor: int | None = None
+    cursor: int
+
+
+class TaskSnapshot(TaskPage):
+    # cursor bounds current board state; replay_after bounds delivered history.
+    replay_after: int
+
+
+class TaskEventPage(QueueModel):
+    items: list[QueueEvent]
+    next_cursor: int | None = None
+    cursor: int

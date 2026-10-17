@@ -22,8 +22,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..llm.catalogue import CatalogueBusy, ModelCatalogue
 from .folders import choose_folder
-from .projects import FolderPickerRequest, ProjectRequest
+from .projects import FolderPickerRequest, ProjectRequest, project_options
 from .runs import ACTIVE, RunManager, RunRequest
+from .tasks import task_router
 
 STATIC = Path(__file__).with_name("static")
 
@@ -58,7 +59,7 @@ def create_app(workspace: Path | None = None, data_dir: Path | None = None,
         if ((origin and urlparse(origin).netloc != request.url.netloc)
                 or request.headers.get("sec-fetch-site") == "cross-site"):
             return JSONResponse({"detail": "Foreign origin rejected"}, status_code=403)
-        if request.method not in {"GET", "HEAD"} and not secrets.compare_digest(
+        if (request.method not in {"GET", "HEAD"} or request.url.path.startswith(("/api/tasks", "/api/agents"))) and not secrets.compare_digest(
             request.headers.get("x-flycode-token", ""), token,
         ):
             return JSONResponse({"detail": "Missing session token; reload FlyCode"}, status_code=403)
@@ -75,17 +76,10 @@ def create_app(workspace: Path | None = None, data_dir: Path | None = None,
 
     @app.get("/api/bootstrap")
     def bootstrap() -> dict:
-        projects = [{"id": "demo", "name": "Демо-проект", "description": "Отдельная папка для каждого запуска"},
-                    {"id": ".", "name": manager.workspace.name, "description": str(manager.workspace)}]
-        for path in sorted(manager.workspace.iterdir()):
-            if path.name.startswith(".") or not path.is_dir() or not path.resolve().is_relative_to(manager.workspace):
-                continue
-            if (path / ".git").exists() or (path / "pyproject.toml").exists() or (path / "package.json").exists():
-                projects.append({"id": f"./{path.name}", "name": path.name, "description": str(path)})
         with manager.lock:
-            registered = [project.model_dump() for project in manager.projects.projects]
-            registered_ids = {project["id"] for project in registered}
-            projects = registered + [project for project in projects if project["id"] not in registered_ids]
+            registry = manager.projects.model_copy(deep=True)
+        projects = project_options(manager.workspace, registry)
+        with manager.lock:
             catalogue = manager.catalogue.refresh()
         return {"token": token, "workspace": str(manager.workspace), "projects": projects, **catalogue}
 
@@ -220,5 +214,6 @@ def create_app(workspace: Path | None = None, data_dir: Path | None = None,
         )).replace("<body>", '<body class="desktop-ui">')
         return HTMLResponse(document)
 
+    app.include_router(task_router(manager))
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     return app

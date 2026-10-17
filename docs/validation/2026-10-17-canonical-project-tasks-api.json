@@ -1,0 +1,146 @@
+{
+  "source": "da83bc70be5bdc9937aa7064d9d866a3ee9b800bba966174233751779b17f9b5",
+  "full": {
+    "exact_ids": 1017,
+    "outcomes": {
+      "passed": 1009,
+      "skipped": 8
+    },
+    "wall_seconds": 651.1313008749858
+  },
+  "wheel_tests": {
+    "passed": 282
+  },
+  "graph_tests": {
+    "passed": 5
+  },
+  "python_files": 145,
+  "wheel_sha256": "11bdf4ec8c19aa92af268d4b3d99d35b06f47f96dcfde9cb82d5b62d1263ca3c",
+  "native": {
+    "counts": {
+      "workflows": 1,
+      "tasks": 4,
+      "attempts": 3,
+      "pipelines": 1,
+      "pipeline_receipts": 2,
+      "workers": 1,
+      "artifacts": 1,
+      "reviews": 1,
+      "integrations": 1,
+      "tool_calls": 34
+    },
+    "budget": {
+      "limit": {
+        "model_calls": 60,
+        "tool_calls": 120
+      },
+      "spent": {
+        "model_calls": 3,
+        "tool_calls": 34
+      },
+      "reserved": {
+        "model_calls": 0,
+        "tool_calls": 0
+      },
+      "free": {
+        "model_calls": 57,
+        "tool_calls": 86
+      },
+      "uncertain": false
+    },
+    "model_calls_including_probe_and_legacy": 5,
+    "current_result": "ea55331bd87944758559dd8f10ca610d",
+    "manual_claims": 0,
+    "later_owner_commands": 0,
+    "source_claims_released": 3,
+    "independently_stopped_process_receipts": 27,
+    "late_primary_tokens": 1333,
+    "stop_response_seconds": 0.0016875000146683306
+  },
+  "aggregate_tasks_5_to_8_complete": false,
+  "canonical_http_runtime_acceptance": false,
+  "web_python_in_implementation_identity": true,
+  "status": "validated bounded canonical project registry and protected Tasks HTTP API; aggregate Tasks5\u20138 open",
+  "parent_publication": "3a480b230991b5291543c33edb867b3660f6f269",
+  "schema": 16,
+  "measurement_files": 232,
+  "validation_root": "/private/tmp/flycode-canonical-api-validation-2rmy4w7t",
+  "archive_destination": "~/.cache/flycode/validation/flycode-canonical-api-2rmy4w7t",
+  "post_phases": [
+    {
+      "name": "ruff",
+      "returncode": 0,
+      "seconds": 0.039879290998214856
+    },
+    {
+      "name": "mypy",
+      "returncode": 0,
+      "seconds": 0.4285084590082988
+    },
+    {
+      "name": "build",
+      "returncode": 0,
+      "seconds": 1.377621541992994
+    },
+    {
+      "name": "wheel-pytest",
+      "returncode": 0,
+      "seconds": 336.9309547500161
+    },
+    {
+      "name": "extracted-cli",
+      "returncode": 0,
+      "seconds": 0.1458719999936875
+    },
+    {
+      "name": "real-graph",
+      "returncode": 0,
+      "seconds": 5.255758166022133
+    },
+    {
+      "name": "probe",
+      "returncode": 0,
+      "seconds": 5.579845667001791
+    },
+    {
+      "name": "live-pipeline",
+      "returncode": 0,
+      "seconds": 56.047965625009965
+    },
+    {
+      "name": "live-legacy",
+      "returncode": 0,
+      "seconds": 15.361536624986911
+    }
+  ],
+  "pipeline_elapsed_seconds": 55.720703667000635,
+  "legacy_stop_elapsed_seconds": 14.9759364160127,
+  "isolated_compatibility": {
+    "cases": 92,
+    "seconds": 109.75,
+    "identity": "before adding web Python to fingerprint"
+  },
+  "main_compatibility": {
+    "cases": 98,
+    "seconds": 112.41
+  },
+  "scoped_mypy": {
+    "files": 65,
+    "follow_imports": "silent",
+    "expanded_import_debt": "Earlier expanded check22 diagnostics in11 unchanged dependencies; no claim that scoped check covers these."
+  },
+  "retained_setup_failure": {
+    "root": "/private/tmp/flycode-canonical-api-validation-gucs0ft2",
+    "reason": "Obsolete launcher978 count rejected before any test spawn; fresh registration and dynamic count fixed harness, product/test/deadline bytes unchanged."
+  },
+  "limits": [
+    "No background dispatcher, recovery or inference launched by canonical HTTP adapter.",
+    "Native pipeline is an existing internal route, not canonical HTTP runtime acceptance.",
+    "General execution/verification HTTP routes, UI board/CLI, unique DB host leadership and durable worker restart remain open.",
+    "Internal terminal project revoke requires quiescence; no user remove/reactivation or historical-ID import.",
+    "Physical authority before dispatch/effects is a separate reviewed isolated patch, not this publication.",
+    "No neural orchestration/scientific admission, checkpoint or default promotion."
+  ],
+  "training": false,
+  "default_promotion": false
+}

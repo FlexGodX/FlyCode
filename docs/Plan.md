@@ -2911,3 +2911,18 @@ verdict, сохранность user bytes и нулевые неизвестн�
 [Отчёт](validation/2026-10-17-shared-source-admission.md).
 Это не закрывает Tasks5–8, multi-writer/child wait, общий API/UI или нейронный
 оркестратор. [План среза](superpowers/plans/2026-10-17-shared-source-admission.md).
+
+Проверенный следующий срез schema16/Tasks HTTP API отделяет immutable physical
+project UUID от локальных UI selectors. Scope выдаётся по текущим root/ancestor
+pins; одинаковые `.` разных папок не смешивают задачи. Drafts/owner commands,
+comments/history, keyset projections и SSE используют общий Store. Два actual
+HTTP RED на reconnect/scope expansion исправлены разделением scan/delivery cursor;
+снимок не подтверждает пропущенные события. Python web теперь входит в identity.
+Финально1017 ID:1009 pass/8 ожидаемых skip за651.131с;282 wheel, CLI10, real graph5,
+Ruff/scoped mypy65 проходят. Внутренняя English pipeline55.721с и legacy Stop14.976с
+прошли; это не исполнение через новый HTTP adapter. Независимо подтверждены
+232 hashes,3 released claims/27 stopped receipts и нулевые неизвестные расходы.
+Host leadership/recovery, physical authority перед execution, общий UI/CLI,
+verification routes и нейронный Task7 остаются открыты.
+[Отчёт](validation/2026-10-17-canonical-project-tasks-api.md),
+[план среза](superpowers/plans/2026-10-17-canonical-project-tasks-api.md).

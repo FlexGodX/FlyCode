@@ -14,6 +14,15 @@ remain; web tests run serially after non-web groups with unchanged assertions.
 [Report](../../validation/2026-10-17-shared-source-admission.md). Tasks5–8 stay open;
 canonical registry/API development is isolated, not part of this publication.
 
+Validated main follow-up: [canonical projects/Tasks API](2026-10-17-canonical-project-tasks-api.md).
+Schema16 physical registrations, protected drafts/commands/comments/history/SSE
+are composed; main98 compatibility cases and Ruff/scoped mypy65 pass. Frozen
+1017 IDs (1009 pass/8 expected skip),282 wheel, CLI10, real graph5 and bounded
+English internal pipeline/Stop pass; independent audit verifies232 hashes,
+three released claims/27 stopped receipts and known spending. No background
+execution, canonical HTTP runtime completion, UI board/CLI or scientific
+admission is claimed. [Report](../../validation/2026-10-17-canonical-project-tasks-api.md).
+
 **Architecture:** Существующий одиночный runtime сохраняется как совместимый исполнитель. Новые задачи и попытки имеют единое транзакционное хранилище; tracker — его представление. Независимая проверка связывает verdict с фактическими байтами результата, а диспетчер резервирует ресурсы до вызова исполнителя.
 
 **Tech Stack:** Python >=3.10, Pydantic v2, SQLite, pytest, FastAPI, существующие HTML/CSS/JS, LM Studio.
