@@ -857,6 +857,30 @@ not establish native causal benefit. Next RED is a host-enforced mandatory-input
 observation gate before mutation and artifact acceptance, not model self-report.
 Task6 and the aggregate delivery plan remain open.
 
+**Mandatory-input host gate (2026-10-17, checked increment):**
+`inputs.py` derives pins/paths from canonical conflict records, validates exact
+completed read calls/attempt/fence/path/hash and current workspace bytes before
+mutators. Atomic metadata checks protect admission/publication; fresh review,
+integration and current-result evaluation reject missing receipts, including
+older approvals. Workspace reads use host RPC (bounded UTF-8); routine missing
+inputs return diagnostics without effect/debit and have canonical blocker events.
+Failed reads no longer appear as empty content. Ordinary task reading remains.
+[Implementation plan](2026-10-17-resolution-input-gate.md),
+[report](../../validation/2026-10-17-resolution-input-gate.md).
+
+Source1804 full851 passed/8 skipped (859 IDs once,636.040s), extracted wheel17
+pass241.31s, real graph5 pass10.01s, Ruff/mypy47 pass, all133 Python bytes and
+README match.15 targeted cases pass, including old applied-result invalidation
+without source rollback/spend reset. Explicit probe passes26.274s. The newly
+registered English Qwen case still FAILS488.441s,15 models/27 tools: pins and
+workspace consumed, but edit_file contains candidate prediction/rationale fields
+inside args. Strict authorization rejects before mutation; unhandled usage error
+ends worker.16 model records known/no provider errors,3 workers/8 executed checks
+stopped, reserved0/uncertainfalse, original source0 preserved. Owner cancellation
+changes no attempts/artifacts/spend. No resolver review/integration or neural
+benefit/promotion claim. Next RED: recoverable malformed-argument feedback while
+preserving whitelist/fence/budget/deadline. Aggregate Tasks5–8 remain open.
+
 ### Task 7: Нейронные назначения и исследования (18/19/23/24)
 
 **Files:** create `src/flycode/orchestration/{encoder,policy}.py`; research orchestration adapter; tests replay, failure injection and scoped admission.

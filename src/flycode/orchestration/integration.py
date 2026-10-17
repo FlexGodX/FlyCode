@@ -18,6 +18,7 @@ from ..verification.plan import PlanBuilder
 from ..verification.snapshot import capture
 from .application import Application
 from .artifacts import Artifacts
+from .inputs import Inputs
 from .review import Reviews
 from .store import ACTIVE, Store, StoreError, changed, covers, required_task
 from .tools import Tools
@@ -189,8 +190,10 @@ class Integration:
 
     def _reviewed(self, scope, record, *, context=None):
         for identity, expected in record.artifact_hashes.items():
-            if self.artifacts.get(scope, identity).patch_hash != expected:
+            artifact = self.artifacts.get(scope, identity)
+            if artifact.patch_hash != expected:
                 raise StoreError('artifact_integrity')
+            Inputs(self.store).require_artifact(scope, artifact)
         reviewed = set()
         restoring = self._restorable_reviews(scope, context) if context is not None else {}
         for identity in record.review_ids:
@@ -443,6 +446,8 @@ class Integration:
         hashes = {artifact.id: artifact.patch_hash for artifact in artifacts}
         if task.input_artifacts != hashes or any(artifact.workflow_id != workflow.id for artifact in artifacts):
             raise StoreError('integration_scope')
+        for artifact in artifacts:
+            Inputs(store).require_artifact(scope, artifact)
         reviews = [self.reviews.get(scope, identity) for identity in review_ids]
         if {review.artifact_id for review in reviews} != set(hashes) or len(reviews) != len(hashes):
             raise StoreError('review_scope')

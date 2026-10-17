@@ -204,7 +204,7 @@ class WorkerHandle:
                         payload = {'candidates': [item.model_dump(mode='json') for item in candidates],
                             'model_calls': cortex.model_calls, 'routing': cortex.last_routing.model_dump(mode='json')}
                     elif request.operation == 'artifact_tool':
-                        result = Artifacts(connection, self.runtime.root).read(self.scope, attempt.id, attempt.fence,
+                        result = Artifacts(connection, self.runtime.root).read_input(self.scope, attempt.id, attempt.fence,
                             ToolAction.model_validate(request.payload))
                         payload = asdict(result)
                     elif request.operation == 'message_tool':

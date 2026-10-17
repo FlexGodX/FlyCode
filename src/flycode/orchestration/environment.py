@@ -6,6 +6,7 @@ from pathlib import Path
 from ..domain import TaskSpec, ToolAction
 from ..environment import SoftwareEnvironment
 from ..tools.filesystem import ToolResult
+from .inputs import Inputs
 from .store import Store, StoreError
 from .tools import Tools
 
@@ -17,9 +18,11 @@ class AttemptEnvironment(SoftwareEnvironment):
         self.store, self.scope, self.attempt_id, self.fence = store, scope, attempt_id, fence
         self.message_executor = message_executor
         self.artifact_executor = artifact_executor
+        self._blocked_result: ToolResult | None = None
         _, task, _ = store._owned(scope, attempt_id, fence, running=True)
         if task.permissions is None or task.permissions.read_scopes != ('.',):
             raise StoreError('permission', 'Scoped observations are not implemented; full read permission is required')
+        self.resolving = Inputs(store).conflict(scope, task) is not None
         self.tools = Tools(store)
         super().__init__(Path(root).resolve())
 
@@ -35,11 +38,20 @@ class AttemptEnvironment(SoftwareEnvironment):
         if action.tool == 'stop':
             # Local control has no external effect and remains available after budget exhaustion.
             return await super().step(action)
-        if action.tool == 'send_message' or (action.tool == 'read_file' and 'artifact_id' in action.arguments):
+        if action.tool == 'send_message' or (action.tool == 'read_file' and (self.resolving or 'artifact_id' in action.arguments)):
             self.store._owned(self.scope, self.attempt_id, self.fence, running=True)
             # The owning host admits and debits this action before publishing over RPC.
             return await super().step(action)
-        call, action = self.tools.begin(self.scope, self.attempt_id, self.fence, root=self.repo_root, action=action)
+        try:
+            call, action = self.tools.begin(self.scope, self.attempt_id, self.fence, root=self.repo_root, action=action)
+        except StoreError as error:
+            if error.code != 'resolution_inputs_required':
+                raise
+            self._blocked_result = ToolResult(success=False, error_message=str(error), payload={'blocked': error.code})
+            try:
+                return await super().step(action)
+            finally:
+                self._blocked_result = None
         try:
             result = await super().step(action)
         except BaseException as error:
@@ -54,7 +66,9 @@ class AttemptEnvironment(SoftwareEnvironment):
         return result
 
     def _run_tool(self, action: ToolAction) -> ToolResult:
-        if action.tool == 'read_file' and 'artifact_id' in action.arguments:
+        if self._blocked_result is not None:
+            return self._blocked_result
+        if action.tool == 'read_file' and (self.resolving or 'artifact_id' in action.arguments):
             if self.artifact_executor is None:
                 return ToolResult(success=False, error_message='artifact_route')
             return self.artifact_executor(action)

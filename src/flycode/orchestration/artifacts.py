@@ -13,6 +13,7 @@ from ..tools.filesystem import ToolResult
 from ..verification.acceptance import input_identity
 from ..verification.evidence import atomic_json
 from ..verification.snapshot import capture, input_files
+from .inputs import Inputs
 from .store import Store, StoreError, changed, covers
 from .tools import Tools, _path, authorize
 from .workspaces import Workspaces
@@ -23,6 +24,51 @@ class Artifacts:
         self.store, self.root = store, Path(root).resolve()
         self.workspaces = Workspaces(store, self.root / 'workspaces')
         self.directory = self.root / 'artifacts'
+
+    def read_input(self, scope, attempt_id, fence, action) -> ToolResult:
+        if 'artifact_id' in action.arguments:
+            return self.read(scope, attempt_id, fence, action)
+        store, tools = self.store, Tools(self.store)
+        _, task, workflow = store._owned(scope, attempt_id, fence, running=True)
+        try:
+            if action.tool != 'read_file' or Inputs(store).conflict(scope, task) is None:
+                raise StoreError('resolution_scope')
+            workspace = self.workspaces.get(scope, attempt_id)
+            root = self.workspaces.root / workspace.id / 'repository'
+            action = authorize(root, action, task.permissions, workflow.deadline_at - store.clock())
+        except StoreError as error:
+            return ToolResult(success=False, error_message=error.code, payload={'blocked': error.code})
+        try:
+            call, action = tools.begin(scope, attempt_id, fence, root=root, action=action)
+        except StoreError as error:
+            if error.code != 'request_replay':
+                raise
+            return ToolResult(success=False, error_message=error.code, payload={'blocked': error.code})
+        path = action.arguments['path']
+        try:
+            with (root / path).open('rb') as stream:
+                data = stream.read(3501)
+            if len(data) > 3500 or b'\0' in data:
+                raise StoreError('workspace_content', 'Required workspace input needs a bounded UTF-8 text reader')
+            content = data.decode('utf-8')
+            digest = hashlib.sha256(data).hexdigest()
+            result = ToolResult(success=True, stdout=content,
+                payload={'path': path, 'content': content, 'workspace_id': workspace.id, 'sha256': digest})
+        except (OSError, UnicodeError, StoreError):
+            result = ToolResult(success=False, error_message='workspace_content', payload={'blocked': 'workspace_content'})
+        except BaseException as error:
+            tools.finish(scope, call.id, status='uncertain', error_class=type(error).__name__)
+            raise
+        completed = tools.finish(scope, call.id, status='completed' if result.success else 'failed',
+            error_class=None if result.success else result.error_message)
+        if completed.late:
+            raise StoreError('fence', 'Late workspace read retained for audit only')
+        if result.success:
+            with store.transaction():
+                attempt, task, workflow = store._owned(scope, attempt_id, fence, running=True)
+                store._event(scope, workflow, 'workspace_read', task=task, attempt=attempt,
+                    call_id=call.id, workspace_id=workspace.id, path=path, sha256=digest)
+        return result
 
     def inputs(self, scope, attempt_id, fence) -> list[PatchArtifact]:
         _, task, _ = self.store._owned(scope, attempt_id, fence, running=True)
@@ -133,6 +179,7 @@ class Artifacts:
                 raise StoreError('fence')
             return record
         attempt, task, workflow = store._owned(scope, attempt_id, fence, running=True)
+        Inputs(store).require(scope, attempt_id, fence)
         workspace = self.workspaces.get(scope, attempt_id)
         worker_row = store.db.execute('SELECT data FROM workers WHERE attempt_id=?', (attempt_id,)).fetchone()
         worker = WorkerRecord.model_validate_json(worker_row['data']) if worker_row else None
@@ -174,6 +221,7 @@ class Artifacts:
                 winner = store.db.execute('SELECT id FROM artifacts WHERE attempt_id=?', (attempt_id,)).fetchone()
                 if winner is None:
                     attempt, task, workflow = store._owned(scope, attempt_id, fence, running=True)
+                    Inputs(store).require(scope, attempt_id, fence, deep=False)
                     current_worker = WorkerRecord.model_validate_json(store.db.execute(
                         'SELECT data FROM workers WHERE attempt_id=?', (attempt_id,)).fetchone()['data'])
                     if not current_worker.stop_confirmed or current_worker.error or current_worker.result_hash != worker.result_hash:

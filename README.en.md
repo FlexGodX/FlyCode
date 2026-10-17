@@ -167,7 +167,16 @@ larger inputs fail explicitly. Input provenance survives workspace edits.
 The controller distinguishes pinned versions of the same path and lowers the
 weight of repeated immutable reads without useful outcomes, including zero or
 negative starting bias. A successful read alone is not progress; mutable workspace
-rereads retain their previous behavior. The
+rereads retain their previous behavior.
+For resolution the host requires confirmed reads of each conflicting path from
+both pinned versions and the workspace. Before a write, workspace bytes must
+match the observed hash; receipts bind the exact attempt and tool call.
+Publication, review, integration and current-result checks enforce this condition;
+older approvals without receipts cannot bypass it. Workspace reads in this mode
+support UTF-8 up to3,500 bytes; binary, oversized or absent required files fail
+explicitly. Failed reads remain diagnostics in agent memory. A numerically correct
+guess and local green tests do not replace required inputs; owner bytes remain
+preserved. The
 model context retains pinned observations, workspace reads and failure diagnostics;
 optional old history is compacted, and required data that still cannot fit blocks
 inference before HTTP. The

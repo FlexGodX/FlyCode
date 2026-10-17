@@ -427,6 +427,8 @@ def resolved_delivery(owned, pending_resolution, model_server):
         missing = next((item for item in artifacts if item.id not in observed), None)
         if missing is not None:
             candidate = {'tool': 'read_file', 'arguments': {'artifact_id': missing.id, 'path': 'src/example.py'}}
+        elif not re.search(r'(?m)^- read_file\(src/example\.py\):\n', prompt):
+            candidate = {'tool': 'read_file', 'arguments': {'path': 'src/example.py'}}
         else:
             candidate = {'tool': 'edit_file', 'arguments': {'path': 'src/example.py',
                 'old_text': 'answer = 0', 'new_text': 'answer = ' + str(sum(observed.values()))}}
@@ -615,7 +617,7 @@ async def test_pinned_reads_debit_once_reject_replay_and_survive_local_edit_in_m
     runtime.workspaces.prepare(host, resolver.id, resolver.fence, source)
     repository = runtime.workspaces.repository(owner, resolver.id)
     env = AttemptEnvironment(repository, store, host, resolver.id, resolver.fence,
-        artifact_executor=lambda action: service.read(host, resolver.id, resolver.fence, action))
+        artifact_executor=lambda action: service.read_input(host, resolver.id, resolver.fence, action))
     await env.reset(TaskSpec(id=resolver.task_id, task='Read both pinned inputs and edit the copy.'))
     memory = WorkingMemory()
     before = store.budget(owner, workflow.id).spent.tool_calls
@@ -2208,3 +2210,372 @@ def test_schema10_unfinished_review_lane_without_custody_stays_unreleasable(owne
         assert connection.budget(owner, workflow.id) == before
     finally:
         connection.close()
+
+
+async def test_resolution_mutation_requires_both_pins_and_current_workspace(owned, pending_resolution):
+    from flycode.domain import TaskSpec, ToolAction
+    from flycode.orchestration.artifacts import Artifacts
+    from flycode.orchestration.environment import AttemptEnvironment
+    from flycode.orchestration.store import StoreError
+    from flycode.orchestration.tools import Tools
+
+    store, owner, host, workflow, _, _, source = owned
+    runtime, artifacts, _, resolver, _, _ = pending_resolution
+    runtime.workspaces.prepare(host, resolver.id, resolver.fence, source)
+    repository = runtime.workspaces.repository(owner, resolver.id)
+    service = Artifacts(store, runtime.root)
+    edit = ToolAction(id='guarded-edit', tool='edit_file', arguments={
+        'path': 'src/example.py', 'old_text': 'answer = 0', 'new_text': 'answer = 3'})
+    before = store.budget(owner, workflow.id).spent
+    with pytest.raises(StoreError, match='resolution_inputs_required'):
+        Tools(store).begin(host, resolver.id, resolver.fence, root=repository, action=edit)
+    assert store.budget(owner, workflow.id).spent == before
+    for index, artifact in enumerate(artifacts):
+        result = service.read(host, resolver.id, resolver.fence, ToolAction(id=f'pin-{index}', tool='read_file',
+            arguments={'artifact_id': artifact.id, 'path': 'src/example.py'}))
+        assert result.success
+    with pytest.raises(StoreError, match='resolution_inputs_required'):
+        Tools(store).begin(host, resolver.id, resolver.fence, root=repository, action=edit)
+    env = AttemptEnvironment(repository, store, host, resolver.id, resolver.fence,
+        artifact_executor=lambda action: service.read_input(host, resolver.id, resolver.fence, action))
+    await env.reset(TaskSpec(id=resolver.task_id, task='Read the required inputs before writing.'))
+    observed = await env.step(ToolAction(id='workspace-read', tool='read_file', arguments={'path': 'src/example.py'}))
+    assert observed.success and observed.payload['content'] == 'answer = 0\n'
+    result = await env.step(edit)
+    assert result.success
+    assert (repository / 'src/example.py').read_text() == 'answer = 3\n'
+    assert (source / 'src/example.py').read_text() == 'answer = 0\n'
+    assert store.budget(owner, workflow.id).spent.tool_calls == before.tool_calls + 4
+
+
+def test_correct_private_guess_without_input_reads_cannot_publish(owned, pending_resolution, model_server):
+    from flycode.orchestration.artifacts import Artifacts
+    from flycode.orchestration.store import StoreError
+
+    store, owner, host, workflow, _, _, source = owned
+    runtime, _, _, resolver, _, _ = pending_resolution
+    runtime.workspaces.prepare(host, resolver.id, resolver.fence, source)
+    repository = runtime.workspaces.repository(owner, resolver.id)
+    def guess_without_reading(request):
+        (repository / 'src/example.py').write_text('answer = 3\n')
+        return model_server.completion(json.dumps({'candidates': [{'tool': 'run_tests'}]}))
+    model_server.respond = guess_without_reading
+    handle = runtime.launch(host, resolver.id, resolver.fence, source, brain='heuristic_fsm')
+    try:
+        assert handle.finished.wait(20), handle.error
+        assert handle.process_stopped.is_set()
+        assert runtime.worker(owner, resolver.id).stop_confirmed
+        with pytest.raises(StoreError, match='not_found'):
+            Artifacts(store, runtime.root).for_attempt(owner, resolver.id)
+        assert any(event.kind == 'artifact_blocked' and event.attempt_id == resolver.id
+            and event.data['reason'] == 'resolution_inputs_required' for event in store.events(owner, workflow.id))
+        assert store._attempt(resolver.id).state == 'reconciling'
+        assert (repository / 'src/example.py').read_text() == 'answer = 3\n'
+        assert (source / 'src/example.py').read_text() == 'answer = 0\n'
+        assert (source / 'user-dirty.bin').read_bytes() == b'\x00\xff user bytes\r\n'
+        store.confirm_stopped(host, resolver.id, resolver.fence, outcome='failed', expenditure_confirmed=True)
+    finally:
+        handle.close()
+
+
+def test_legacy_guessed_resolution_without_receipts_cannot_enter_review(owned, pending_resolution, model_server, monkeypatch):
+    from flycode.orchestration.artifacts import Artifacts
+    from flycode.orchestration.inputs import Inputs
+    from flycode.orchestration.review import Reviews
+    from flycode.orchestration.store import StoreError
+
+    store, owner, host, workflow, root, _, source = owned
+    runtime, _, _, resolver, _, approvals = pending_resolution
+    runtime.workspaces.prepare(host, resolver.id, resolver.fence, source)
+    repository = runtime.workspaces.repository(owner, resolver.id)
+    def guess_without_reading(request):
+        (repository / 'src/example.py').write_text('answer = 3\n')
+        return model_server.completion(json.dumps({'candidates': [{'tool': 'run_tests'}]}))
+    model_server.respond = guess_without_reading
+    # Construct an actual older-publisher artifact, then restore all guards before review.
+    with monkeypatch.context() as legacy:
+        legacy.setattr(Inputs, 'require', lambda *args, **kwargs: None)
+        handle = runtime.launch(host, resolver.id, resolver.fence, source, brain='heuristic_fsm')
+        try:
+            assert handle.finished.wait(20), handle.error
+            artifact = Artifacts(store, runtime.root).for_attempt(owner, resolver.id)
+            assert handle.process_stopped.is_set()
+        finally:
+            handle.close()
+    checker = reviewer(owned, [artifact], tools=4)
+    before = store.budget(owner, workflow.id).spent
+    try:
+        with pytest.raises(StoreError, match='resolution_inputs_required'):
+            Reviews(store, runtime.root).run(host, checker.id, checker.fence, artifact.id, approval_hash=approvals[root.id])
+        assert store.budget(owner, workflow.id).spent == before
+        assert not store.db.execute('SELECT 1 FROM reviews WHERE artifact_id=?', (artifact.id,)).fetchone()
+        assert (source / 'src/example.py').read_text() == 'answer = 0\n'
+    finally:
+        if store._attempt(checker.id).state == 'running':
+            store.confirm_stopped(host, checker.id, checker.fence, outcome='failed', expenditure_confirmed=True)
+
+
+def test_resolution_workspace_read_replay_returns_failure_without_a_second_debit(owned, pending_resolution):
+    from flycode.domain import ToolAction
+    from flycode.orchestration.artifacts import Artifacts
+
+    store, owner, host, workflow, _, _, source = owned
+    runtime, _, _, resolver, _, _ = pending_resolution
+    runtime.workspaces.prepare(host, resolver.id, resolver.fence, source)
+    reader = Artifacts(store, runtime.root)
+    action = ToolAction(id='one-workspace-read', tool='read_file', arguments={'path': 'src/example.py'})
+    assert reader.read_input(host, resolver.id, resolver.fence, action).success
+    before = store.budget(owner, workflow.id).spent
+    replay = reader.read_input(host, resolver.id, resolver.fence, action)
+    assert not replay.success and replay.error_message == 'request_replay'
+    assert store.budget(owner, workflow.id).spent == before
+
+
+def test_resolution_workspace_receipt_must_match_current_bytes(owned, pending_resolution):
+    from flycode.domain import ToolAction
+    from flycode.orchestration.artifacts import Artifacts
+    from flycode.orchestration.store import StoreError
+    from flycode.orchestration.tools import Tools
+
+    store, owner, host, _, _, _, source = owned
+    runtime, artifacts, _, resolver, _, _ = pending_resolution
+    runtime.workspaces.prepare(host, resolver.id, resolver.fence, source)
+    repository = runtime.workspaces.repository(owner, resolver.id)
+    reader = Artifacts(store, runtime.root)
+    for index, artifact in enumerate(artifacts):
+        assert reader.read_input(host, resolver.id, resolver.fence, ToolAction(id=f'read-{index}', tool='read_file',
+            arguments={'artifact_id': artifact.id, 'path': 'src/example.py'})).success
+    assert reader.read_input(host, resolver.id, resolver.fence,
+        ToolAction(id='old-workspace', tool='read_file', arguments={'path': 'src/example.py'})).success
+    (repository / 'src/example.py').write_text('answer = 4\n')
+    action = ToolAction(id='edit-current-version', tool='edit_file', arguments={
+        'path': 'src/example.py', 'old_text': 'answer = 4', 'new_text': 'answer = 3'})
+    with pytest.raises(StoreError, match='resolution_inputs_required'):
+        Tools(store).begin(host, resolver.id, resolver.fence, root=repository, action=action)
+    assert reader.read_input(host, resolver.id, resolver.fence,
+        ToolAction(id='fresh-workspace', tool='read_file', arguments={'path': 'src/example.py'})).success
+    call, _ = Tools(store).begin(host, resolver.id, resolver.fence, root=repository, action=action)
+    Tools(store).finish(host, call.id, status='failed', error_class='AdmittedButNotExecuted')
+    assert (repository / 'src/example.py').read_text() == 'answer = 4\n'
+    assert (source / 'src/example.py').read_text() == 'answer = 0\n'
+
+
+def test_legacy_resolution_review_cannot_bypass_input_receipts_at_integration(owned, pending_resolution, model_server, monkeypatch):
+    from flycode.orchestration.artifacts import Artifacts
+    from flycode.orchestration.inputs import Inputs
+    from flycode.orchestration.integration import Integration
+    from flycode.orchestration.review import Reviews
+    from flycode.orchestration.store import StoreError
+
+    store, owner, host, workflow, root, _, source = owned
+    runtime, _, _, resolver, _, approvals = pending_resolution
+    runtime.workspaces.prepare(host, resolver.id, resolver.fence, source)
+    repository = runtime.workspaces.repository(owner, resolver.id)
+    def guess_without_reading(request):
+        (repository / 'src/example.py').write_text('answer = 3\n')
+        return model_server.completion(json.dumps({'candidates': [{'tool': 'run_tests'}]}))
+    model_server.respond = guess_without_reading
+    # Retain real worker/check execution while reproducing pre-gate publication/review.
+    with monkeypatch.context() as legacy:
+        legacy.setattr(Inputs, 'require', lambda *args, **kwargs: None)
+        legacy.setattr(Inputs, 'require_artifact', lambda *args, **kwargs: None)
+        handle = runtime.launch(host, resolver.id, resolver.fence, source, brain='heuristic_fsm')
+        try:
+            assert handle.finished.wait(20), handle.error
+            artifact = Artifacts(store, runtime.root).for_attempt(owner, resolver.id)
+            assert handle.process_stopped.is_set()
+        finally:
+            handle.close()
+        checker = reviewer(owned, [artifact], tools=4)
+        review = Reviews(store, runtime.root).run(host, checker.id, checker.fence, artifact.id, approval_hash=approvals[root.id])
+        assert review.status == 'approved'
+    integrator = reviewer(owned, [artifact], tools=50)
+    before = store.budget(owner, workflow.id).spent
+    try:
+        with pytest.raises(StoreError, match='resolution_inputs_required'):
+            Integration(store, runtime.root).run(host, integrator.id, integrator.fence, (artifact.id,), (review.id,),
+                approval_hashes={**approvals, resolver.task_id: approvals[root.id], integrator.task_id: approvals[root.id]})
+        assert store.budget(owner, workflow.id).spent == before
+        assert (source / 'src/example.py').read_text() == 'answer = 0\n'
+        assert (source / 'user-dirty.bin').read_bytes() == b'\x00\xff user bytes\r\n'
+    finally:
+        if store._attempt(integrator.id).state == 'running':
+            store.confirm_stopped(host, integrator.id, integrator.fence, outcome='failed', expenditure_confirmed=True)
+
+
+async def test_missing_resolution_inputs_are_recoverable_and_audited_usage_errors(owned, pending_resolution):
+    from flycode.agent import _update_working_memory
+    from flycode.domain import TaskSpec, ToolAction
+    from flycode.memory.working import WorkingMemory
+    from flycode.orchestration.artifacts import Artifacts
+    from flycode.orchestration.environment import AttemptEnvironment
+
+    store, owner, host, workflow, _, _, source = owned
+    runtime, artifacts, _, resolver, _, _ = pending_resolution
+    runtime.workspaces.prepare(host, resolver.id, resolver.fence, source)
+    repository = runtime.workspaces.repository(owner, resolver.id)
+    reader = Artifacts(store, runtime.root)
+    env = AttemptEnvironment(repository, store, host, resolver.id, resolver.fence,
+        artifact_executor=lambda action: reader.read_input(host, resolver.id, resolver.fence, action))
+    await env.reset(TaskSpec(id=resolver.task_id, task='Read the required inputs before writing.'))
+    action = ToolAction(id='premature-edit', tool='edit_file', arguments={
+        'path': 'src/example.py', 'old_text': 'answer = 0', 'new_text': 'answer = 3'})
+    before = store.budget(owner, workflow.id).spent
+    denied = await env.step(action)
+    assert not denied.success and denied.payload['blocked'] == 'resolution_inputs_required'
+    assert not denied.current.recent_errors
+    assert all(artifact.id in denied.error_message for artifact in artifacts)
+    memory = WorkingMemory()
+    _update_working_memory(memory, action, denied)
+    assert any('resolution_inputs_required' in fact for fact in memory.facts)
+    assert store.budget(owner, workflow.id).spent == before
+    assert (repository / 'src/example.py').read_text() == 'answer = 0\n'
+    events = [event for event in store.events(owner, workflow.id)
+        if event.kind == 'resolution_input_blocked' and event.attempt_id == resolver.id]
+    assert len(events) == 1 and events[0].data['tool'] == 'edit_file'
+
+
+def test_reading_wrong_pinned_paths_does_not_satisfy_resolution_inputs(owned, pending_resolution):
+    from flycode.domain import ToolAction
+    from flycode.orchestration.artifacts import Artifacts
+    from flycode.orchestration.store import StoreError
+    from flycode.orchestration.tools import Tools
+
+    store, owner, host, workflow, _, _, source = owned
+    runtime, artifacts, _, resolver, _, _ = pending_resolution
+    runtime.workspaces.prepare(host, resolver.id, resolver.fence, source)
+    repository = runtime.workspaces.repository(owner, resolver.id)
+    reader = Artifacts(store, runtime.root)
+    for index, artifact in enumerate(artifacts):
+        assert reader.read_input(host, resolver.id, resolver.fence, ToolAction(id=f'wrong-path-{index}', tool='read_file',
+            arguments={'artifact_id': artifact.id, 'path': 'tests/test_example.py'})).success
+    assert reader.read_input(host, resolver.id, resolver.fence,
+        ToolAction(id='workspace', tool='read_file', arguments={'path': 'src/example.py'})).success
+    before = store.budget(owner, workflow.id).spent
+    with pytest.raises(StoreError, match='resolution_inputs_required') as blocked:
+        Tools(store).begin(host, resolver.id, resolver.fence, root=repository,
+            action=ToolAction(id='blocked-write', tool='create_file', arguments={'path': 'src/new.py', 'content': 'x = 1\n'}))
+    assert all(artifact.id in str(blocked.value) for artifact in artifacts)
+    assert store.budget(owner, workflow.id).spent == before
+    assert not (repository / 'src/new.py').exists()
+
+
+@pytest.mark.parametrize('content', [b'\0binary', b'x' * 3501, b'\xff', None], ids=['binary', 'oversized', 'invalid_utf8', 'absent'])
+async def test_unsupported_workspace_input_never_creates_an_observation(owned, pending_resolution, content):
+    from flycode.agent import _update_working_memory
+    from flycode.domain import TaskSpec, ToolAction
+    from flycode.memory.working import WorkingMemory
+    from flycode.orchestration.artifacts import Artifacts
+    from flycode.orchestration.environment import AttemptEnvironment
+    from flycode.orchestration.store import StoreError
+    from flycode.orchestration.tools import Tools
+
+    store, owner, host, workflow, _, _, source = owned
+    runtime, artifacts, _, resolver, _, _ = pending_resolution
+    runtime.workspaces.prepare(host, resolver.id, resolver.fence, source)
+    repository = runtime.workspaces.repository(owner, resolver.id)
+    reader = Artifacts(store, runtime.root)
+    for index, artifact in enumerate(artifacts):
+        assert reader.read_input(host, resolver.id, resolver.fence, ToolAction(id=f'pin-{index}', tool='read_file',
+            arguments={'artifact_id': artifact.id, 'path': 'src/example.py'})).success
+    path = repository / 'src/example.py'
+    if content is None:
+        path.unlink()
+    else:
+        path.write_bytes(content)
+    before = store.budget(owner, workflow.id).spent.tool_calls
+    env = AttemptEnvironment(repository, store, host, resolver.id, resolver.fence,
+        artifact_executor=lambda action: reader.read_input(host, resolver.id, resolver.fence, action))
+    await env.reset(TaskSpec(id=resolver.task_id, task='Read all required inputs.'))
+    action = ToolAction(id='unsupported-workspace', tool='read_file', arguments={'path': 'src/example.py'})
+    result = await env.step(action)
+    memory = WorkingMemory()
+    _update_working_memory(memory, action, result)
+    assert any('workspace_content' in fact for fact in memory.facts)
+    assert not any(fact.startswith('read_file(src/example.py):') for fact in memory.facts)
+    assert not result.success and result.error_message == 'workspace_content'
+    assert 'content' not in result.payload and not result.stdout
+    assert store.budget(owner, workflow.id).spent.tool_calls == before + 1
+    assert not any(event.kind == 'workspace_read' and event.attempt_id == resolver.id for event in store.events(owner, workflow.id))
+    with pytest.raises(StoreError, match='resolution_inputs_required'):
+        Tools(store).begin(host, resolver.id, resolver.fence, root=repository,
+            action=ToolAction(id='still-unread', tool='edit_file', arguments={'path': 'src/example.py', 'old_text': 'x', 'new_text': 'y'}))
+    assert (source / 'src/example.py').read_text() == 'answer = 0\n'
+
+
+def test_previous_resolution_attempt_reads_do_not_authorize_a_retry(owned, pending_resolution):
+    from flycode.domain import ToolAction
+    from flycode.orchestration.artifacts import Artifacts
+    from flycode.orchestration.integration import Integration
+    from flycode.orchestration.store import StoreError
+    from flycode.orchestration.tools import Tools
+
+    store, owner, host, workflow, _, _, source = owned
+    runtime, artifacts, _, resolver, _, _ = pending_resolution
+    workspace = runtime.workspaces.prepare(host, resolver.id, resolver.fence, source)
+    Integration(store, runtime.root).begin_resolution(host, resolver.id, resolver.fence, workspace)
+    reader = Artifacts(store, runtime.root)
+    for index, artifact in enumerate(artifacts):
+        assert reader.read_input(host, resolver.id, resolver.fence, ToolAction(id=f'old-pin-{index}', tool='read_file',
+            arguments={'artifact_id': artifact.id, 'path': 'src/example.py'})).success
+    assert reader.read_input(host, resolver.id, resolver.fence,
+        ToolAction(id='old-workspace', tool='read_file', arguments={'path': 'src/example.py'})).success
+    spent, deadline = store.budget(owner, workflow.id).spent, store.workflow(owner, workflow.id).deadline_at
+    store.confirm_stopped(host, resolver.id, resolver.fence, outcome='retry_wait', expenditure_confirmed=True)
+    task = store.task(owner, resolver.task_id)
+    ready = store.command(owner, task.id, TaskCommand(operation='retry', expected_revision=task.revision, idempotency_key='retry-inputs'))
+    instance = store.register_instance(host, resolver.profile_id)
+    claimed = store.claim(host, ClaimRequest(instance_id=instance.id, expected_instance_revision=instance.revision,
+        task_id=ready.id, expected_task_revision=ready.revision,
+        reserve=BudgetAmount(model_calls=8, tool_calls=9), idempotency_key='claim-input-retry'))
+    assert claimed.attempt is not None, claimed.reasons
+    retry = store.confirm_started(host, claimed.attempt.id, claimed.attempt.fence)
+    workspace = runtime.workspaces.prepare(host, retry.id, retry.fence, source)
+    Integration(store, runtime.root).begin_resolution(host, retry.id, retry.fence, workspace)
+    with pytest.raises(StoreError, match='resolution_inputs_required') as blocked:
+        Tools(store).begin(host, retry.id, retry.fence, root=runtime.workspaces.repository(owner, retry.id),
+            action=ToolAction(id='retry-still-unread', tool='edit_file',
+                arguments={'path': 'src/example.py', 'old_text': 'answer = 0', 'new_text': 'answer = 3'}))
+    assert all(artifact.id in str(blocked.value) for artifact in artifacts)
+    assert store.budget(owner, workflow.id).spent == spent
+    assert store.workflow(owner, workflow.id).deadline_at == deadline
+
+
+def test_legacy_applied_resolution_without_receipts_is_not_current(owned, pending_resolution, model_server, monkeypatch):
+    from flycode.orchestration.artifacts import Artifacts
+    from flycode.orchestration.inputs import Inputs
+    from flycode.orchestration.integration import Integration
+    from flycode.orchestration.review import Reviews
+
+    store, owner, host, workflow, root, _, source = owned
+    runtime, _, _, resolver, _, approvals = pending_resolution
+    runtime.workspaces.prepare(host, resolver.id, resolver.fence, source)
+    repository = runtime.workspaces.repository(owner, resolver.id)
+    def guess_without_reading(request):
+        (repository / 'src/example.py').write_text('answer = 3\n')
+        return model_server.completion(json.dumps({'candidates': [{'tool': 'run_tests'}]}))
+    model_server.respond = guess_without_reading
+    service = Integration(store, runtime.root)
+    # Execute the complete older acceptance path; only its new receipt gates are disabled.
+    with monkeypatch.context() as legacy:
+        legacy.setattr(Inputs, 'require', lambda *args, **kwargs: None)
+        legacy.setattr(Inputs, 'require_artifact', lambda *args, **kwargs: None)
+        handle = runtime.launch(host, resolver.id, resolver.fence, source, brain='heuristic_fsm')
+        try:
+            assert handle.finished.wait(20), handle.error
+            artifact = Artifacts(store, runtime.root).for_attempt(owner, resolver.id)
+            assert handle.process_stopped.is_set()
+        finally:
+            handle.close()
+        checker = reviewer(owned, [artifact], tools=4)
+        review = Reviews(store, runtime.root).run(host, checker.id, checker.fence, artifact.id, approval_hash=approvals[root.id])
+        integrator = reviewer(owned, [artifact], tools=50)
+        result = service.run(host, integrator.id, integrator.fence, (artifact.id,), (review.id,),
+            approval_hashes={**approvals, resolver.task_id: approvals[root.id], integrator.task_id: approvals[root.id]})
+        assert result.state == 'completed' and service.current(owner, result.id)
+    before = store.budget(owner, workflow.id)
+    assert not service.current(owner, result.id)
+    assert service.refresh(owner, result.id).state == 'invalidated'
+    assert store.budget(owner, workflow.id) == before
+    assert (source / 'src/example.py').read_text() == 'answer = 3\n'
+    assert (source / 'user-dirty.bin').read_bytes() == b'\x00\xff user bytes\r\n'

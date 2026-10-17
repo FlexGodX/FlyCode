@@ -12,6 +12,7 @@ from ..verification.engine import VerificationEngine
 from ..verification.plan import PlanBuilder, contract_hash
 from ..verification.snapshot import capture
 from .artifacts import Artifacts
+from .inputs import Inputs
 from .store import Store, StoreError, changed
 from .tools import Tools
 from .verification import CheckExecutor, _succeed, accepted
@@ -47,6 +48,7 @@ class Reviews:
             raise StoreError('reconcile_required', 'A recorded review execution cannot be replayed')
         attempt, task, workflow = store._owned(scope, attempt_id, fence, running=True)
         artifact = self.artifacts.get(scope, artifact_id)
+        Inputs(store).require_artifact(scope, artifact)
         author = store._attempt(artifact.attempt_id)
         original = store.task(scope, artifact.task_id)
         if (task.kind != 'review' or attempt.profile_snapshot.role != 'reviewer' or attempt.instance_id == author.instance_id

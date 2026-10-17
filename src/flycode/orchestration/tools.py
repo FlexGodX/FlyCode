@@ -19,6 +19,7 @@ from ..domain.orchestration import (
 )
 from ..domain.verification import CheckSpec, ProcessRef
 from ..verification.plan import validate_target
+from .inputs import Inputs
 from .store import Store, StoreError, changed, covers
 
 SUPPORTED = {'read_file', 'list_files', 'search', 'edit_file', 'create_file', 'run_tests', 'send_message'}
@@ -119,7 +120,17 @@ class Tools:
             raise StoreError('artifact_route', 'Pinned input reads require the owning artifact service')
         _, task, workflow = store._owned(scope, attempt_id, fence, running=True)
         action = authorize(root, action, task.permissions, workflow.deadline_at - store.clock())
-        return self._begin(scope, attempt_id, fence, action)
+        try:
+            if action.is_mutating:
+                Inputs(store).require(scope, attempt_id, fence, root=root)
+            return self._begin(scope, attempt_id, fence, action)
+        except StoreError as error:
+            if error.code == 'resolution_inputs_required':
+                with store.transaction():
+                    attempt, task, workflow = store._owned(scope, attempt_id, fence, running=True)
+                    store._event(scope, workflow, 'resolution_input_blocked', task=task, attempt=attempt,
+                        reason=error.code, tool=action.tool, path=action.arguments.get('path'))
+            raise
 
     def begin_check(self, scope, attempt_id, fence, check: CheckSpec, number: int) -> ToolCall:
         """Host-only admission of an already registered pytest invocation."""
@@ -161,6 +172,8 @@ class Tools:
         digest = hashlib.sha256(json.dumps(action.arguments, sort_keys=True, allow_nan=False).encode()).hexdigest()
         with store.transaction():
             attempt, task, workflow = store._owned(scope, attempt_id, fence, running=True)
+            if action.is_mutating:
+                Inputs(store).require(scope, attempt_id, fence, deep=False)
             key = 'tool:' + attempt_id + ':' + action.id
             found, _, request_hash = store._replay(scope, key,
                 {'tool': action.tool, 'arguments': digest, 'fence': fence})

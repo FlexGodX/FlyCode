@@ -2,6 +2,48 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Mandatory resolution inputs — 2026-10-17
+
+New `orchestration/inputs.py` derives required pins/paths from canonical conflict
+records. Completed, non-late exact read calls bind selector/path/hash, attempt/
+fence and workspace. Mutators require current observed workspace bytes; metadata
+is checked atomically. Pub/fresh review/integration/current-result gates also
+reject older missing-proof artifacts, preserving history/source/spend. Resolution
+workspace reads use the host RPC with UTF-8<=3500bytes; unsupported inputs never
+create successful receipts. Denied input preconditions return actionable usage
+errors and canonical blocker events. Ordinary failed reads now remain diagnostics
+in memory, retained through compaction, rather than fictitious empty file text.
+No schema migration, new store, graph/checkpoint/default/admission change.
+
+Source1804:
+`18048c2e84b1f3fa860e8d6802a72a89ae7db4ca5526f033f903267c583bedab`.
+Full851 passed/8 skipped (859 exact IDs once,636.040s);17 focused extracted-wheel
+checks pass241.31s, actual FlyWire5 pass10.01s, Ruff/mypy47 including agent pass,
+CLI10. All133 Python files and README metadata match.15 targeted cases pass in
+2 groups100.91/105.70s, including actual old-policy verified application followed
+by current-verdict invalidation without rollback/refund.
+[Report](validation/2026-10-17-resolution-input-gate.md).
+
+Explicit Qwen probe passes26.274s. New English native conflict case FAILS488.441s,
+15 models/27 admitted tools. Both writers pass review; resolver reads A/B and
+workspace0, then nests candidate metadata inside edit_file arguments. The strict
+whitelist safely rejects confidence/expected_information_gain/expected_progress/
+expected_risk/rationale, but the usage error ends the worker instead of feedback.
+Complete stderr proves permission:Unsupported tool arguments; all16 model records
+(including probe) completed without provider errors. No resolver artifact/review/
+integration, original source0 unchanged. All3 workers/8 executed checks stop;
+reserved0/uncertainfalse. Owner cancellation changes no attempts/artifacts/spend.
+Archive: `~/.cache/flycode/validation/flycode-input-gate-7wpnfz0_`.
+
+Next: RED recoverable malformed-argument feedback with whitelist unchanged;
+ownership/fence/deadline/budget/cancellation must remain terminal. Then new
+English native verification, not a relabelled passing run. Isolated unmeasured
+AutoClaim composition is `/private/tmp/flycode-auto-after-inputs-8kq5h9rd`, based
+on this frozen source plus the5-file prototype; preserve its prior47 checks and
+capacity proof under `flycode-auto-capacity-prototype-28v8oi6z` separately.
+Tasks5–8 and scientific/orchestration admission remain open. Historical296-run
+benchmark/10 trained variants stay unchanged and rejected for replacement.
+
 ## Pinned-read feedback correction — 2026-10-17
 
 Versioned immutable-input identity distinguishes artifact selectors. Actual

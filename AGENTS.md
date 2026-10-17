@@ -179,6 +179,7 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Before reading or searching a new source/test file, locate its exact path with `rg --files`; finish discovery before issuing reads/searches, and never put guessed filenames in the discovery batch.
 - Reap an owned process throughout group-absence polling; it may become waitable after the initial permission error.
 - Test custody blocking with a held ownership lock or an explicit owned Popen handle; never SIGSTOP a PID inferred only from `os.getppid()`.
+- In negative input-path tests, use a known present non-conflicting entry from `PatchArtifact.target.files`; do not assume every fixture includes README.
 - Use globally unique test basenames: pytest's default import mode rejects duplicate names across test directories.
 - Do not edit `src/` while a full test suite or research benchmark is running: implementation fingerprints bind each measurement to unchanged bytes. Finish edits before the final run.
 - Keep validation helpers out of pytest discovery: never name an archive helper `setup.py`, and never add configuration files above active test sandboxes.

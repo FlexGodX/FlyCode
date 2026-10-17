@@ -2824,3 +2824,16 @@ patch3 без B/рабочего файла; local verified_completion не за
 patch/history/spend. Нативный выигрыш habituation не доказан; нужен host gate
 обязательных входов. Топология/checkpoints/defaults не меняются, Task5–8 открыты.
 [Отчёт обратной связи](validation/2026-10-17-pinned-read-feedback.md).
+
+Срез mandatory-resolution inputs 2026-10-17 связывает реальные чтения с точными
+attempt/fence/call, pin/path/hash и workspace. Host проверяет их перед мутацией,
+публикацией, fresh review, интеграцией и актуальностью результата. Ошибки чтения
+сохраняются как диагностика; старые approvals не обходят отсутствие наблюдений.
+Проверены851 passed/8 skipped (859 ID),17 extracted-wheel,5 FlyWire, Ruff/mypy47;
+история/расход/байты сохраняются. Новый Qwen-case FAIL488.441s,15 моделей/27 tools:
+оба pin и workspace прочитаны, но metadata кандидата вложена в edit_file args.
+Whitelist запрещает действие до записи; необработанный permission завершает worker.
+Нужна корректируемая обратная связь о malformed args без ослабления полномочий.
+Все16 model outcomes известны,3 worker и8 checks остановлены, source0 сохранён;
+owner cancellation не меняет попытки/артефакты/расход. Task5–8 и admission открыты.
+[Отчёт host gate](validation/2026-10-17-resolution-input-gate.md).
