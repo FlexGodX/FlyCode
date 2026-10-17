@@ -2837,3 +2837,15 @@ Whitelist запрещает действие до записи; необраб�
 Все16 model outcomes известны,3 worker и8 checks остановлены, source0 сохранён;
 owner cancellation не меняет попытки/артефакты/расход. Task5–8 и admission открыты.
 [Отчёт host gate](validation/2026-10-17-resolution-input-gate.md).
+
+Срез candidate-metadata feedback 2026-10-17 возвращает корректируемую английскую
+ошибку для пяти неверно вложенных полей кандидата только после полной проверки
+самого вызова. Нет записи/списания, скрытого удаления аргументов или расширения
+прав; actual HTTP/process fixture подтверждает следующий исправленный запрос.
+Проверены856 passed/8 skipped (864 ID),31 extracted-wheel,5 FlyWire, Ruff/mypy47.
+Текущий Qwen-case не запущен: исходный30s probe и один явный повтор завершились
+APITimeoutError. Terminal provider output подтверждает остановку и обрезанный
+JSON; trusted HostTransport сохраняет failed и776/874 токенов. Неизвестных
+вызовов0, пользовательских workflow/tools0, обхода compatibility gate нет.
+Все10 checkpoints неизменны; Task5–8 и научный допуск открыты.
+[Отчёт корректируемых аргументов](validation/2026-10-17-candidate-metadata-feedback.md).

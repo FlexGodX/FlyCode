@@ -8,7 +8,7 @@ from ..environment import SoftwareEnvironment
 from ..tools.filesystem import ToolResult
 from .inputs import Inputs
 from .store import Store, StoreError
-from .tools import Tools
+from .tools import CandidateMetadataError, Tools
 
 
 class AttemptEnvironment(SoftwareEnvironment):
@@ -45,7 +45,7 @@ class AttemptEnvironment(SoftwareEnvironment):
         try:
             call, action = self.tools.begin(self.scope, self.attempt_id, self.fence, root=self.repo_root, action=action)
         except StoreError as error:
-            if error.code != 'resolution_inputs_required':
+            if error.code != 'resolution_inputs_required' and not isinstance(error, CandidateMetadataError):
                 raise
             self._blocked_result = ToolResult(success=False, error_message=str(error), payload={'blocked': error.code})
             try:

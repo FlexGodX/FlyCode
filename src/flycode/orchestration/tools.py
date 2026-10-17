@@ -29,6 +29,11 @@ ARGUMENTS = {
     'create_file': {'path', 'content'}, 'edit_file': {'path', 'content', 'old_text', 'new_text'},
     'run_tests': {'target', 'timeout', 'service'},
 }
+CANDIDATE_METADATA = {'rationale', 'confidence', 'expected_progress', 'expected_information_gain', 'expected_risk'}
+
+
+class CandidateMetadataError(StoreError):
+    """An otherwise authorized call contains misplaced candidate prediction fields."""
 
 
 def _path(root: Path, value: str) -> None:
@@ -65,7 +70,14 @@ def authorize(root: Path, action: ToolAction, permission: ExecutionPermission, r
         except (ValidationError, TypeError) as error:
             raise StoreError('invalid_message', 'Expected closed message arguments') from error
         return action.model_copy(update={'arguments': draft.model_dump(mode='json', exclude={'idempotency_key'})})
-    if set(args) - ARGUMENTS[action.tool]:
+    extra = set(args) - ARGUMENTS[action.tool]
+    if extra:
+        if extra <= CANDIDATE_METADATA:
+            # Validate real authority first; this copy is never executed or returned.
+            authorize(root, action.model_copy(update={'arguments': {key: value for key, value in args.items() if key not in extra}}),
+                permission, remaining)
+            raise CandidateMetadataError('permission', 'Unsupported tool arguments. Candidate prediction fields belong outside '
+                f'arguments. {action.tool} allows only: ' + ', '.join(sorted(ARGUMENTS[action.tool])))
         raise StoreError('permission', 'Unsupported tool arguments')
     if 'artifact_id' in args and (not isinstance(args['artifact_id'], str)
             or re.fullmatch('[0-9a-f]{32}', args['artifact_id']) is None):
@@ -119,17 +131,21 @@ class Tools:
         if action.tool == 'read_file' and 'artifact_id' in action.arguments:
             raise StoreError('artifact_route', 'Pinned input reads require the owning artifact service')
         _, task, workflow = store._owned(scope, attempt_id, fence, running=True)
-        action = authorize(root, action, task.permissions, workflow.deadline_at - store.clock())
         try:
+            action = authorize(root, action, task.permissions, workflow.deadline_at - store.clock())
             if action.is_mutating:
                 Inputs(store).require(scope, attempt_id, fence, root=root)
             return self._begin(scope, attempt_id, fence, action)
         except StoreError as error:
-            if error.code == 'resolution_inputs_required':
+            if error.code == 'resolution_inputs_required' or isinstance(error, CandidateMetadataError):
                 with store.transaction():
                     attempt, task, workflow = store._owned(scope, attempt_id, fence, running=True)
-                    store._event(scope, workflow, 'resolution_input_blocked', task=task, attempt=attempt,
-                        reason=error.code, tool=action.tool, path=action.arguments.get('path'))
+                    if isinstance(error, CandidateMetadataError):
+                        store._event(scope, workflow, 'candidate_metadata_blocked', task=task, attempt=attempt,
+                            reason=error.code, tool=action.tool)
+                    else:
+                        store._event(scope, workflow, 'resolution_input_blocked', task=task, attempt=attempt,
+                            reason=error.code, tool=action.tool, path=action.arguments.get('path'))
             raise
 
     def begin_check(self, scope, attempt_id, fence, check: CheckSpec, number: int) -> ToolCall:

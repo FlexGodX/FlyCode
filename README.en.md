@@ -176,7 +176,11 @@ older approvals without receipts cannot bypass it. Workspace reads in this mode
 support UTF-8 up to3,500 bytes; binary, oversized or absent required files fail
 explicitly. Failed reads remain diagnostics in agent memory. A numerically correct
 guess and local green tests do not replace required inputs; owner bytes remain
-preserved. The
+preserved. Misplaced candidate prediction/rationale fields are rejected with
+feedback for the next request, without a write or tool debit. The underlying call
+must still pass full authorization; fields are never silently removed to execute
+a repaired call. Root overrides, unsafe paths and authority violations retain
+strict rejection. The
 model context retains pinned observations, workspace reads and failure diagnostics;
 optional old history is compacted, and required data that still cannot fit blocks
 inference before HTTP. The

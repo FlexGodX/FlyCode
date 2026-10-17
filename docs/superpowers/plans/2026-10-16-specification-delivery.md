@@ -562,6 +562,26 @@ lease timeout is not sufficient ownership/absence proof.
 
 ### Task 6: Review, интеграция и completion (17/22/29)
 
+**Candidate-metadata feedback increment (2026-10-17):** the preceding real case
+read all required inputs but crashed on five candidate metadata fields nested in
+edit arguments. New regressions first fail in both direct environment and actual
+HTTP/process execution. An internal StoreError subtype preserves permission,
+validates underlying authority first, and returns bounded actionable feedback
+without silently stripping/executing arguments or charging an invalid call.
+Strict out-of-scope/traversal/root-override controls pass. Tool suite29 passes;
+frozen full856 passed/8 skipped (864 IDs),31 extracted-wheel,5 FlyWire,
+Ruff/mypy47 and extracted CLI pass. See
+[report](../../validation/2026-10-17-candidate-metadata-feedback.md).
+
+The current native conflict protocol is not executed: built-in primary probe
+and one registered same-bound retry both hit30s APITimeoutError. Provider terminal
+responses confirm stopped generation and partial invalid JSON; exact built-in
+HostTransport acknowledgments retain both failed calls and776/874 actual tokens.
+No user workflow/worker/tool/artifact was created, no capability override, model
+loading, fallback, budget increase or third retry occurred. Keep Task6 open;
+passing program fixtures are not current native-model delivery acceptance.
+
+
 Next multi-writer increment (does not close Task6):
 
 1. In `tests/unit/orchestration/test_result_delivery.py`, run two real isolated

@@ -203,3 +203,90 @@ def test_old_store_upgrade_preserves_assignment_and_budget(owned, version):
         assert connection.budget(owner, workflow.id).spent.tool_calls == 1
     finally:
         connection.close()
+
+
+async def test_misnested_candidate_metadata_is_feedback_without_debit_or_effect(owned):
+    from flycode.agent import _update_working_memory
+    from flycode.memory.working import WorkingMemory
+    from flycode.orchestration.environment import AttemptEnvironment
+    from flycode.orchestration.tools import Tools
+
+    store, owner, host, workflow, task, attempt, repo = owned
+    env = AttemptEnvironment(repo, store, host, attempt.id, attempt.fence)
+    await env.reset(TaskSpec(id=task.id, task=task.objective))
+    arguments = {'path': 'src/example.py', 'old_text': 'answer = 0', 'new_text': 'answer = 1'}
+    bad = ToolAction(id='metadata-in-arguments', tool='edit_file', arguments={**arguments,
+        'confidence': .9, 'expected_information_gain': .8, 'expected_progress': .9,
+        'expected_risk': .1, 'rationale': 'Repair only the approved source.'})
+    with pytest.raises(StoreError, match='permission'):
+        Tools(store).begin(host, attempt.id, attempt.fence, root=repo, action=bad)
+    before = store.budget(owner, workflow.id).spent
+    transition = await env.step(bad)
+    assert not transition.success and transition.payload['blocked'] == 'permission'
+    assert 'edit_file' in transition.error_message and 'old_text' in transition.error_message
+    assert not transition.current.recent_errors
+    assert (repo / 'src/example.py').read_text() == 'answer = 0\n'
+    assert store.budget(owner, workflow.id).spent == before
+    memory = WorkingMemory()
+    _update_working_memory(memory, bad, transition)
+    assert any('Unsupported tool arguments' in fact for fact in memory.facts)
+    result = await env.step(ToolAction(id='corrected-edit', tool='edit_file', arguments=arguments))
+    assert result.success and (repo / 'src/example.py').read_text() == 'answer = 1\n'
+    assert store.budget(owner, workflow.id).spent.tool_calls == before.tool_calls + 1
+
+
+@pytest.mark.parametrize('arguments', [
+    {'path': 'tests/test_example.py', 'old_text': 'x', 'new_text': 'y', 'confidence': .9},
+    {'path': '../outside.py', 'old_text': 'x', 'new_text': 'y', 'confidence': .9},
+    {'path': 'src/example.py', 'old_text': '0', 'new_text': '1', 'confidence': .9, 'repo_root': '/tmp'},
+])
+async def test_candidate_metadata_does_not_soften_authority_violations(owned, arguments):
+    from flycode.orchestration.environment import AttemptEnvironment
+
+    store, owner, host, workflow, task, attempt, repo = owned
+    env = AttemptEnvironment(repo, store, host, attempt.id, attempt.fence)
+    initial = await env.reset(TaskSpec(id=task.id, task=task.objective))
+    with pytest.raises(StoreError, match='permission'):
+        await env.step(ToolAction(id='still-denied', tool='edit_file', arguments=arguments))
+    assert await env.observe() == initial
+    assert store.budget(owner, workflow.id).spent.tool_calls == 0
+    assert (repo / 'src/example.py').read_text() == 'answer = 0\n'
+
+
+@pytest.mark.parametrize('owned', [{'assigned': True}], indirect=True)
+def test_real_worker_receives_misnested_metadata_feedback_and_corrects_next_request(owned, model_server):
+    import json
+
+    from flycode.orchestration.artifacts import Artifacts
+    from flycode.orchestration.runtime import Runtime
+    from flycode.orchestration.tools import Tools
+
+    store, owner, host, workflow, _, attempt, source = owned
+    (source / 'tests/test_example.py').write_text('import runpy\ndef test_example():\n'
+        '    assert runpy.run_path("src/example.py")["answer"] == 1\n')
+    requests = []
+    def response(request):
+        requests.append(request)
+        arguments = {'path': 'src/example.py', 'old_text': 'answer = 0', 'new_text': 'answer = 1'}
+        if len(requests) == 1:
+            arguments.update(confidence=.9, expected_information_gain=.8, expected_progress=.9,
+                expected_risk=.1, rationale='Repair only the approved source.')
+        return model_server.completion(json.dumps({'candidates': [{'tool': 'edit_file', 'arguments': arguments}]}))
+    model_server.respond = response
+    runtime = Runtime(store, source.parent / 'metadata-runtime')
+    handle = runtime.launch(host, attempt.id, attempt.fence, source, brain='heuristic_fsm')
+    try:
+        assert handle.finished.wait(20), handle.error
+        assert handle.error is None and handle.process_stopped.is_set()
+        artifact = Artifacts(store, runtime.root).for_attempt(owner, attempt.id)
+        assert (runtime.root / 'artifacts' / artifact.id / 'target/src/example.py').read_text() == 'answer = 1\n'
+        assert len(requests) == 2 and 'Unsupported tool arguments' in requests[1]['messages'][-1]['content']
+        budget = store.budget(owner, workflow.id)
+        assert budget.spent.model_calls == 2 and 1 <= budget.spent.tool_calls <= attempt.initial_budget.tool_calls
+        assert budget.reserved.model_calls == budget.reserved.tool_calls == 0 and not budget.uncertain
+        calls = Tools(store).calls(owner, workflow.id)
+        assert sum(call.tool == 'edit_file' for call in calls) == 1
+        assert all(call.status in {'completed', 'failed'} for call in calls)
+        assert (source / 'src/example.py').read_text() == 'answer = 0\n'
+    finally:
+        handle.close()

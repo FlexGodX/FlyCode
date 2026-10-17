@@ -2,6 +2,43 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Correctable candidate metadata — 2026-10-17
+
+Internal `CandidateMetadataError` preserves external permission rejection while
+returning actionable English feedback for only the five misplaced candidate
+prediction/rationale fields. Full underlying tool/path/scope authorization runs
+first; the validation copy is never executed. No invalid-call debit/effect.
+`AttemptEnvironment` translates only this subtype and existing missing-input
+preconditions; actual authority violations remain strict. Canonical blocker
+metadata, original budgets and source bytes are preserved. No schema/graph/
+checkpoint/default/admission change.
+
+Frozen source `c8cf462fd4f666634d7aaa7e84400be89940258c37f8e286f040b36e56025c53`:
+856 passed/8 skipped (864 exact IDs once,905.608s);31 focused extracted-wheel
+checks pass86.76s; actual FlyWire5 pass; Ruff/mypy47 and CLI10 pass. All133 wheel
+Python files and README metadata match. New/old tool suite29 passes17.60s,
+including actual HTTP/process correction/private artifact and strict unsafe-path
+controls. [Report](validation/2026-10-17-candidate-metadata-feedback.md).
+
+Current Qwen user case NOT STARTED: first built-in30s probe and one explicitly
+registered same-bound retry both end APITimeoutError. Actual provider terminal
+responses prove stopped generation and incomplete JSON; built-in HostTransport
+trusted acknowledgments preserve failures and actual776/874 tokens. Two failed
+host calls,1,650 known tokens, no uncertain/running endpoint call, and zero user
+workflow/task/attempt/worker/tool/artifact/review/integration records. No load,
+fallback, capability override or third retry. Do not claim current native success.
+Archive: `~/.cache/flycode/validation/flycode-metadata-feedback-ya3x_hww`.
+
+Unmerged auto-claim compatibility composition remains under
+`isolated-autoclaim-prototype` in that archive (source e90c6e9):83 compatibility
+passes plus one capacity repeat after correcting a missing report environment
+variable, with no code change.64 tasks/165 synthetic zero-effect history entries,
+409 SELECTs for one claim; no actual dispatcher/model acceptance. Next Task5
+work needs durable owner/source bindings, the central dispatcher and quiescent
+child waiting; unused `claim_next` alone is insufficient. Tasks5–8 remain open.
+Use implemented FlyCode tools first and retain their failure evidence before
+external diagnosis; do not bypass failed compatibility probes.
+
 ## Mandatory resolution inputs — 2026-10-17
 
 New `orchestration/inputs.py` derives required pins/paths from canonical conflict

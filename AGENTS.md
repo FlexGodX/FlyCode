@@ -175,7 +175,8 @@ When the user corrects your approach, append a one-line rule here before ending 
 
 - Treat Hermes in this project’s plan as FlyCode itself: the host for connected agents orchestrated by the fly controller. Do not request a separate Hermes repository.
 - Verify helper reuse through observable delegation; passing numeric examples alone does not establish that an existing helper was used.
-- Locate helper definitions and read signatures, Pydantic fields and ownership checks before using project APIs in integration code; read model-call attempt ownership from the SQL column because HostModelCall JSON has owner_id/owner_kind instead.
+- Use FlyCode’s implemented tools first for benchmarks, training and verification; retain their failure evidence before using external fallback tools.
+- Locate helper definitions and read signatures, Pydantic fields and ownership checks before using project APIs in integration code; read model-call attempt ownership from the SQL column because HostModelCall JSON has owner_id/owner_kind instead. Read archived measurement harness requirements, including required report environment variables, before launching them.
 - Before reading or searching a new source/test file, locate its exact path with `rg --files`; finish discovery before issuing reads/searches, and never put guessed filenames in the discovery batch.
 - Reap an owned process throughout group-absence polling; it may become waitable after the initial permission error.
 - Test custody blocking with a held ownership lock or an explicit owned Popen handle; never SIGSTOP a PID inferred only from `os.getppid()`.
