@@ -142,6 +142,12 @@ from verified physical folders. Drafts do not call a model. Folder replacement
 denies the previous ID; historical textual IDs are never implicitly imported.
 The background queue host, shared Tasks screen and verification API remain open.
 Python web execution changes now also invalidate the admission fingerprint.
+For registered projects, dispatcher/runtime revalidate the physical folder before
+assignment/launch and after workspace capture; integration checks it before the
+baseline and file moves. Replacing the folder between these stages grants no
+authority over its replacement. Admitted private-copy work may keep spending;
+lost authority retains a reconciling integration/source claim for trusted repair,
+including refusing automatic rollback.
 
 `AttemptCortex` binds the existing `run_agent` to the canonical attempt's objective,
 acceptance criteria and model budget. Admission pins the actual loaded LM Studio

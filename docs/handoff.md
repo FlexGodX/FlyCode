@@ -2,6 +2,40 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Registered execution authority — validated, 2026-10-17
+
+Current checked source7f5438ea14ccc809e3d870eb127c2dc38f1461d00e864d199e8566674fda60a8
+extends APIb479926 with outside-SQL physical registration checks before dispatch,
+actual launch, workspace capture and integration baseline/source effects. Exact
+reviewed patch941b7a8 composed against parent hashes. Historical arbitrary IDs
+retain trusted low-level compatibility; they never issue HTTP scope.
+
+Main83 focused cases pass141.96s; all13 new cases also pass from the extracted
+wheel18.786s process time. Ruff4/mypy52 pass; all145 Python files/README metadata,
+CLI10 and233 measurement hashes independently verified. No full/graph/real-model
+rerun on this source: parent1017/282/native evidence belongs to b479926.
+[Report](validation/2026-10-17-registered-execution-authority.md).
+Root `/private/tmp/flycode-registered-main-validation-cqdf6gkc`; archive target
+`~/.cache/flycode/validation/flycode-registered-authority-cqdf6gkc`.
+
+Already admitted private-copy tools may continue spending after original-root
+replacement; lost authority can retain a reconciling result/held claim and block
+rollback until trusted repair. No hostile filesystem transaction or auto-unlock.
+Future Stop/reconciliation needs durable owner authority after a source disappears,
+without granting new execution authority over a replacement folder.
+
+Worker-custody follow-up is ONLY isolated:
+`/private/tmp/flycode-worker-custody-implementation-w58zfc33`, based on mainAPI +
+registered guard. Initial3 actual native REDs (durable ref missing, live worker
+false stopack, crash/descendant with retained uncertain spending) are preserved
+in `/private/tmp/flycode-worker-custody-red-u0c6za6_` and its manifest/report.
+Implementation owns5 production files (custody, two domain contracts, runtime,
+store), unique new runtime-worker-custody test and three existing fault-injection
+wrappers. Actual-worker ProcessView must preserve PID/group diagnostics; guardian
+PID is separate. Before-GO/fork ambiguity remains fail-closed, unknown HTTP/tool
+outcomes never settle solely from stopped worker. Main has none of this follow-up.
+Host leadership, general execution/verification API/UI/CLI and neural Task7 stay open.
+
 ## Canonical projects and Tasks API — validated, 2026-10-17
 
 Checked schema16/Tasks API follows sealed source15 publication3a480b2.

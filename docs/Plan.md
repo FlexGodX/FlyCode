@@ -2926,3 +2926,14 @@ Host leadership/recovery, physical authority перед execution, общий UI
 verification routes и нейронный Task7 остаются открыты.
 [Отчёт](validation/2026-10-17-canonical-project-tasks-api.md),
 [план среза](superpowers/plans/2026-10-17-canonical-project-tasks-api.md).
+
+Следующее проверенное runtime-уточнение повторно сверяет registered physical
+source перед dispatch/launch, после workspace capture, перед baseline/effects
+интегратора. Byte-identical root/ancestor replacement больше не даёт новый запуск.
+Main83 focused cases и13 новых из wheel проходят; Ruff4/mypy52,145 package files,
+README metadata/CLI10 и233 hashes проверены. Полный1017/wheel282/native прогон
+принадлежит родителюb479926 и не заявляется повторённым для этих новых байтов.
+Принятая private-copy работа может продолжать расход; потеря authority удерживает
+reconciling/claim до trusted repair, в том числе блокирует автоматический rollback.
+Worker crash custody, host leadership, общий UI/CLI/API и Task7 остаются открыты.
+[Отчёт](validation/2026-10-17-registered-execution-authority.md).

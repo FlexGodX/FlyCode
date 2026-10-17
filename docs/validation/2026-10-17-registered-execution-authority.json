@@ -1,0 +1,51 @@
+{
+  "source": "7f5438ea14ccc809e3d870eb127c2dc38f1461d00e864d199e8566674fda60a8",
+  "exact_focused_ids": 83,
+  "focused_passed": 83,
+  "wheel_tests": 13,
+  "python_files": 145,
+  "wheel_sha256": "9688b879b04332d1449b846db49ccc1e5b2e4e434e9082485ee8ed7120cbc520",
+  "cli_brains": 10,
+  "measurement_files": 233,
+  "source_unchanged": true,
+  "full_suite_on_this_source": false,
+  "real_models_on_this_source": false,
+  "parent_full_publication": "b479926dbad49d2adadea048a34c13c42f3eb3de",
+  "aggregate_tasks_5_to_8_complete": false,
+  "status": "validated bounded registered physical authority; Tasks5\u20138 remain open",
+  "focused_seconds": 141.96,
+  "isolated_focused": {
+    "cases": 83,
+    "seconds": 145.08
+  },
+  "new_cases": 13,
+  "ruff_files": 4,
+  "mypy_files": 52,
+  "package_phases": [
+    {
+      "name": "build",
+      "returncode": 0,
+      "seconds": 1.5285244160040747
+    },
+    {
+      "name": "wheel-native",
+      "returncode": 0,
+      "seconds": 18.78557212499436
+    },
+    {
+      "name": "extracted-cli",
+      "returncode": 0,
+      "seconds": 0.15211512500536628
+    }
+  ],
+  "validation_root": "/private/tmp/flycode-registered-main-validation-cqdf6gkc",
+  "archive_destination": "~/.cache/flycode/validation/flycode-registered-authority-cqdf6gkc",
+  "patch_sha256": "941b7a808fe014626d19121e9debb1913bfd4795f883f647345052ca40c40728",
+  "limits": [
+    "No full suite/real model/real graph rerun for this source; parent b479926 owns its1017/282/native evidence.",
+    "Already admitted private-copy work may keep spending after original-root replacement.",
+    "Lost physical authority can block rollback and retain reconciling result/source claim for trusted repair.",
+    "Missing registry records preserve trusted historical low-level IDs, never HTTP scope.",
+    "Worker custody/restart, DB host leadership, shared execution/verification API/UI/CLI and neural admission remain open."
+  ]
+}

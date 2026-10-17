@@ -19,11 +19,22 @@ from ..verification.snapshot import capture
 from .application import Application
 from .artifacts import Artifacts
 from .inputs import Inputs
+from .projects import Projects
 from .review import Reviews
 from .sources import Sources
 from .store import ACTIVE, Store, StoreError, changed, covers, required_task
 from .tools import Tools
 from .verification import CheckExecutor, _succeed, accepted
+
+
+def registered_source(store, project_id, source):
+    """Historical IDs retain compatibility; registered IDs require physical authority."""
+    if not store.db.execute('SELECT 1 FROM canonical_projects WHERE id=?', (project_id,)).fetchone():
+        return
+    if store.db.in_transaction:
+        raise RuntimeError('Project inspection cannot run in a SQLite transaction')
+    if Projects(store).resolve(Path(source)).id != project_id:
+        raise StoreError('project_scope')
 
 
 class Integration:
@@ -379,8 +390,10 @@ class Integration:
         if (claim.owner_kind != 'integration' or claim.attempt_id != record.attempt_id
                 or claim.fence != record.fence or claim.root.path != record.source_root):
             raise StoreError('source_owner')
-        if not self.store.db.in_transaction and sources.prepare(Path(record.source_root)) != claim.root:
-            raise StoreError('source_changed')
+        if not self.store.db.in_transaction:
+            registered_source(self.store, self.store._workflow(record.workflow_id).project_id, record.source_root)
+            if sources.prepare(Path(record.source_root)) != claim.root:
+                raise StoreError('source_changed')
 
     def _guard(self, scope, record, *, deep=False):
         attempt, task, workflow = self.store._owned(scope, record.attempt_id, record.fence, running=True)
@@ -496,6 +509,7 @@ class Integration:
         if len(sources) != 1:
             raise StoreError('integration_scope')
         source = Path(sources.pop())
+        registered_source(store, workflow.project_id, source)
         before = capture(source)
         previous_result = self.get(scope, previous_result_id) if previous_result_id is not None else None
         if previous_result is not None:
@@ -596,6 +610,7 @@ class Integration:
         approval_hashes, hashes = record.approval_hashes, record.artifact_hashes
         artifacts = [self.artifacts.get(scope, identity) for identity in hashes]
         sources = Sources(store)
+        registered_source(store, workflow.project_id, source)
         root_ref = sources.prepare(source)
         with store.transaction():
             self._guard(scope, record)
@@ -614,6 +629,7 @@ class Integration:
         executor = CheckExecutor(store, scope, attempt_id, fence, source_claim_id=claim.id)
         apply_call = None
         try:
+            self._source_guard(record)
             if capture(source, directory / 'baseline').subject_hash != before.subject_hash:
                 raise StoreError('integration_conflict')
             shutil.copytree(directory / 'baseline', directory / 'candidate')

@@ -23,6 +23,12 @@ three released claims/27 stopped receipts and known spending. No background
 execution, canonical HTTP runtime completion, UI board/CLI or scientific
 admission is claimed. [Report](../../validation/2026-10-17-canonical-project-tasks-api.md).
 
+Next bounded correction: [registered execution authority](2026-10-17-registered-execution-authority.md)
+checks physical project pins before dispatch/launch/baseline/effects. Main83
+focused and13 extracted-wheel cases pass, Ruff4/mypy52/CLI10 and byte audit pass;
+parent full/native evidence is not relabelled as this source's full rerun.
+Worker custody and unique host leadership remain separate isolated work.
+
 **Architecture:** Существующий одиночный runtime сохраняется как совместимый исполнитель. Новые задачи и попытки имеют единое транзакционное хранилище; tracker — его представление. Независимая проверка связывает verdict с фактическими байтами результата, а диспетчер резервирует ресурсы до вызова исполнителя.
 
 **Tech Stack:** Python >=3.10, Pydantic v2, SQLite, pytest, FastAPI, существующие HTML/CSS/JS, LM Studio.

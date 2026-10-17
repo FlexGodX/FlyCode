@@ -13,7 +13,7 @@ from ..domain.orchestration import (
     stage_binding,
 )
 from ..verification.snapshot import capture
-from .integration import Integration
+from .integration import Integration, registered_source
 from .integration_bindings import IntegrationBindings
 from .review import Reviews
 from .review_bindings import ReviewBindings
@@ -69,6 +69,7 @@ class Dispatcher:
             raise StoreError('source_unavailable', 'Approved folder is unavailable')
         if self.root.is_relative_to(source):
             raise StoreError('workspace_location', 'Runtime storage must be outside the approved source folder')
+        registered_source(store, task.project_id, source)
         try:
             snapshot = capture(source)
         except (OSError, ValueError) as error:
@@ -135,6 +136,11 @@ class Dispatcher:
                 if not binding.matches(task, workflow):
                     reasons.append('execution_binding_stale')
                     continue
+                try:
+                    self._source(scope, binding)
+                except (OSError, ValueError) as error:
+                    reasons.append(getattr(error, 'code', 'source_unavailable'))
+                    continue
                 if binding.source_root not in hashes:
                     try:
                         hashes[binding.source_root] = capture(Path(binding.source_root)).subject_hash
@@ -153,6 +159,7 @@ class Dispatcher:
                         or binding.workflow_id in pipeline_blocked):
                     continue
                 try:
+                    self._source(scope, binding)
                     service = IntegrationBindings if isinstance(binding, IntegrationBinding) else ReviewBindings
                     service(store, self.root).verify(scope, binding)
                     approved.append(binding.id)
@@ -163,6 +170,16 @@ class Dispatcher:
         if result.attempt is not None:
             self._launch(scope, result.attempt.id)
         return result
+
+    def _source(self, scope, binding):
+        if isinstance(binding, ReviewBinding):
+            workspace = self.runtime.workspaces._record(scope, binding.author_attempt_id)
+            if workspace is None:
+                raise StoreError('not_found', 'workspace')
+            source = workspace.source_root
+        else:
+            source = binding.source_root
+        registered_source(self.store, binding.project_id, source)
 
     def _launch(self, scope, attempt_id):
         store = self.store
@@ -178,6 +195,7 @@ class Dispatcher:
         else:
             binding = store._load('worker_bindings', attempt.execution_binding_id, WorkerBinding)
         try:
+            self._source(scope, binding)
             if isinstance(binding, IntegrationBinding):
                 IntegrationBindings(store, self.root).verify(scope, binding)
                 store.confirm_started(scope, attempt_id, attempt.fence)

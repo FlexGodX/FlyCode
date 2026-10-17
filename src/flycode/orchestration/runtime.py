@@ -29,7 +29,7 @@ from ..verification.runner import _group_gone, _terminate
 from . import wire
 from .artifacts import Artifacts
 from .cortex import AttemptCortex
-from .integration import Integration
+from .integration import Integration, registered_source
 from .messages import Messages
 from .store import Store, StoreError, changed
 from .tools import SUPPORTED, Tools
@@ -59,6 +59,7 @@ class Runtime:
         if (task.permissions is None or task.permissions.read_scopes != ('.',)
                 or set(task.permissions.tools) - (SUPPORTED | {'stop'}) or attempt.profile_snapshot.role == 'decider'):
             raise StoreError('unsupported_profile')
+        registered_source(self.store, task.project_id, source)
         if brain not in BRAIN_REGISTRY:
             raise StoreError('brain')
         if message_recipients:
@@ -67,6 +68,7 @@ class Runtime:
             message_recipients = route.recipients
             Messages(self.store).recipients(scope, attempt, message_recipients)
         workspace = self.workspaces.prepare(scope, attempt_id, fence, source, expected_source_hash=expected_source_hash)
+        registered_source(self.store, task.project_id, source)
         Integration(self.store, self.root).begin_resolution(scope, attempt_id, fence, workspace)
         directory = self.workspaces.root / workspace.id
         record = WorkerRecord(id=uuid4().hex, attempt_id=attempt_id, fence=fence, created_at=self.store.clock())
