@@ -90,7 +90,7 @@ class Store:
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=FULL')
         version = self.db.execute('PRAGMA user_version').fetchone()[0]
-        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18):
+        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19):
             self.db.close()
             raise StoreError('schema_version', str(version))
         self.db.executescript('''
@@ -266,6 +266,16 @@ class Store:
                     self.db.execute('CREATE TABLE IF NOT EXISTS host_registry (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL)')
                     self.db.execute('CREATE TABLE IF NOT EXISTS host_sessions (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL)')
                     self.db.execute('PRAGMA user_version=18')
+            except BaseException:
+                self.db.close()
+                raise
+        if version < 19:
+            try:
+                with self.transaction():
+                    self.db.execute('''CREATE TABLE IF NOT EXISTS project_grants (
+                        actor_id TEXT NOT NULL, project_id TEXT NOT NULL REFERENCES canonical_projects(id),
+                        data TEXT NOT NULL, PRIMARY KEY(actor_id,project_id))''')
+                    self.db.execute('PRAGMA user_version=19')
             except BaseException:
                 self.db.close()
                 raise

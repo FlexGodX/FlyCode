@@ -1,0 +1,274 @@
+{
+  "version": "flycode-application-coordinator-validation-v1",
+  "scope": "Trusted detached launcher, protected attach/status API and schema19 restricted historical Stop",
+  "goal_complete": false,
+  "closed_audits": {
+    "focus": {
+      "passed": true,
+      "checks": 71,
+      "inputs": 28
+    },
+    "live": {
+      "passed": true,
+      "checks": 448,
+      "inputs": 469,
+      "verification_hashes": 371,
+      "exact_stopped_receipts": 29
+    }
+  },
+  "source": {
+    "parent_commit": "a30b6e4acab5f2bae56479c7569a35aa3e38a4e0",
+    "manifest_sha256": "2125e78446b4576161b05cb6be5648e9258155e46f9f6dbf58ad835dc2de2987",
+    "frozen_files": 255,
+    "runtime_fingerprint": "4ed081a59d196173841ad39301a398252dc753492a2d6fe25d8ebfe0225b38f3"
+  },
+  "full": {
+    "implementation_sha256": "2125e78446b4576161b05cb6be5648e9258155e46f9f6dbf58ad835dc2de2987",
+    "groups": {
+      "non-orchestration": {
+        "returncode": 0,
+        "observed_wait_seconds": 295.209030375001,
+        "pytest_seconds": 294.894
+      },
+      "orchestration-1": {
+        "returncode": 0,
+        "observed_wait_seconds": 962.9839282499743,
+        "pytest_seconds": 962.45
+      },
+      "orchestration-2": {
+        "returncode": 0,
+        "observed_wait_seconds": 962.9831617920136,
+        "pytest_seconds": 586.516
+      },
+      "web": {
+        "returncode": 0,
+        "observed_wait_seconds": 128.31083695898997,
+        "pytest_seconds": 124.774
+      }
+    },
+    "registered_cases": 1158,
+    "observed_cases": 1158,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 8,
+    "seconds": 1091.3546951249882,
+    "frozen_files_unchanged": 255,
+    "passed": true
+  },
+  "wheel": {
+    "passed": true,
+    "wheel_sha256": "85b7bf293172784fe50526c0f806296e27a4a434fc080c59b796f3e447c7821b",
+    "exact_distribution_files": 159,
+    "readme_matches": true,
+    "wheel_cases": 133,
+    "wheel_seconds": 266.96252208400983,
+    "cli": [
+      {
+        "arguments": [
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "brains"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "run",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "ui",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "verify",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "train",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "benchmark",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "connectome",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "shadow-analysis",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "validate-rollout",
+          "--help"
+        ],
+        "returncode": 0
+      }
+    ]
+  },
+  "graph": {
+    "passed": true,
+    "cases": 5,
+    "skips": 0,
+    "seconds": 7.595,
+    "scientific_admission": false
+  },
+  "static": {
+    "ruff": "All checks passed!",
+    "mypy": "Success: no issues found in 4 source files",
+    "mypy_files": 4,
+    "passed": true
+  },
+  "real_model": {
+    "elapsed_seconds": 84.15788079201593,
+    "english_request": "Set the answer variable in src/example.py to exactly 1. Preserve all tests, README and user files. Run the tests to verify your change.",
+    "trusted_detached_launcher": true,
+    "client_detach_preserved_host": true,
+    "owner_dirty_bytes_preserved": true,
+    "process_group_stopped": true,
+    "host_returncode": 0,
+    "source_unchanged": true,
+    "budget": {
+      "limit": {
+        "model_calls": 60,
+        "tool_calls": 120
+      },
+      "spent": {
+        "model_calls": 3,
+        "tool_calls": 34
+      },
+      "reserved": {
+        "model_calls": 0,
+        "tool_calls": 0
+      },
+      "free": {
+        "model_calls": 57,
+        "tool_calls": 86
+      },
+      "uncertain": false
+    }
+  },
+  "provider": {
+    "passed": true,
+    "http_generation_requests": 4,
+    "explicit_probes": 1,
+    "workflow_generation_requests": 3,
+    "matched": [
+      {
+        "call_id": "16f8299aaf5840f69a2f8ef2cdcbf4b4",
+        "prediction_id": "chatcmpl-0rydaggdr74pcrn100rdbzv",
+        "attempt_id": null,
+        "model": "qwen/qwen3.5-9b",
+        "provider_started_at": 1792266283.0,
+        "provider_ended_at": 1792266292.0,
+        "usage": {
+          "prompt_tokens": 673,
+          "completion_tokens": 74,
+          "total_tokens": 747
+        },
+        "status": "completed"
+      },
+      {
+        "call_id": "d78ef15875d843828ae8f3dc894112e8",
+        "prediction_id": "chatcmpl-7qpkha9bgbbuhsgpa0bkt",
+        "attempt_id": "605bfdda528f49998863dd80ffa601ee",
+        "model": "qwen/qwen3.5-9b",
+        "provider_started_at": 1792266294.0,
+        "provider_ended_at": 1792266310.0,
+        "usage": {
+          "prompt_tokens": 1042,
+          "completion_tokens": 314,
+          "total_tokens": 1356
+        },
+        "status": "completed"
+      },
+      {
+        "call_id": "e72d37b5426649fa8f6a0b3932b727f9",
+        "prediction_id": "chatcmpl-4g4u64px489bami73myj1c",
+        "attempt_id": "605bfdda528f49998863dd80ffa601ee",
+        "model": "qwen/qwen3.5-9b",
+        "provider_started_at": 1792266310.0,
+        "provider_ended_at": 1792266325.0,
+        "usage": {
+          "prompt_tokens": 1155,
+          "completion_tokens": 303,
+          "total_tokens": 1458
+        },
+        "status": "completed"
+      },
+      {
+        "call_id": "a45d47c4c8b5498fa10f1bb35589516b",
+        "prediction_id": "chatcmpl-0iiyqo3d5qck064s896rwuol",
+        "attempt_id": "605bfdda528f49998863dd80ffa601ee",
+        "model": "qwen/qwen3.5-9b",
+        "provider_started_at": 1792266325.0,
+        "provider_ended_at": 1792266340.0,
+        "usage": {
+          "prompt_tokens": 1165,
+          "completion_tokens": 303,
+          "total_tokens": 1468
+        },
+        "status": "completed"
+      }
+    ],
+    "provider_excerpt_sha256": "4a0d0cb0d207bb618641707f70bcad2666bb8435317c05039947a36271ca83c8",
+    "all_requests_english": true,
+    "fallback": false,
+    "automatic_retry": false
+  },
+  "focused": {
+    "composition_cases": 185,
+    "composition_seconds": 157.49,
+    "unique_cases": 185,
+    "feature_red_failures": 10,
+    "native_first_passes": 64,
+    "reaper_passes": 7,
+    "crash_passes": 1,
+    "counts_are_not_additive_coverage": true
+  },
+  "retained_tool_failures": {
+    "count": 2,
+    "stage": "writer before repair",
+    "tool": "run_tests",
+    "persisted_output": "tests/test_example.py:3 AssertionError: assert 0 == 1; 1 failed",
+    "structured_error_class": null,
+    "after_edit": "1 passed"
+  },
+  "evidence_root": "/private/tmp/flycode-launch-stop-validation-96xzxksa",
+  "planned_archive": "/Users/Administrator/.cache/flycode/validation/flycode-application-coordinator-96xzxksa",
+  "limits": [
+    "Trusted same-OS-user boundary; no hostile filesystem sandbox claim.",
+    "Actual two-app HTTP/Stop tests use a local deterministic model server; actual Qwen pipeline is a separate engineering smoke.",
+    "No new browser controls or common verification UI/CLI/API acceptance; static UI bytes are unchanged.",
+    "Transient native per-test SQLite/custody directories are not independently archived by focused audit.",
+    "Historical feedback training and rejected transfer are separate from orchestration admission.",
+    "Tasks5–8 and scientific §§90–99 remain open."
+  ]
+}

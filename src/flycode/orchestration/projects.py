@@ -2,7 +2,8 @@
 from pathlib import Path
 from uuid import uuid4
 
-from ..domain.project import CanonicalProject
+from ..domain.orchestration import AccessScope, TaskCommand
+from ..domain.project import CanonicalProject, ProjectStopGrant
 from ..domain.source import SourceClaim
 from .sources import Sources, _overlap
 from .store import StoreError, changed
@@ -49,14 +50,55 @@ class Projects:
                     created_at=self.store.clock())
                 self.store.db.execute('INSERT INTO canonical_projects VALUES (?,?,?,?,?,?)',
                     (project.id, reference.path, *reference.identity, project.state, project.model_dump_json()))
-        return self._current(project)
+        project = self._current(project)
+        self._grant(project, actor_id)
+        return project
 
-    def resolve(self, root: Path) -> CanonicalProject:
+    def resolve(self, root: Path, *, actor_id: str | None = None) -> CanonicalProject:
         reference = Sources(self.store).prepare(root)
         project = self._find(reference)
         if project is None:
             raise StoreError('project_not_registered')
-        return self._current(project)
+        project = self._current(project)
+        if actor_id is not None:
+            self._grant(project, actor_id)
+        return project
+
+    def _grant(self, project, actor_id):
+        """Persist the first successful physical resolution, never fresh authority."""
+        grant = ProjectStopGrant(actor_id=actor_id, project_id=project.id,
+            project_revision=project.revision, granted_at=self.store.clock())
+        if self.store.db.execute('SELECT 1 FROM project_grants WHERE actor_id=? AND project_id=?',
+                (actor_id, project.id)).fetchone():
+            return
+        with self.store.transaction():
+            if self.get(project.id) != project:
+                raise StoreError('project_changed')
+            self.store.db.execute('INSERT INTO project_grants VALUES (?,?,?) ON CONFLICT DO NOTHING',
+                (actor_id, project.id, grant.model_dump_json()))
+
+    def stop_command(self, actor_id: str, task_id: str, command: TaskCommand):
+        """Historical grants authorize only canonical pause/cancel, even after root loss."""
+        command = TaskCommand.model_validate(command.model_dump())
+        if command.operation not in {'pause', 'cancel'} or command.changes:
+            raise StoreError('permission')
+        try:
+            task = self.store._task(task_id)
+        except StoreError as error:
+            if error.code == 'not_found':
+                raise StoreError('scope') from error
+            raise
+        row = self.store.db.execute('SELECT data FROM project_grants WHERE actor_id=? AND project_id=?',
+            (actor_id, task.project_id)).fetchone()
+        if row is None:
+            raise StoreError('scope')
+        grant = ProjectStopGrant.model_validate_json(row['data'])
+        if (grant.actor_id, grant.project_id) != (actor_id, task.project_id):
+            raise StoreError('scope')
+        # Grants and task project IDs are immutable. Store.command rechecks scope,
+        # revision, replay and fencing atomically; no filesystem check spans it.
+        scope = AccessScope(actor_id=actor_id, project_ids=frozenset({task.project_id}), role='owner')
+        return self.store.command(scope, task_id, command)
 
     def _busy(self, project):
         db = self.store.db

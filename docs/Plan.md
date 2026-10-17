@@ -3012,3 +3012,18 @@ LM Studio, без retry/fallback. Независимый аудит3561 checks/6
 оркестрация остаются открытыми. Tasks5–8 и §§90–99 не закрыты.
 [Отчёт endpoint](validation/2026-10-17-coordinator-attachment.md),
 [план attachment](superpowers/plans/2026-10-17-coordinator-attachment.md).
+
+
+Protected application attachment and historical Stop are now validated (schema19):
+trusted detached launch, four-field status, immutable prior-resolution Stop grants,
+protected pause/cancel after root replacement, actual two application processes and
+SIGKILL/restart authentication rejection. Reaper exhaustion has retained RED and
+pre-spawn ownership fix. Final1158 exact IDs:1150pass/8expectedskip/0fail/error,
+1091.355s against255 unchanged files; extracted-wheel133/159package files/
+README,CLI10,FlyWire5,Ruff/mypy4 pass. Actual English Qwen pipeline
+84.158s/3model/34tools and4 independently matched provider receipts
+pass with preserved owner bytes and zero reserve/uncertainty. Native Stop response
+is less than1s during review/integration, including replaced roots; unknown
+pytest effects remain held. UI buttons/CLI attachment, shared verification and
+neural orchestration remain open; Tasks5–8 and §§90–99 are not closed.
+[Application report](validation/2026-10-17-application-coordinator.md).

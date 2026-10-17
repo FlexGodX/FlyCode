@@ -84,3 +84,40 @@ def completion(content, top_logprobs=None):
             "choices": [{"index": 0, "message": {"role": "assistant", "content": content},
                          "finish_reason": "stop", "logprobs": logprobs}],
             "usage": {"prompt_tokens": 10, "completion_tokens": 1, "total_tokens": 11}}
+
+
+@pytest.fixture
+def coordinator_processes(tmp_path, monkeypatch):
+    """Retain actual launcher Popen handles; never signal a discovered PID."""
+    import os
+    import subprocess
+
+    original = subprocess.Popen
+    processes, logs = [], []
+    def launch(args, *values, **options):
+        tracked = isinstance(args, list) and 'flycode.orchestration.coordinator' in args
+        if tracked:
+            assert options.get('start_new_session') is True
+            assert options.get('stdin') == subprocess.DEVNULL
+            assert options.get('stdout') != subprocess.PIPE and options.get('stderr') != subprocess.PIPE
+            logs.append(os.fdopen(os.dup(options['stdout'].fileno()), 'rb'))
+        process = original(args, *values, **options)
+        if tracked:
+            processes.append(process)
+        return process
+    monkeypatch.setattr(subprocess, 'Popen', launch)
+    try:
+        yield processes
+    finally:
+        for process in processes:
+            if process.poll() is None:
+                process.terminate()
+            try:
+                process.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=15)
+        for index, stream in enumerate(logs):
+            stream.seek(0)
+            (tmp_path / ('launched-coordinator-' + str(index) + '.log')).write_bytes(stream.read())
+            stream.close()

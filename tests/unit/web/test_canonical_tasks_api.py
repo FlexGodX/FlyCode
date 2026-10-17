@@ -475,3 +475,72 @@ def test_task_history_retains_all_comments_after_snapshot_and_paginates(folders,
         assert [event['data']['text'] for event in collected if event['kind'] == 'task_comment'] == ['Comment 0', 'Comment 1']
         assert len({event['sequence'] for event in collected}) == 3
         assert client.get('/api/tasks/' + identity + '/events?after=-1').status_code == 422
+
+
+def test_explicit_protected_attach_survives_app_close(folders, tmp_path, monkeypatch, coordinator_processes):
+    from flycode.orchestration.host import Host
+
+    monkeypatch.setenv('FLYCODE_HOST_AUTHORITY_ROOT', str(tmp_path / 'authority'))
+    with Host(default_state_path(), tmp_path / 'hosts'):
+        pass
+    root, _ = folders
+    with session(root, tmp_path / 'history-a') as first, session(root, tmp_path / 'history-b') as second:
+        attached = first.post('/api/tasks/coordinator/attach', json={})
+        assert attached.status_code == 200, attached.text
+        status = attached.json()
+        assert set(status) == {'registration_id', 'session_id', 'generation', 'phase'}
+        assert status['phase'] == 'ready'
+        assert second.post('/api/tasks/coordinator/attach', json={}).json() == status
+    with session(root, tmp_path / 'history-b') as reopened:
+        assert reopened.get('/api/tasks/coordinator').json() == status
+    assert len(coordinator_processes) == 1 and coordinator_processes[0].poll() is None
+
+
+def test_attach_rejects_foreign_origin_token_and_extra_fields(folders, tmp_path):
+    root, _ = folders
+    with session(root, tmp_path / 'history') as client:
+        token = client.headers.pop('X-FlyCode-Token')
+        assert client.post('/api/tasks/coordinator/attach', json={}).status_code == 403
+        assert client.get('/api/tasks/coordinator').status_code == 403
+        for headers in ({'Origin': 'https://foreign.example'}, {'Sec-Fetch-Site': 'cross-site'}):
+            assert client.post('/api/tasks/coordinator/attach', json={}, headers={
+                'X-FlyCode-Token': token, **headers}).status_code == 403
+        client.headers['X-FlyCode-Token'] = token
+        for body in ({'database': '/tmp/other.sqlite'}, {'state_root': '/tmp'}, {'role': 'runtime'},
+                     {'scope': {'project_ids': ['foreign']}}):
+            assert client.post('/api/tasks/coordinator/attach', json=body).status_code == 422
+
+
+def test_prior_resolution_allows_only_stop_after_root_loss_and_restart(folders, tmp_path):
+    root, _ = folders
+    with session(root, tmp_path / 'history-a') as first:
+        project = register(first)
+        card = draft(first, project, title='Private title must stay private')
+        identity = card['task']['id']
+    with session(root, tmp_path / 'history-b') as second:
+        assert second.get('/api/tasks/' + identity).status_code == 200
+    displaced = tmp_path / 'original-owner-files'
+    root.rename(displaced)
+    root.mkdir()
+    (root / 'replacement.txt').write_text('Do not touch replacement')
+    with session(root, tmp_path / 'history-b') as resumed, session(root, tmp_path / 'history-c') as foreign:
+        assert resumed.get('/api/tasks/' + identity).status_code == 403
+        body = {'operation': 'pause', 'expected_revision': card['task']['revision'], 'idempotency_key': 'historical-stop'}
+        stopped = resumed.post('/api/tasks/' + identity + '/stop', json=body)
+        assert stopped.status_code == 200, stopped.text
+        assert set(stopped.json()) == {'task_id', 'revision', 'state', 'paused'}
+        assert stopped.json()['paused'] is True and stopped.json()['task_id'] == identity
+        assert resumed.post('/api/tasks/' + identity + '/stop', json=body).json() == stopped.json()
+        stale = resumed.post('/api/tasks/' + identity + '/stop', json={
+            **body, 'operation': 'cancel', 'idempotency_key': 'stale-stop'})
+        assert stale.status_code == 409
+        assert stale.json() == {'detail': {'code': 'revision', 'revision': stopped.json()['revision']}}
+        assert 'Private title' not in stopped.text + stale.text
+        assert resumed.post('/api/tasks/' + identity + '/commands', json={**body, 'operation': 'resume'}).status_code == 403
+        assert resumed.post('/api/tasks/' + identity + '/stop', json={**body, 'operation': 'resume'}).status_code == 422
+        assert resumed.post('/api/tasks/' + identity + '/stop', json={**body, 'changes': {'title': 'forbidden'}}).status_code == 422
+        for task_id in (identity, '0' * 32):
+            response = foreign.post('/api/tasks/' + task_id + '/stop', json=body)
+            assert response.status_code == 403 and response.json() == {'detail': {'code': 'scope'}}
+    assert (displaced / 'owner.txt').read_text() == root.name
+    assert (root / 'replacement.txt').read_text() == 'Do not touch replacement'

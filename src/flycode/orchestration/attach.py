@@ -8,6 +8,8 @@ import secrets
 import socket
 import sqlite3
 import stat
+import subprocess
+import sys
 import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -18,7 +20,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..domain.source import SourceRoot
-from .host import Host, HostRegistration, HostSession, _file, _root
+from .host import Host, HostRegistration, HostSession, _file, _read_registration, _root
 from .store import StoreError, host_pin_path
 from .wire import receive, send
 
@@ -71,7 +73,7 @@ def _status(registration, session):
         generation=session.generation, phase='ready')
 
 
-def _inspect(database):
+def _records(database):
     database = Path(database).expanduser().resolve(strict=True)
     _file(database)
     db = sqlite3.connect(database.as_uri() + '?mode=ro', uri=True, isolation_level=None, timeout=.5)
@@ -87,7 +89,12 @@ def _inspect(database):
         db.close()
     # Inspect existing pins only: this object never enters or starts a Host.
     Host(database)._physical(registration, host_pin_path(database))
-    return registration, _status(registration, current)
+    return registration, current
+
+
+def _inspect(database):
+    registration, session = _records(database)
+    return registration, _status(registration, session)
 
 
 def _private(info, mode):
@@ -107,7 +114,7 @@ def _endpoint(descriptor):
         raise StoreError('attachment_identity')
 
 
-def _descriptor(registration, status):
+def _read_descriptor(registration):
     path = Path(registration.runtime_root.path) / 'attachment.json'
     descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     try:
@@ -123,8 +130,14 @@ def _descriptor(registration, status):
         value = _Descriptor.model_validate_json(data)
     finally:
         os.close(descriptor)
-    if (value.model_dump(include=set(AttachmentStatus.model_fields)) != status.model_dump()
-            or value.database_identity != registration.database_identity):
+    if value.database_identity != registration.database_identity or value.registration_id != registration.id:
+        raise StoreError('attachment_identity')
+    return value
+
+
+def _descriptor(registration, status):
+    value = _read_descriptor(registration)
+    if value.model_dump(include=set(AttachmentStatus.model_fields)) != status.model_dump():
         raise StoreError('attachment_identity')
     _endpoint(value)
     return value
@@ -170,6 +183,86 @@ class CoordinatorClient:
             raise
         except (OSError, ValueError, TypeError, EOFError, sqlite3.Error) as error:
             raise StoreError('attachment_identity') from error
+
+
+def _launch_preflight(database, failure):
+    pin = host_pin_path(database)
+    if not database.exists():
+        if pin.exists():
+            raise StoreError('attachment_identity')
+        return
+    _file(database)
+    registration = _read_registration(database)
+    if registration is None:
+        if pin.exists():
+            raise StoreError('attachment_identity')
+        return
+    registration, session = _records(database)
+    path = Path(registration.runtime_root.path) / 'attachment.json'
+    if not path.exists() and not path.is_symlink():
+        return
+    descriptor = _read_descriptor(registration)
+    try:
+        _endpoint(descriptor)
+    except FileNotFoundError:
+        return
+    if (session.phase == 'ready' and descriptor.session_id == session.id
+            and descriptor.generation == session.generation and failure.__cause__ is None):
+        # A live-looking authenticated endpoint failed proof, not discovery.
+        raise failure
+
+
+def attach_coordinator(database: Path, *, state_root: Path | None = None, timeout: float = 10) -> CoordinatorClient:
+    """Explicit trusted launch/attach; only the child Host may elect or recover."""
+    database = Path(database).expanduser().resolve()
+    client = CoordinatorClient(database)
+    try:
+        client.status()
+        return client
+    except StoreError as error:
+        if error.code not in {'attachment_identity', 'attachment_unavailable'}:
+            raise
+        try:
+            _launch_preflight(database, error)
+        except StoreError:
+            raise
+        except (OSError, ValueError, sqlite3.Error) as problem:
+            raise StoreError('attachment_identity') from problem
+    args = [sys.executable, '-m', 'flycode.orchestration.coordinator', '--database', str(database)]
+    if state_root is not None:
+        args.extend(('--state-root', str(state_root)))
+    environment = dict(os.environ)
+    package = str(Path(__file__).resolve().parents[2])
+    environment['PYTHONPATH'] = package + (os.pathsep + environment['PYTHONPATH'] if environment.get('PYTHONPATH') else '')
+    ready = Event()
+    process = None
+    def reap():
+        ready.wait()
+        if process is not None:
+            process.wait()
+    try:
+        # Establish child ownership before spawning: thread exhaustion must not
+        # leave a successfully started detached child without its reaper.
+        Thread(target=reap, name='coordinator-reaper', daemon=True).start()
+        # A regular owned file outlives the caller's pipes. Closing the client
+        # never signals this process or changes its approved canonical work.
+        with tempfile.TemporaryFile() as output:
+            process = subprocess.Popen(args, env=environment, stdin=subprocess.DEVNULL,
+                stdout=output, stderr=output, start_new_session=True)
+    except (OSError, RuntimeError) as error:
+        raise StoreError('attachment_unavailable') from error
+    finally:
+        ready.set()
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            client.status()
+            return client
+        except StoreError as error:
+            if time.monotonic() >= deadline:
+                client.close()
+                raise StoreError('attachment_unavailable') from error
+        time.sleep(min(.05, max(0, deadline - time.monotonic())))
 
 
 class AttachmentServer:

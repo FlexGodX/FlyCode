@@ -202,6 +202,7 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Publish terminal run status only after source settlement and successful history persistence under the manager lock.
 - Check prerequisite exit codes before archive/publication mutations; do not continue a dependent tool sequence after an assertion fails.
 - When validating file stability across a read, compare identity/permissions/size/mtime; access time can change during an ordinary read.
+- Establish the reaper before spawning a detached child; a failed Thread.start must not leave a started child without its cleanup owner.
 
 ## 12. How this file was built
 

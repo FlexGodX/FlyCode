@@ -4,7 +4,8 @@ import hashlib
 import json
 import time
 from contextlib import contextmanager
-from typing import Annotated
+from threading import Lock
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi import Path as PathParam
@@ -21,6 +22,11 @@ from ..domain.orchestration import (
     WorkflowBudget,
     WorkflowDraft,
 )
+from ..orchestration.attach import (
+    AttachmentStatus,
+    CoordinatorClient,
+    attach_coordinator,
+)
 from ..orchestration.projects import Projects
 from ..orchestration.store import Store, StoreError, default_state_path
 from ..tracker.commands import CommentCommand
@@ -35,8 +41,25 @@ from ..tracker.service import TrackerService
 from .projects import project_options
 
 
+class CoordinatorAttachmentRequest(QueueModel):
+    pass
+
+
 class ProjectRegistration(QueueModel):
     selector: str = Field(min_length=1, max_length=1000)
+
+
+class TaskStop(QueueModel):
+    operation: Literal['pause', 'cancel']
+    expected_revision: int = Field(ge=1)
+    idempotency_key: str = Field(min_length=1, max_length=200)
+
+
+class TaskStopReceipt(QueueModel):
+    task_id: str
+    revision: int
+    state: TaskState
+    paused: bool
 
 
 class TaskCreation(QueueModel):
@@ -49,6 +72,7 @@ class TaskCreation(QueueModel):
 
 def task_router(manager) -> APIRouter:
     router = APIRouter()
+    coordinator_gate = Lock()
     actor = 'web:' + hashlib.sha256((str(manager.workspace) + '\0' + str(manager.data_dir)).encode()).hexdigest()
 
     def choices():
@@ -60,7 +84,7 @@ def task_router(manager) -> APIRouter:
         projects = set()
         for item in choices():
             try:
-                projects.add(Projects(store).resolve(manager.project_path(item['id'])).id)
+                projects.add(Projects(store).resolve(manager.project_path(item['id']), actor_id=actor).id)
             except (OSError, ValueError):
                 continue
         scope = AccessScope(actor_id=actor, project_ids=projects, role='owner')
@@ -85,6 +109,26 @@ def task_router(manager) -> APIRouter:
         finally:
             store.close()
 
+    @router.get('/api/tasks/coordinator')
+    def coordinator_status() -> AttachmentStatus:
+        try:
+            with CoordinatorClient(default_state_path()) as client:
+                return client.status()
+        except StoreError as error:
+            raise HTTPException(409, {'code': error.code}) from error
+
+    @router.post('/api/tasks/coordinator/attach')
+    def coordinator_attach(body: CoordinatorAttachmentRequest) -> AttachmentStatus:
+        if not coordinator_gate.acquire(blocking=False):
+            raise HTTPException(409, {'code': 'attachment_starting'})
+        try:
+            with attach_coordinator(default_state_path()) as client:
+                return client.status()
+        except StoreError as error:
+            raise HTTPException(409, {'code': error.code}) from error
+        finally:
+            coordinator_gate.release()
+
     @router.get('/api/tasks/projects')
     def projects() -> list[dict]:
         with access() as (store, _, _scope):
@@ -92,7 +136,7 @@ def task_router(manager) -> APIRouter:
             for item in choices():
                 row = {'selector': item['id'], 'name': item['name'], 'project_id': None, 'status': 'registration_required'}
                 try:
-                    project = Projects(store).resolve(manager.project_path(item['id']))
+                    project = Projects(store).resolve(manager.project_path(item['id']), actor_id=actor)
                     row.update(project_id=project.id, status='ready')
                 except StoreError as error:
                     if error.code != 'project_not_registered':
@@ -213,6 +257,20 @@ def task_router(manager) -> APIRouter:
         with access() as (_, tracker, scope):
             tracker.command(scope, identity, body.model_dump())
             return tracker.task(scope, identity)
+
+    @router.post('/api/tasks/{identity}/stop')
+    def stop(identity: Annotated[str, PathParam(pattern=r'^[0-9a-f]{32}$')], body: TaskStop) -> TaskStopReceipt:
+        store = Store(default_state_path())
+        try:
+            task = Projects(store).stop_command(actor, identity, TaskCommand(**body.model_dump()))
+            return TaskStopReceipt(task_id=task.id, revision=task.revision, state=task.state, paused=task.paused)
+        except StoreError as error:
+            detail = {'code': error.code}
+            if error.code == 'revision' and error.current is not None:
+                detail['revision'] = error.current['revision']
+            raise HTTPException(403 if error.code in {'scope', 'permission'} else 409, detail) from error
+        finally:
+            store.close()
 
     @router.post('/api/tasks/{identity}/comments', status_code=201)
     def post_comment(identity: Annotated[str, PathParam(pattern=r'^[0-9a-f]{32}$')], body: CommentCommand) -> QueueEvent:

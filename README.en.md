@@ -156,7 +156,8 @@ Requests require the local bootstrap's `X-FlyCode-Token`; the server derives sco
 from verified physical folders. Drafts do not call a model. Folder replacement
 denies the previous ID; historical textual IDs are never implicitly imported.
 The shared `/tasks` screen uses these APIs for drafts, comments and commands.
-The background queue host and verification API remain open.
+Protected API launch/attachment to the shared host is implemented; interface
+attachment controls and the verification API remain open.
 Internal `Host` binds one owner to the physical database through a kernel lock,
 an external path pin and a session generation. Damaged ownership metadata or an
 active older manual attempt blocks automatic adoption. Lost authority denies new
@@ -164,8 +165,15 @@ execution and artifact acceptance while retaining actual late spending. Internal
 `python -m flycode.orchestration.coordinator` runs an approved pipeline independently
 of clients. Its control loop renews heartbeats during checks; restart reconciles
 saved process custody while retaining unknown effects. Shutdown waits for actual
-HTTP completion before releasing the kernel lock. The interface does not start
-this process yet; automatic client attachment and verification API remain open.
+HTTP completion before releasing the kernel lock. An empty protected
+`POST /api/tasks/coordinator/attach` attaches to an incumbent or starts a detached
+process; `GET /api/tasks/coordinator` checks attachment. Application exit preserves
+the host. Neither endpoint creates tasks, approves execution or loads models.
+Schema19 retains limited Stop authority after successful folder resolution:
+`POST /api/tasks/{id}/stop` accepts only `operation` (pause/cancel),
+`expected_revision` and `idempotency_key`. Missing/replaced folders still deny reads and resume, while this route can
+stop previously authorized work. Its receipt reports command state; process stop
+is confirmed separately and unknown effects retain their reservations.
 The process publishes a private local endpoint. An internal client checks physical
 database identity, session generation and an authenticated response to a fresh
 challenge. Client disconnect preserves the Host; slow requests have a bounded

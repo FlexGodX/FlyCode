@@ -21,3 +21,12 @@ class CanonicalProject(QueueModel):
         if (self.state == 'revoked') != (self.revoked_at is not None):
             raise ValueError('Revocation state requires its timestamp')
         return self
+
+
+class ProjectStopGrant(QueueModel):
+    version: Literal['project-stop-grant-v1'] = 'project-stop-grant-v1'
+    actor_id: str = Field(min_length=1, max_length=200)
+    project_id: str = Field(pattern=r'^[0-9a-f]{32}$')
+    project_revision: int = Field(ge=1)
+    granted_at: float
+    capability: Literal['stop'] = 'stop'

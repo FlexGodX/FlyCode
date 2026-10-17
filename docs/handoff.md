@@ -2,6 +2,35 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Application attachment / historical Stop — validated,2026-10-17
+
+Current source manifest `2125e78446b4576161b05cb6be5648e9258155e46f9f6dbf58ad835dc2de2987`, runtime
+`4ed081a59d196173841ad39301a398252dc753492a2d6fe25d8ebfe0225b38f3`. Parent PUBLIC `a30b6e4acab5f2bae56479c7569a35aa3e38a4e0`.
+Final full1158 IDs/1150pass/8expectedskip/0fail/error,1091.355s,255 frozen
+files unchanged. Wheel133/CLI10/159 exact package bytes/README,FlyWire5 and
+Ruff/mypy4 pass. Actual English Qwen pipeline84.158s/3model/34tools
+uses the trusted detached launcher;4 provider receipts agree with SQL. No unknown
+model spending, reservations or held source claims remain after this successful
+smoke. Two known pre-repair run_tests failures (assert0==1) are retained; their structured
+error_class is absent. The live audit records exact output and post-edit1passed.
+
+Strict protected attach/status endpoints derive database/config only on the
+server. A successful folder resolve saves immutable schema19 Stop-only authority;
+missing/replaced/tombstoned roots do not grant reads/resume/fresh execution.
+Native two-app processes cover first-app exit and protected Stop during actual
+review/integration subprocesses, both with present and replaced source roots.
+Reaper starts before spawn; SIGKILL/restart rejects old session credentials.
+All retained failure classifications and evidence limits are in the
+[application report](validation/2026-10-17-application-coordinator.md).
+Root pointer `/private/tmp/flycode-launch-stop-validation-root.txt` and global
+`/private/tmp/flycode-delivery-current.json` retain exact publication state.
+
+Next: expose authenticated attachment/status and historical Stop in the Tasks UI,
+then implement common canonical CLI and remaining execution/verification access.
+Do not claim aggregate Tasks5–8, neural admission or scientific §§90–99 complete.
+Historical benchmark transfer remains negative; no trained checkpoint is promoted.
+Sections below describe earlier immutable increments, not current missing features.
+
 ## Internal attachment endpoint — validated, 2026-10-17
 
 Parent core is PUBLIC `cf629609423130e5acbc5ba7fb4c972cb6e3aabd`; its closed
