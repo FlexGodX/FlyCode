@@ -80,36 +80,76 @@ def stopped(ref: ProcessRef):
         os.close(descriptor)
 
 
-def run(argv, sandbox, environment, stdout, stderr, output, timeout, should_stop, on_state, on_admit,
-        *, on_prepare=lambda ref: None, version='pytest-custody-v1'):
+class Launch:
+    """Owned guardian control; only finish() returns independently validated custody."""
+    def __init__(self, parent, descriptor, supervisor, ref, pid):
+        self.parent, self.descriptor, self.supervisor, self.ref = parent, descriptor, supervisor, ref
+        self.pid, self.receipt, self.cancelling = pid, None, False
+
+    def cancel(self):
+        if not self.cancelling and self.receipt is None:
+            try:
+                self.parent.sendall(b'S')
+            except OSError:
+                pass
+            self.cancelling = True
+
+    def finish(self):
+        if self.receipt is not None:
+            return self.receipt
+        self.parent.close()
+        try:
+            self.supervisor.wait(timeout=20)
+        finally:
+            if self.descriptor is not None:
+                os.close(self.descriptor)
+                self.descriptor = None
+        with stopped(self.ref) as receipt:
+            self.receipt = receipt
+            return receipt
+
+
+def launch(argv, sandbox, environment, stdout, stderr, output, timeout, should_stop, on_state, on_admit,
+           *, on_prepare=lambda ref: None, version='pytest-custody-v1', pass_fds=()):
     import fcntl
 
     descriptor = os.open(output / 'process.lock', os.O_CREAT | os.O_EXCL | os.O_RDWR | os.O_NOFOLLOW, 0o600)
-    parent, child = socket.socketpair()
+    parent = child = None
     supervisor = None
     admitted = False
     receipt = None
     try:
+        parent, child = socket.socketpair()
         fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
         request = {'argv': argv, 'sandbox': str(sandbox), 'environment': environment, 'timeout': timeout}
+        if pass_fds:
+            if version != 'worker-custody-v1' or len(pass_fds) != 2 or len(set(pass_fds)) != 2:
+                raise ValueError('Worker custody requires exactly two distinct socket descriptors')
+            request['pass_fds'] = {}
+            for fd in pass_fds:
+                info = os.fstat(fd)
+                if not stat.S_ISSOCK(info.st_mode):
+                    raise ValueError('Worker descriptor is not a socket')
+                request['pass_fds'][str(fd)] = [info.st_dev, info.st_ino, info.st_mode]
         info = os.fstat(descriptor)
         ref = ProcessRef(version=version, id=uuid4().hex, directory=str(output.resolve()), device=info.st_dev, inode=info.st_ino,
             request_hash=hashlib.sha256(json.dumps(request, sort_keys=True).encode()).hexdigest())
         receipt = ProcessReceipt(ref=ref)
         _write(receipt)
-        launch = output / 'process-launch.json'
-        launch.write_text(json.dumps({'request': request, 'ref': ref.model_dump(mode='json')}))
+        launch_path = output / 'process-launch.json'
+        launch_path.write_text(json.dumps({'request': request, 'ref': ref.model_dump(mode='json')}))
         on_prepare(ref)
         environment = {**environment, 'PYTHONPATH': str(Path(__file__).resolve().parents[2]), 'PYTHONNOUSERSITE': '1'}
-        supervisor = subprocess.Popen([sys.executable, '-m', 'flycode.verification.custody', str(launch),
+        supervisor = subprocess.Popen([sys.executable, '-m', 'flycode.verification.custody', str(launch_path),
             str(child.fileno()), str(descriptor), str(stdout.fileno()), str(stderr.fileno())],
             cwd=Path(__file__).parent, env=environment, start_new_session=True,
-            pass_fds=(child.fileno(), descriptor, stdout.fileno(), stderr.fileno()),
+            pass_fds=(child.fileno(), descriptor, stdout.fileno(), stderr.fileno(), *pass_fds),
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         child.close()
         parent.settimeout(5)
         if wire.receive(parent) != {'ready': ref.id}:
             raise ValueError('Unexpected process supervisor acknowledgement')
+        pid = None
         if should_stop():
             wire.send(parent, {'cancel': ref.id})
         else:
@@ -117,31 +157,44 @@ def run(argv, sandbox, environment, stdout, stderr, output, timeout, should_stop
             on_admit(ref)
             wire.send(parent, {'go': ref.id})
             admitted = True
-            if wire.receive(parent) != {'running': ref.id}:
+            message = wire.receive(parent)
+            if version == 'worker-custody-v1':
+                if (set(message) != {'running', 'pid'} or message['running'] != ref.id
+                        or type(message['pid']) is not int or message['pid'] <= 0):
+                    raise ValueError('Unexpected worker start acknowledgement')
+                pid = message['pid']
+            elif message != {'running': ref.id}:
                 raise ValueError('Unexpected process start acknowledgement')
             on_state('running')
-            stopping = False
-            while supervisor.poll() is None:
-                if should_stop() and not stopping:
-                    try:
-                        parent.sendall(b'S')
-                    except BrokenPipeError:
-                        break
-                    stopping = True
-                time.sleep(.05)
-    finally:
-        parent.close()
-        child.close()
+        return Launch(parent, descriptor, supervisor, ref, pid)
+    except BaseException:
+        if parent is not None:
+            parent.close()
         try:
             if supervisor is not None:
                 supervisor.wait(timeout=20)
             elif not admitted and receipt is not None:
                 _write(receipt.model_copy(update={'state': 'stopped', 'stop_confirmed': True, 'reason': 'never_started'}))
         finally:
-            # LOCK_UN would also unlock the supervisor's inherited description.
             os.close(descriptor)
-    with stopped(ref) as receipt:
-        return receipt
+        raise
+    finally:
+        if child is not None:
+            child.close()
+
+
+def run(argv, sandbox, environment, stdout, stderr, output, timeout, should_stop, on_state, on_admit,
+        *, on_prepare=lambda ref: None, version='pytest-custody-v1'):
+    owned = launch(argv, sandbox, environment, stdout, stderr, output, timeout, should_stop, on_state, on_admit,
+        on_prepare=on_prepare, version=version)
+    try:
+        while owned.supervisor.poll() is None:
+            if should_stop():
+                owned.cancel()
+            time.sleep(.05)
+    finally:
+        receipt = owned.finish()
+    return receipt
 
 
 def supervise(launch, channel, descriptor, stdout, stderr):
@@ -155,6 +208,7 @@ def supervise(launch, channel, descriptor, stdout, stderr):
         raise ValueError('Process launch changed')
     receipt = ProcessReceipt(ref=ref)
     process = None
+    forwarded = tuple(int(fd) for fd in request.get('pass_fds', {}))
     reason = 'coordinator_lost'
     try:
         wire.send(channel, {'ready': ref.id})
@@ -167,11 +221,19 @@ def supervise(launch, channel, descriptor, stdout, stderr):
         current = ProcessReceipt.model_validate_json((Path(ref.directory) / 'process.json').read_text())
         if current.ref != ref or current.state != 'admitted':
             raise ValueError('Durable process admission is missing')
+        for fd in forwarded:
+            info = os.fstat(fd)
+            if [info.st_dev, info.st_ino, info.st_mode] != request['pass_fds'][str(fd)]:
+                raise ValueError('Forwarded worker descriptor changed')
         process = subprocess.Popen(request['argv'], cwd=request['sandbox'], env=request['environment'],
-            stdout=stdout, stderr=stderr, stdin=subprocess.DEVNULL, start_new_session=True)
-        receipt = receipt.model_copy(update={'state': 'admitted', 'started': True})
+            stdout=stdout, stderr=stderr, stdin=subprocess.DEVNULL, start_new_session=True, pass_fds=forwarded)
+        for fd in forwarded:
+            os.close(fd)
+        forwarded = ()
+        receipt = receipt.model_copy(update={'state': 'admitted', 'started': True,
+            **({'pid': process.pid} if ref.version == 'worker-custody-v1' else {})})
         _write(receipt)
-        wire.send(channel, {'running': ref.id})
+        wire.send(channel, {'running': ref.id, **({'pid': process.pid} if ref.version == 'worker-custody-v1' else {})})
         started = time.monotonic()
         while process.poll() is None:
             if select.select([channel], [], [], .05)[0]:
@@ -202,6 +264,8 @@ def supervise(launch, channel, descriptor, stdout, stderr):
         except (OSError, subprocess.SubprocessError):
             receipt = receipt.model_copy(update={'state': 'uncertain', 'reason': 'cleanup'})
         _write(receipt)
+        for fd in forwarded:
+            os.close(fd)
         channel.close()
         os.close(descriptor)
 

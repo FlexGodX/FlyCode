@@ -149,6 +149,12 @@ authority over its replacement. Admitted private-copy work may keep spending;
 lost authority retains a reconciling integration/source claim for trusted repair,
 including refusing automatic rollback.
 
+Canonical workers now retain exact process custody before spawn. After a coordinator
+crash, stop is confirmed through the guardian and saved attempt binding; a PID
+alone never authorizes signals. Unknown HTTP/pytest outcomes retain spending and
+reservations, and damaged proof never triggers automatic release.
+[Checks and limits](docs/validation/2026-10-17-worker-custody.md).
+
 `AttemptCortex` binds the existing `run_agent` to the canonical attempt's objective,
 acceptance criteria and model budget. Admission pins the actual loaded LM Studio
 instance and its context capacity; configuration changes require another probe.

@@ -1210,6 +1210,9 @@ class Store:
             return AgentAttempt.model_validate(result)
         if attempt.fence != fence or task.current_attempt_id != attempt_id or attempt.state not in ACTIVE:
             raise StoreError('fence', 'Stop acknowledgement does not own the current attempt')
+        worker = self.db.execute('SELECT data FROM workers WHERE attempt_id=?', (attempt_id,)).fetchone()
+        if worker is not None and not WorkerRecord.model_validate_json(worker['data']).stop_confirmed:
+            raise StoreError('reconcile_required', 'Confirm exact worker custody before releasing its assignment')
         legacy_review = self.db.execute("""SELECT 1 FROM execution_lanes lane
             LEFT JOIN review_executions execution ON execution.id=lane.attempt_id
             LEFT JOIN reviews review ON review.attempt_id=lane.attempt_id

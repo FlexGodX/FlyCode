@@ -463,6 +463,7 @@ class WorkspaceRecord(QueueModel):
 
 class WorkerRecord(QueueModel):
     id: str
+    process: ProcessRef | None = None
     attempt_id: str
     fence: int = Field(ge=1)
     state: Literal['starting', 'running', 'exited', 'uncertain'] = 'starting'

@@ -2937,3 +2937,10 @@ README metadata/CLI10 и233 hashes проверены. Полный1017/wheel282
 reconciling/claim до trusted repair, в том числе блокирует автоматический rollback.
 Worker crash custody, host leadership, общий UI/CLI/API и Task7 остаются открыты.
 [Отчёт](validation/2026-10-17-registered-execution-authority.md).
+
+Канонический worker сохраняет точный ProcessRef до spawn и восстанавливает
+остановку через guardian/custody, сохраняя неизвестные HTTP/pytest расходы.
+Main176 и isolated176 проверок,15 wheel native, Ruff7/mypy52/CLI10 проходят;
+полный suite/graph/realLM на этом срезе не повторялись. Unique host и общая
+execution/verification проводка ещё открыты; Tasks5–8 не закрыты.
+[Отчёт](validation/2026-10-17-worker-custody.md).

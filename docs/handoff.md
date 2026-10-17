@@ -2,6 +2,30 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Worker custody — validated, 2026-10-17
+
+Current checked source def68ed993c08d1e9191bb5475c27431bd2b5e6026c3e2e92a743086c9175f11.
+Exact worker-custody-v1 ref is durable before spawn; guardian-owned child/FDs,
+read-only actual PID ProcessView, runtime reconcile and Store release guard are
+composed. Custody GO=fork; ready RPC after launch_ready admits agent work.
+Unknown HTTP/pytest effects remain held. Old missing refs/guardian crash/changed
+proof never upgrade from PID. Stop/reconcile does not need current source root.
+
+Isolated176 pass269.14s; main exact176 pass267.33s,232 frozen files unchanged,
+Ruff7/mypy52,15 extracted-wheel native cases, all145 Python/7static bytes, CLI10.
+No full/graph/real-model rerun; parent full evidence is not current-source proof.
+[Report](validation/2026-10-17-worker-custody.md). Main evidence root
+`/private/tmp/flycode-worker-main-validation-c62q948q`.
+
+Retain all3 feature REDs, FD leak RED, test lookup/wrapper/lifetime failures and
+rejected self-mutating seal manifest. v2 metadata independently verified.
+Old sections below are historical, including their then-isolated worker status.
+Tasks UI is separately isolated at `/private/tmp/flycode-tasks-ui-fk8jdfsm`;
+its browser draft/comment/pagination/409/staleHTTP/mobile/navigation and existing
+Desktop/projects/projectless cases pass. It is NOT yet merged into this source.
+Unique DB host, execution/verification API/CLI/UI, neural admission/matrix remain
+open; aggregate Tasks5–8 are not complete.
+
 ## Registered execution authority — validated, 2026-10-17
 
 Current checked source7f5438ea14ccc809e3d870eb127c2dc38f1461d00e864d199e8566674fda60a8

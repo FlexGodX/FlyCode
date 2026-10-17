@@ -24,8 +24,8 @@ from ..domain.orchestration import (
     WorkerRequest,
 )
 from ..llm.protocol import CortexContext
+from ..verification import custody
 from ..verification.evidence import atomic_json
-from ..verification.runner import _group_gone, _terminate
 from . import wire
 from .artifacts import Artifacts
 from .cortex import AttemptCortex
@@ -47,6 +47,52 @@ class Runtime:
         if row is None:
             raise StoreError('not_found', 'worker')
         return WorkerRecord.model_validate_json(row['data'])
+
+    def reconcile(self, scope, attempt_id):
+        store = self.store
+        store._role(scope, ('runtime',))
+        if store.db.in_transaction:
+            raise RuntimeError('Worker reconciliation cannot run in a SQLite transaction')
+        record = self.worker(scope, attempt_id)
+        if record.process is None:
+            raise StoreError('ownership_unknown')
+        workspace = self.workspaces._record(scope, attempt_id)
+        if workspace is None or record.process.directory != str(self.workspaces.root / workspace.id / 'custody'):
+            raise StoreError('ownership_unknown')
+        try:
+            with custody.stopped(record.process) as receipt:
+                with store.transaction():
+                    if self.worker(scope, attempt_id) != record:
+                        raise StoreError('revision')
+                    attempt = store._attempt(attempt_id)
+                    task, workflow = store.task(scope, attempt.task_id), store.workflow(scope, attempt.workflow_id)
+                    if attempt.stop_confirmed and attempt.state not in {'assigned', 'running', 'stopping', 'reconciling'}:
+                        return record
+                    if task.current_attempt_id != attempt_id or attempt.fence != record.fence:
+                        raise StoreError('fence')
+                    if attempt.state in {'assigned', 'running', 'stopping'}:
+                        store._reconcile(scope, workflow, attempt, 'worker_recovery')
+                    record = changed(record, state='exited', stop_confirmed=True, stopped_at=store.clock(),
+                        exit_code=receipt.exit_code)
+                    store.db.execute('UPDATE workers SET data=? WHERE id=?', (record.model_dump_json(), record.id))
+                for call in Tools(store).calls(scope, workflow.id):
+                    if call.attempt_id == attempt_id and call.status in {'running', 'uncertain'}:
+                        if call.tool != 'run_tests':
+                            Tools(store).finish(scope, call.id, status='failed', error_class='WorkerStopped')
+                        elif call.status == 'running':
+                            Tools(store).finish(scope, call.id, status='uncertain', error_class='WorkerStopped')
+                try:
+                    store.confirm_stopped(scope, attempt_id, record.fence,
+                        outcome='retry_wait' if task.paused or workflow.state == 'pausing' else 'failed',
+                        expenditure_confirmed=True)
+                except StoreError as error:
+                    if error.code not in {'resource_busy', 'uncertain'}:
+                        raise
+                return record
+        except (OSError, ValueError) as error:
+            if isinstance(error, StoreError):
+                raise
+            raise StoreError('process_unconfirmed') from error
 
     def launch(self, scope, attempt_id, fence, source: Path, *, brain='functional', seed=0, trust='trusted-local-process',
                message_recipients=(), expected_source_hash=None):
@@ -82,6 +128,27 @@ class Runtime:
         return WorkerHandle(self, scope, record, directory, config)
 
 
+class ActualWorkerProcessView:
+    """Read-only actual-worker diagnostics, not a Popen or guardian PID.
+
+    poll/returncode expose only a validated terminal custody receipt. stderr is
+    the coordinator-owned pipe, drained with the existing bounded diagnostics.
+    """
+    def __init__(self, owned, stderr):
+        self._owned, self.stderr = owned, stderr
+
+    @property
+    def pid(self):
+        return self._owned.pid
+
+    def poll(self):
+        return self._owned.receipt.exit_code if self._owned.receipt is not None else None
+
+    @property
+    def returncode(self):
+        return self.poll()
+
+
 class WorkerHandle:
     def __init__(self, runtime: Runtime, scope, record, directory, config):
         self.runtime, self.scope, self.record, self.directory = runtime, scope, record, directory
@@ -91,7 +158,7 @@ class WorkerHandle:
         self.message_recipients = frozenset(config.message_recipients)
         self.launch_ready, self.launch_failed = Event(), False
         channels: list[socket.socket] = []
-        child_rpc = child_control = None
+        child_rpc = child_control = stderr_read = stderr_write = None
         try:
             self.rpc, child_rpc = socket.socketpair()
             channels.extend((self.rpc, child_rpc))
@@ -102,11 +169,37 @@ class WorkerHandle:
             environment = {'PATH': os.environ.get('PATH', os.defpath), 'HOME': str(home), 'LANG': 'en_US.UTF-8',
                 'PYTHONPATH': str(Path(__file__).resolve().parents[2]), 'PYTHONNOUSERSITE': '1',
                 'OMP_NUM_THREADS': '1', 'OPENBLAS_NUM_THREADS': '1'}
-            self.process = subprocess.Popen([sys.executable, '-m', 'flycode.orchestration.worker',
-                str(child_rpc.fileno()), str(child_control.fileno())], cwd=directory, env=environment,
-                pass_fds=(child_rpc.fileno(), child_control.fileno()), start_new_session=True,
-                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-            self.record = changed(record, pid=self.process.pid)
+            reader, writer = os.pipe()
+            stderr_read, stderr_write = os.fdopen(reader, 'rb', buffering=0), os.fdopen(writer, 'wb', buffering=0)
+            output = directory / 'custody'
+            output.mkdir()
+
+            def prepare(ref):
+                store = runtime.store
+                with store.transaction():
+                    store._owned(scope, record.attempt_id, record.fence)
+                    current = runtime.worker(scope, record.attempt_id)
+                    if current.id != record.id or current.process not in (None, ref):
+                        raise StoreError('worker_process')
+                    self.record = changed(current, process=ref)
+                    store.db.execute('UPDATE workers SET data=? WHERE id=?', (self.record.model_dump_json(), record.id))
+
+            def admit(ref):
+                _, task, workflow = runtime.store._owned(scope, record.attempt_id, record.fence)
+                if task.paused or workflow.state != 'running' or runtime.store._counter('queue_paused'):
+                    raise StoreError('paused')
+                workspace = runtime.workspaces._record(scope, record.attempt_id)
+                registered_source(runtime.store, task.project_id, workspace.source_root)
+
+            with open(os.devnull, 'wb') as stdout:
+                self.custody = custody.launch([sys.executable, '-m', 'flycode.orchestration.worker',
+                    str(child_rpc.fileno()), str(child_control.fileno())], directory, environment, stdout, stderr_write,
+                    output, runtime.store._workflow(runtime.store._attempt(record.attempt_id).workflow_id).budget.wall_seconds,
+                    self.stopping.is_set, lambda state: None, admit, on_prepare=prepare,
+                    version='worker-custody-v1', pass_fds=(child_rpc.fileno(), child_control.fileno()))
+            self.guardian = self.custody.supervisor
+            self.process = ActualWorkerProcessView(self.custody, stderr_read)
+            self.record = changed(self.record, pid=self.process.pid)
             runtime.store.db.execute('UPDATE workers SET data=? WHERE id=?', (self.record.model_dump_json(), record.id))
             wire.send(self.rpc, config.model_dump(mode='json'))
             Thread(target=self._await_launch, args=(self._capture_stderr,), name='flycode-worker-stderr', daemon=True).start()
@@ -116,15 +209,18 @@ class WorkerHandle:
             self.launch_failed = True
             for channel in channels:
                 channel.close()
-            stopped = not hasattr(self, 'process')
-            if hasattr(self, 'process'):
-                try:
-                    _terminate(self.process)
-                    stopped = _group_gone(self.process.pid)
-                except (OSError, subprocess.SubprocessError):
-                    stopped = False
-                if self.process.stderr is not None:
-                    self.process.stderr.close()
+            stopped = self.record.process is None
+            try:
+                if hasattr(self, 'custody'):
+                    self.custody.cancel()
+                    self.custody.finish()
+                if self.record.process is not None:
+                    with custody.stopped(self.record.process):
+                        stopped = True
+            except (OSError, ValueError, subprocess.SubprocessError):
+                stopped = False
+            if stderr_read is not None:
+                stderr_read.close()
             self.record = changed(self.record, state='exited' if stopped else 'uncertain',
                 stop_confirmed=stopped, stopped_at=runtime.store.clock() if stopped else None,
                 exit_code=self.process.returncode if hasattr(self, 'process') else None, error=type(error).__name__)
@@ -137,6 +233,8 @@ class WorkerHandle:
                 runtime.store.confirm_stopped(scope, record.attempt_id, record.fence, outcome='failed', expenditure_confirmed=True)
             raise
         finally:
+            if stderr_write is not None:
+                stderr_write.close()
             for child_channel in (child_rpc, child_control):
                 if child_channel is not None:
                     child_channel.close()
@@ -296,10 +394,10 @@ class WorkerHandle:
                         attempt = connection._attempt(self.record.attempt_id)
                         if attempt.state in {'assigned', 'running'}:
                             connection._reconcile(self.scope, connection._workflow(attempt.workflow_id), attempt, 'runtime_stop')
-                if (self.stopping.is_set() or self.rpc_done.is_set() or self.process.poll() is not None) and not self.process_stopped.is_set():
-                    _terminate(self.process)
-                    if not _group_gone(self.process.pid):
-                        raise OSError('Owned worker group is not confirmed stopped')
+                if self.stopping.is_set() or self.error:
+                    self.custody.cancel()
+                if self.guardian.poll() is not None and not self.process_stopped.is_set():
+                    self.custody.finish()
                     self.process_stopped.set()
                     self.control.close()
                 if self.process_stopped.is_set() and self.rpc_done.is_set():
@@ -312,6 +410,13 @@ class WorkerHandle:
             if task.fence != attempt.fence or attempt.state != 'running' or workflow.state != 'running':
                 self.stopping.set()
             publish = self.result is not None and not self.stopping.is_set()
+            self.record = changed(self.record, state='exited', stopped_at=connection.clock(), stop_confirmed=True,
+                exit_code=self.process.returncode, result_hash=self.result, error=self.error)
+            with connection.transaction():
+                connection.db.execute('UPDATE workers SET data=? WHERE id=?', (self.record.model_dump_json(), self.record.id))
+                connection._event(self.scope, workflow, 'worker_stopped', task=task, attempt=attempt,
+                    worker_id=self.record.id, exit_code=self.process.returncode, result_hash=self.result,
+                    stderr=self.stderr_metadata)
             if not publish:
                 # Group absence settles only local file tools. Unknown pytest effects need host reconciliation.
                 for call in Tools(connection).calls(self.scope, workflow.id):
@@ -327,13 +432,6 @@ class WorkerHandle:
                     if error.code not in {'resource_busy', 'uncertain'}:
                         raise
                     self.error = error.code
-            self.record = changed(self.record, state='exited', stopped_at=connection.clock(), stop_confirmed=True,
-                exit_code=self.process.returncode, result_hash=self.result, error=self.error)
-            with connection.transaction():
-                connection.db.execute('UPDATE workers SET data=? WHERE id=?', (self.record.model_dump_json(), self.record.id))
-                connection._event(self.scope, workflow, 'worker_stopped', task=task, attempt=attempt,
-                    worker_id=self.record.id, exit_code=self.process.returncode, result_hash=self.result,
-                    stderr=self.stderr_metadata)
             if publish:
                 try:
                     Artifacts(connection, self.runtime.root).publish(self.scope, attempt.id, attempt.fence)
@@ -360,11 +458,11 @@ class WorkerHandle:
             self.control.close()
             if not self.process_stopped.is_set():
                 try:
-                    _terminate(self.process)
-                    if _group_gone(self.process.pid):
-                        self.process_stopped.set()
-                except (OSError, subprocess.SubprocessError):
-                    pass  # No ownership release occurs without confirmed group absence.
+                    self.custody.cancel()
+                    self.custody.finish()
+                    self.process_stopped.set()
+                except (OSError, ValueError, subprocess.SubprocessError):
+                    pass  # Missing/corrupt custody never authorizes a stop acknowledgement.
             try:
                 self.rpc.shutdown(socket.SHUT_RDWR)
             except OSError:
@@ -379,5 +477,5 @@ class WorkerHandle:
     def close(self):
         self.stopping.set()
         self.control.close()
-        if not self.process_stopped.wait(6):
-            _terminate(self.process)
+        self.custody.cancel()
+        self.process_stopped.wait(6)

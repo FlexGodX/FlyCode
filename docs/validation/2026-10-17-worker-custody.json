@@ -1,0 +1,52 @@
+{
+  "source": "def68ed993c08d1e9191bb5475c27431bd2b5e6026c3e2e92a743086c9175f11",
+  "base": "43c1624cdf6ebc72dc271ae86c9e4883a3a363d0",
+  "patch_sha256": "c5bde889822357123e5fcddfb4bc8e080e371ccee59ed2b71fa004945c28052b",
+  "delivery_manifest_sha256": "e91e2bf894aa285b8e3ddff525f2ce3656c3e25e20649b3310f9ec937d51f787",
+  "isolated_focused": {
+    "passed": 176,
+    "seconds": 269.14
+  },
+  "main_focused": {
+    "passed": 176,
+    "seconds": 267.33,
+    "same_exact_ids": true,
+    "frozen_file_count": 232,
+    "unchanged": true
+  },
+  "ruff_owned_files": 7,
+  "mypy_source_files": 52,
+  "publication_package": {
+    "full_suite_run": false,
+    "real_models_run": false,
+    "phases": [
+      {
+        "name": "build",
+        "returncode": 0,
+        "seconds": 1.5076704579987563
+      },
+      {
+        "name": "wheel-native",
+        "returncode": 0,
+        "seconds": 36.457986666006036
+      },
+      {
+        "name": "extracted-cli",
+        "returncode": 0,
+        "seconds": 0.14042458398034796
+      }
+    ],
+    "distribution_files": 152,
+    "wheel_sha256": "6d4842b85f7e9801eca726e3d0742ab6735af4a863871a82a901759854dd02c8",
+    "readme_metadata_matches": true,
+    "passed": true,
+    "wheel_tests": 15,
+    "cli_brains": 10
+  },
+  "full_suite_run": false,
+  "real_graph_run": false,
+  "real_models_run": false,
+  "evidence_root": "/private/tmp/flycode-worker-main-validation-c62q948q",
+  "archive": "~/.cache/flycode/validation/flycode-worker-custody-c62q948q",
+  "remaining": "Unique database host, execution/verification API/CLI/UI, neural admission and matrix; Tasks5-8 remain open. UI currently isolated; not included here."
+}

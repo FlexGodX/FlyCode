@@ -334,19 +334,19 @@ def test_worker_failure_retains_bounded_stderr_without_start_or_spend(owned, tmp
     from flycode.orchestration.store import Store
 
     store, owner, host, workflow, _, attempt, source = owned
-    popen = module.subprocess.Popen
+    launch = module.custody.launch
     marker = b'Traceback: injected startup failure\nInjectedWorkerFailure: diagnostic marker\n'
     # Fault injection keeps the real process, initial wire handshake and host custody.
     script = ('import os,socket,sys\nfrom flycode.orchestration import wire\n'
-        'wire.receive(socket.socket(fileno=int(sys.argv[1])))\n'
+        'rpc=socket.socket(fileno=int(sys.argv[1])); wire.receive(rpc)\n'
         f'data={marker!r}+b"x"*{output_size}\n'
         'while data:\n    data=data[os.write(2,data):]\n'
         'os._exit(1)\n')
     def failed_worker(argv, *args, **kwargs):
         if 'flycode.orchestration.worker' in argv:
             argv = [argv[0], '-c', script, *argv[-2:]]
-        return popen(argv, *args, **kwargs)
-    monkeypatch.setattr(module.subprocess, 'Popen', failed_worker)
+        return launch(argv, *args, **kwargs)
+    monkeypatch.setattr(module.custody, 'launch', failed_worker)
     runtime = module.Runtime(store, tmp_path / 'runtime')
     handle = runtime.launch(host, attempt.id, attempt.fence, source, brain='heuristic_fsm')
     try:
@@ -381,15 +381,15 @@ def test_stop_remains_responsive_while_worker_floods_stderr(owned, tmp_path, mon
     from flycode.orchestration import runtime as module
 
     store, owner, host, workflow, task, attempt, source = owned
-    popen = module.subprocess.Popen
+    launch = module.custody.launch
     script = ('import os,socket,sys,time\nfrom flycode.orchestration import wire\n'
-        'wire.receive(socket.socket(fileno=int(sys.argv[1])))\n'
+        'rpc=socket.socket(fileno=int(sys.argv[1])); wire.receive(rpc)\n'
         'while True:\n    os.write(2,b"diagnostic overflow\\n"*512)\n    time.sleep(.001)\n')
     def noisy_worker(argv, *args, **kwargs):
         if 'flycode.orchestration.worker' in argv:
             argv = [argv[0], '-c', script, *argv[-2:]]
-        return popen(argv, *args, **kwargs)
-    monkeypatch.setattr(module.subprocess, 'Popen', noisy_worker)
+        return launch(argv, *args, **kwargs)
+    monkeypatch.setattr(module.custody, 'launch', noisy_worker)
     runtime = module.Runtime(store, tmp_path / 'runtime')
     handle = runtime.launch(host, attempt.id, attempt.fence, source, brain='heuristic_fsm')
     try:

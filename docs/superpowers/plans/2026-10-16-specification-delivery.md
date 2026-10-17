@@ -29,6 +29,13 @@ focused and13 extracted-wheel cases pass, Ruff4/mypy52/CLI10 and byte audit pass
 parent full/native evidence is not relabelled as this source's full rerun.
 Worker custody and unique host leadership remain separate isolated work.
 
+Validated bounded follow-up: [canonical worker custody](2026-10-17-worker-custody.md).
+Durable pre-spawn ProcessRef, guardian FD forwarding and exact reconciliation
+pass main176/isolated176,15 wheel native cases, Ruff7/mypy52/CLI10. Unknown HTTP
+and pytest outcomes remain held; fork/ready admission are distinct. Unique host
+leadership and Tasks5–8 remain open; Tasks UI is still isolated.
+[Report](../../validation/2026-10-17-worker-custody.md).
+
 **Architecture:** Существующий одиночный runtime сохраняется как совместимый исполнитель. Новые задачи и попытки имеют единое транзакционное хранилище; tracker — его представление. Независимая проверка связывает verdict с фактическими байтами результата, а диспетчер резервирует ресурсы до вызова исполнителя.
 
 **Tech Stack:** Python >=3.10, Pydantic v2, SQLite, pytest, FastAPI, существующие HTML/CSS/JS, LM Studio.
