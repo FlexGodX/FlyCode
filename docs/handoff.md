@@ -1,5 +1,34 @@
 # FlyCode handoff brief
 
+## Prerequisite composition — validated,2026-10-18
+
+Task2 pins predecessor receipts at admission and composes their exact checked
+outputs into a private input snapshot, keeping original owner provenance. Final
+integration derives one original-to-combined delta, verifies combined/applied
+criteria and preserves dirty/untracked bytes. Sequential changes, branch joins,
+independent conflicts/resolution, registered imports and old proof hashes work.
+Owner inspection during partial apply retains pending authority without claiming
+pass. Reopened aggregate and completed-author roots require fresh checks and keep
+immutable historical conflict receipts scoped to the exact previous result.
+
+Initial30 and affected compatibility17 pass; overlapping correction deltas
+3/2/1/1/5/6, wheel6 and final scope-corrected wheel2 pass. Package171/UTF-8 README/CLI,279 unchanged final
+inputs, Ruff11/scoped mypy10 pass. Earlier feature/setup/static/build failures
+remain retained. [Report](validation/2026-10-18-dependent-composition.md),
+[plan](superpowers/plans/2026-10-18-dependent-execution.md).
+
+Precommit isolation caught unused controller operation names/schema numbers in
+earlier snapshots. The final package strips them, asserts the original contracts
+and rechecks two native cases; earlier counts are not a complete final rerun.
+
+Next Task3 is the preapproved version3 DAG route: automatically finish checked
+authors and materialize dependent stages through the same Store. Task4 durable
+child wait/retry/replan and Task5 common result views remain open. V1/v2 gain no
+implicit new authority. Parallel brain/CLI/MaleCNS files stay excluded; this slice
+ran feature tests, no full suite/live model/graph/UI/training. Overall goal and
+aggregate/research acceptance remain active. Earlier checkpoints below retain
+their original source boundaries.
+
 ## Checked task completions — validated,2026-10-18
 
 Schema22/`Completions.complete` adds independently verified task success before

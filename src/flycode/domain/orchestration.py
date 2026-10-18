@@ -21,6 +21,11 @@ class QueueModel(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True, allow_inf_nan=False)
 
 
+class CompletionInput(QueueModel):
+    id: str
+    sha256: str = Field(pattern=r'^[0-9a-f]{64}$')
+
+
 class AccessScope(QueueModel):
     """Issued by the local host; never accepted as authority from task text/JSON."""
 
@@ -252,6 +257,7 @@ class IntegrationBinding(QueueModel):
     review_ids: tuple[str, ...]
     review_records: dict[str, str]
     author_attempts: dict[str, str]
+    author_completions: dict[str, CompletionInput] = Field(default_factory=dict)
     contracts: dict[str, str]
     semantic_revisions: dict[str, int]
     approval_hashes: dict[str, str]
@@ -327,6 +333,7 @@ class AgentAttempt(QueueModel):
     profile_version: int
     profile_snapshot: AgentProfile
     execution_binding_id: str | None = None
+    prerequisites: dict[str, CompletionInput] = Field(default_factory=dict)
     instance_id: str
     fence: int
     state: AttemptState = 'assigned'
@@ -460,6 +467,8 @@ class WorkspaceRecord(QueueModel):
     snapshot: SubjectSnapshot
     checkout_revision: str
     created_at: float
+    input_snapshot: SubjectSnapshot | None = None
+    prerequisites: dict[str, CompletionInput] = Field(default_factory=dict)
 
 
 class WorkerRecord(QueueModel):

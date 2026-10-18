@@ -54,10 +54,10 @@ assert source.read_bytes() == original
 
 **Interfaces:** attempts pin exact prerequisite receipt IDs during admission; Workspaces.prepare derives private composite baseline from their immutable artifacts and stores an input snapshot, preserving the original source snapshot. Artifact changes are relative to that baseline and retain prerequisite receipt IDs. Final Integration accepts checked task completions with the legacy awaiting_review route.
 
-- [ ] RED real A:x0→x1 and B:x1→x2 on declared A→B: B's actual checkout sees x1; final source becomes x2 only after the final merged and applied checks. Missing/stale/foreign prerequisite never launches B.
-- [ ] Implement deterministic ancestry composition with exact before/after hashes and modes, scope checks and pinned lineage; verify saved private baseline identities after copy. Do not mutate user source or normalize input bytes.
-- [ ] Final integration derives one original→combined delta from validated topological lineage; independent conflicting writes still use the existing conflict route. Retain all task criteria and rerun outcomes on the combined and applied source.
-- [ ] Cover branching/join, overwritten prerequisite bytes, tampered ancestry, cycle/foreign base, a changed source, independent conflict, combined regression, cancellation/restart and preservation of dirty/untracked bytes. Run affected tests and commit the checked composition/integration.
+- [x] RED real A:x0→x1 and B:x1→x2 on declared A→B: B's actual checkout sees x1; final source becomes x2 only after the final merged and applied checks. Missing/stale/foreign prerequisite never launches B.
+- [x] Implement deterministic ancestry composition with exact before/after hashes and modes, scope checks and pinned lineage; verify saved private baseline identities after copy. Do not mutate user source or normalize input bytes.
+- [x] Final integration derives one original→combined delta from validated topological lineage; independent conflicting writes still use the existing conflict route. Retain all task criteria and rerun outcomes on the combined and applied source.
+- [x] Cover branching/join, overwritten prerequisite bytes, tampered ancestry, cycle/foreign base, a changed source, independent conflict, combined regression, cancellation/restart and preservation of dirty/untracked bytes. Run affected tests and commit the checked composition/integration.
 
 ### Task3: General approved dependency recipe
 
@@ -106,3 +106,19 @@ actual claimed B checkout remains x0. Its failure is retained and excluded from
 Task1 publication. Implement pinned composition next; do not treat eligibility
 alone as a working dependency route. General recipes, child waits, common views
 and aggregate/research acceptance remain open. Parallel brain edits stay separate.
+
+## Task2 checked checkpoint, 2026-10-18
+
+Pinned composite workspaces, original-to-final integration, conflict continuation,
+registered imports and both resolved-root reopen layouts are checked. Initial30,
+affected compatibility17 and overlapping correction deltas3/2/1/1/5/6 pass;
+extracted-wheel6 and final scope-corrected wheel2 pass. Package171/UTF-8 README/CLI, unchanged279 inputs,
+Ruff11 and scoped mypy10 pass. All failures and source boundaries are retained in
+[the report](../../validation/2026-10-18-dependent-composition.md).
+The final source filter excludes parallel controller operations/schema numbers;
+the earlier snapshots and corrected contract assertions remain retained.
+
+Next Task3: preapproved general dependency recipes must advance through completion
+receipts automatically, with no manual claims or owner commands between stages.
+Internal composition does not grant that authority to existing v1/v2 recipes.
+Task4 waits/retry/replan, Task5 common projections and aggregate acceptance stay open.

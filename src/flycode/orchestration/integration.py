@@ -14,6 +14,7 @@ from ..domain.verification import SubjectRef
 from ..verification.acceptance import input_identity
 from ..verification.custody import locked, stopped
 from ..verification.engine import VerificationEngine
+from ..verification.evidence import read_regular
 from ..verification.plan import PlanBuilder
 from ..verification.snapshot import capture
 from .application import Application
@@ -117,6 +118,8 @@ class Integration:
         return restored
 
     def _resolution_guard(self, scope, conflict, *, deep=False, context=None):
+        from .completions import Completions
+
         store = self.store
         if conflict.state != 'conflict' or conflict.runtime_root != str(self.root):
             raise StoreError('resolution_scope')
@@ -138,8 +141,20 @@ class Integration:
             awaiting = (not conflict.resolution_attempts and author.state == 'awaiting_review'
                 and task.current_attempt_id == author.id and task.fence == author.fence + 1)
             released = (author.state == 'interrupted' and task.current_attempt_id is None and task.fence == author.fence + 2)
-            if not author.stop_confirmed or not (awaiting or released):
+            completed = (task_id in conflict.author_completions and author.state == task.state == 'succeeded'
+                and task.current_attempt_id is None and task.fence == author.fence + 2)
+            reopened_root = (context is not None and context.previous_result_id is not None
+                and task_id == store.workflow(scope, conflict.workflow_id).root_task_id
+                and task.state in {'planned', 'ready'} and task.result_id is None)
+            retained = (context is not None and context.previous_result_id is not None
+                and task_id in conflict.author_completions and author.state == 'succeeded'
+                and ((task.state == 'blocked' and task.blocked_reason == 'result_invalidated'
+                    and task.result_id == context.previous_result_id) or reopened_root)
+                and task.current_attempt_id is None
+                and task.fence == author.fence + 2)
+            if not author.stop_confirmed or not (awaiting or released or completed or retained):
                 raise StoreError('fence')
+        Completions(store, self.root).require_bound(scope, conflict, coverage=False, context=context)
         integrator = store._attempt(conflict.attempt_id)
         task = store.task(scope, integrator.task_id)
         if (integrator.state != 'failed' or not integrator.stop_confirmed or task.current_attempt_id is not None
@@ -150,7 +165,10 @@ class Integration:
             for identity, approval in conflict.approval_hashes.items():
                 self.engine.oracles.resolve(approval, store.task(scope, identity).acceptance)
 
-    def _lineage_guard(self, scope, record, *, deep=False, context=None):
+    def _lineage_guard(self, scope, record, *, deep=False, context=None, coverage=True):
+        from .completions import Completions
+
+        Completions(self.store, self.root).require_bound(scope, record, deep=deep, coverage=coverage, context=context)
         context = record if context is None else context
         artifacts = [self.artifacts._record(scope, identity) for identity in record.artifact_hashes]
         for identity in record.resolved_conflicts:
@@ -161,7 +179,7 @@ class Integration:
                     or selected[0].base.subject_hash != conflict.source_before.subject_hash):
                 raise StoreError('resolution_scope')
             self._resolution_guard(scope, conflict, deep=deep, context=context)
-            self._lineage_guard(scope, conflict, deep=deep, context=context)
+            self._lineage_guard(scope, conflict, deep=deep, context=context, coverage=False)
 
     def begin_resolution(self, scope, attempt_id, fence, workspace):
         store = self.store
@@ -180,18 +198,20 @@ class Integration:
                 or not covers(task.permissions.write_scopes, conflict.conflict_paths)):
             raise StoreError('resolution_scope')
         self._resolution_guard(scope, conflict, deep=True)
-        self._lineage_guard(scope, conflict, deep=True)
+        self._lineage_guard(scope, conflict, deep=True, coverage=False)
         with store.transaction():
             attempt, task, workflow = store._owned(scope, attempt_id, fence)
             if task.paused or workflow.state != 'running' or store._counter('queue_paused'):
                 raise StoreError('paused')
             conflict = self.get(scope, conflict.id)
             self._resolution_guard(scope, conflict)
-            self._lineage_guard(scope, conflict)
+            self._lineage_guard(scope, conflict, coverage=False)
             if attempt.id in conflict.resolution_attempts:
                 return conflict
             for identity in conflict.author_attempts:
                 original = store.task(scope, identity)
+                if identity in conflict.author_completions:
+                    continue
                 original = store._stop(original, outcome='blocked')
                 store._save_task(changed(original, state='blocked', blocked_reason='resolution_pending',
                     revision=original.revision + 1, updated_at=store.clock()))
@@ -389,19 +409,35 @@ class Integration:
         sources = Sources(self.store)
         claim = sources.guard(record.source_claim_id, record.id)
         if (claim.owner_kind != 'integration' or claim.attempt_id != record.attempt_id
-                or claim.fence != record.fence or claim.root.path != record.source_root):
+                or claim.fence != record.fence or claim.root.path != record.source_root
+                or claim.coordinator_identity != record.coordinator_identity
+                or claim.coordinator_path != str(self.root / 'integrations' / record.id / 'coordinator.lock')):
             raise StoreError('source_owner')
         if not self.store.db.in_transaction:
             registered_source(self.store, self.store._workflow(record.workflow_id).project_id, record.source_root)
             if sources.prepare(Path(record.source_root)) != claim.root:
                 raise StoreError('source_changed')
 
-    def _guard(self, scope, record, *, deep=False):
-        if self.store.db.in_transaction:
+    def _guard(self, scope, record, *, deep=False, read_only=False):
+        if read_only:
+            from .host import HostRegistration, HostSession
+
+            row = self.store.db.execute('SELECT data FROM host_registry WHERE id=1').fetchone()
+            session = self.store.db.execute('SELECT data FROM host_sessions WHERE id=1').fetchone()
+            if row is not None:
+                registration = HostRegistration.model_validate_json(row['data'])
+                current = HostSession.model_validate_json(session['data']) if session else None
+                if (registration.database_path != str(self.store.path.absolute()) or current is None
+                        or current.registration_id != registration.id or current.phase != 'ready'):
+                    raise StoreError('host_fence')
+            elif self.store._host_expected:
+                raise StoreError('host_ownership_unknown')
+        elif self.store.db.in_transaction:
             self.store._host_sql()
         else:
             self.store._host_guard()
-        attempt, task, workflow = self.store._owned(scope, record.attempt_id, record.fence, running=True)
+        assignment = self.store._assignment if read_only else self.store._owned
+        attempt, task, workflow = assignment(scope, record.attempt_id, record.fence, running=True)
         if record.source_claim_id is not None:
             self._source_guard(record)
         if task.kind != 'review' or attempt.profile_snapshot.role != 'reviewer':
@@ -424,7 +460,10 @@ class Integration:
         for task_id, identity in record.author_attempts.items():
             original = self.store.task(scope, task_id)
             author = self.store._attempt(identity)
-            if record.previous_result_id is not None:
+            if task_id in record.author_completions and record.previous_result_id is None:
+                if original.current_attempt_id is not None or original.state != 'succeeded' or author.state != 'succeeded' or not author.stop_confirmed:
+                    raise StoreError('fence')
+            elif record.previous_result_id is not None:
                 if original.current_attempt_id is not None or author.state != 'succeeded' or not author.stop_confirmed:
                     raise StoreError('fence')
                 if original.state not in {'planned', 'ready', 'blocked', 'succeeded'}:
@@ -445,6 +484,13 @@ class Integration:
         workflow = self.store.workflow(scope, record.workflow_id)
         tasks = self._requirements(scope, record)
         results = {}
+        original, seen = record, set()
+        while original.previous_result_id is not None:
+            if original.id in seen or len(seen) >= 64:
+                raise StoreError('completion_changed')
+            seen.add(original.id)
+            original = self.get(scope, original.previous_result_id)
+        baseline = self.root / 'integrations' / original.id / 'baseline'
         if set(approvals) != tasks:
             raise StoreError('approval_scope')
         for task_id in sorted(tasks):
@@ -452,7 +498,8 @@ class Integration:
             task = self.store.task(scope, task_id)
             artifact = by_task.get(task_id, artifacts[0])
             merged = Path(record.source_root) if applied else directory / 'candidate'
-            roots = {'baseline': self.artifacts.directory / artifact.id / 'baseline',
+            roots = {'baseline': self.artifacts.directory / artifact.id / 'baseline' if task_id in by_task else
+                    baseline,
                 'target': self.artifacts.directory / artifact.id / 'target' if task_id in by_task else directory / 'candidate',
                 'regression': merged, 'integration': merged}
             ref = SubjectRef(project_id=task.project_id, workflow_id=workflow.id, task_id=task.id,
@@ -538,21 +585,24 @@ class Integration:
             raise StoreError('incomplete_workflow', 'An unselected root assignment cannot be completed as an aggregate')
         if set(approval_hashes) != set(author_attempts) | {workflow.root_task_id, task.id} | resolved_tasks:
             raise StoreError('approval_scope')
-        changes, conflicts = {}, set()
+        from .completions import Completions
+        from .composition import Compositions
+
+        if previous_result is None:
+            artifacts, changes, conflicts = Compositions(store, self.root).merge(scope, artifacts, before)
+        else:
+            changes, conflicts = (), ()
         for artifact in artifacts:
             for change in artifact.changes:
-                if change.path in changes and change != changes[change.path]:
-                    conflicts.add(change.path)
                 if root_task.permissions is None or not root_task.permissions.approved or not covers(root_task.permissions.write_scopes, (change.path,)):
                     raise StoreError('permission')
-                changes[change.path] = change
         record = IntegrationRecord(id=uuid4().hex, project_id=task.project_id, workflow_id=workflow.id,
             attempt_id=attempt_id, fence=fence, source_root=str(source), runtime_root=str(self.root), source_before=before,
             previous_result_id=previous_result_id,
             artifact_hashes=hashes, review_ids=tuple(review_ids), contracts={item.id: item.contract_hash for item in tasks},
             semantic_revisions={item.id: item.semantic_revision for item in tasks}, approval_hashes=approval_hashes, reruns=reruns,
-            author_attempts=author_attempts, changes=() if previous_result is not None or conflicts else tuple(changes[path] for path in sorted(changes)),
-            conflict_paths=tuple(sorted(conflicts)),
+            author_attempts=author_attempts, author_completions=Completions(store, self.root).bindings(scope, author_attempts, previous_result_id),
+            changes=changes, conflict_paths=conflicts,
             resolved_conflicts=tuple(item.id for item in resolved),
             created_at=store.clock())
         restoring = self._restorable_reviews(scope, record)
@@ -615,6 +665,12 @@ class Integration:
         source, before = Path(record.source_root), record.source_before
         approval_hashes, hashes = record.approval_hashes, record.artifact_hashes
         artifacts = [self.artifacts.get(scope, identity) for identity in hashes]
+        if record.previous_result_id is None:
+            from .composition import Compositions
+
+            artifacts, changes, conflicts = Compositions(store, self.root).merge(scope, artifacts, before)
+            if changes != record.changes or conflicts:
+                raise StoreError('artifact_lineage')
         sources = Sources(store)
         registered_source(store, workflow.project_id, source)
         root_ref = sources.prepare(source)
@@ -639,18 +695,18 @@ class Integration:
             if capture(source, directory / 'baseline').subject_hash != before.subject_hash:
                 raise StoreError('integration_conflict')
             shutil.copytree(directory / 'baseline', directory / 'candidate')
-            for artifact in artifacts if record.previous_result_id is None else ():
-                for change in artifact.changes:
-                    target = directory / 'candidate' / change.path
-                    if change.after is None:
-                        target.unlink()
-                    else:
-                        data = (self.artifacts.directory / artifact.id / 'target' / change.path).read_bytes()
-                        if hashlib.sha256(data).hexdigest() != change.after.sha256:
-                            raise StoreError('artifact_integrity')
-                        target.parent.mkdir(parents=True, exist_ok=True)
-                        target.write_bytes(data)
-                        target.chmod(change.after.mode)
+            providers = {change.path: artifact.id for artifact in artifacts for change in artifact.changes}
+            for change in record.changes:
+                target = directory / 'candidate' / change.path
+                if change.after is None:
+                    target.unlink()
+                else:
+                    data = read_regular(self.artifacts.directory / providers[change.path] / 'target' / change.path)
+                    if hashlib.sha256(data).hexdigest() != change.after.sha256:
+                        raise StoreError('artifact_integrity')
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(data)
+                    target.chmod(change.after.mode)
             candidate = capture(directory / 'candidate')
             record = self._save(scope, record, state='verifying', candidate=candidate)
             record = self._verify(scope, record, executor, approval_hashes, applied=False)
@@ -688,7 +744,7 @@ class Integration:
                         review_id=review.id, evidence_id=review.verdict.evidence_id)
                 for task_id, author_id in record.author_attempts.items():
                     original = store.task(scope, task_id)
-                    if record.previous_result_id is None:
+                    if record.previous_result_id is None and task_id not in record.author_completions:
                         _succeed(store, scope, store._attempt(author_id), original, workflow,
                             evidence_id=record.applied_verdicts[task_id].evidence_id)
                     else:

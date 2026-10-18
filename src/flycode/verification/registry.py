@@ -228,10 +228,10 @@ class VerificationRegistry:
             raise StoreError('verification_provenance_unavailable')
         saved = self.store._load('workspaces', origin.record_id, WorkspaceRecord)
         project, _, workspace, binding, ref = self._assignment_sql(scope, saved.attempt_id)
-        if (workspace.id != origin.record_id or digest(workspace.model_dump(mode='json')) != origin.record_hash
+        if (workspace.id != origin.record_id or digest(workspace.model_dump(mode='json', exclude={'input_snapshot', 'prerequisites'} - workspace.model_fields_set)) != origin.record_hash
                 or origin.source_subject_hash != workspace.snapshot.subject_hash or origin.source_base != workspace.snapshot.base):
             raise StoreError('verification_subject_scope')
-        return project, Path(binding.runtime_root) / 'workspaces' / workspace.id / 'baseline', workspace.snapshot, ref
+        return project, Path(binding.runtime_root) / 'workspaces' / workspace.id / 'baseline', workspace.input_snapshot or workspace.snapshot, ref
 
     def _artifact_sql(self, scope, origin):
         record = self.store._load('artifacts', origin.record_id, PatchArtifact)
@@ -239,7 +239,7 @@ class VerificationRegistry:
         owner = self.store.db.execute('SELECT attempt_id FROM artifacts WHERE id=?', (origin.record_id,)).fetchone()
         if (record.id != origin.record_id or record.patch_hash != origin.record_hash
                 or owner['attempt_id'] != record.attempt_id or hashlib.sha256(
-                    record.model_dump_json(exclude={'patch_hash'}).encode()).hexdigest() != record.patch_hash
+                    record.model_dump_json(exclude={'patch_hash'} | ({'prerequisites'} - record.model_fields_set)).encode()).hexdigest() != record.patch_hash
                 or record.project_id != project.id or record.workflow_id != ref.workflow_id
                 or record.task_id != ref.task_id or record.attempt_id != attempt.id or record.fence != attempt.fence
                 or record.contract_hash != attempt.contract_hash or record.semantic_revision != attempt.semantic_revision
@@ -268,7 +268,7 @@ class VerificationRegistry:
         attempt = self.store._attempt(author_id)
         if (record.runtime_root is None or not Path(record.runtime_root).is_absolute()
                 or record.candidate is None or record.state not in {'completed', 'failed', 'invalidated'}
-                or digest(record.model_dump(mode='json')) != origin.record_hash
+                or digest(record.model_dump(mode='json', exclude={'author_completions'} - record.model_fields_set)) != origin.record_hash
                 or workflow.project_id != project.id or task.project_id != project.id or task.workflow_id != workflow.id
                 or attempt.workflow_id != workflow.id
                 or integrator.workflow_id != workflow.id or owning_task.workflow_id != workflow.id
@@ -303,6 +303,16 @@ class VerificationRegistry:
         ref = SubjectRef(project_id=project.id, workflow_id=workflow.id, task_id=task.id, attempt_id=attempt.id)
         artifact = selected or first
         assert artifact is not None
+        if origin.stage == 'baseline' and selected is None:
+            original, seen = record, set()
+            while original.previous_result_id is not None:
+                if original.id in seen or len(seen) >= 64:
+                    raise StoreError('verification_subject_scope')
+                seen.add(original.id)
+                original = self.store._load('integrations', original.previous_result_id, IntegrationRecord)
+                if original.workflow_id != record.workflow_id or original.source_root != record.source_root:
+                    raise StoreError('verification_subject_scope')
+            return project, Path(record.runtime_root) / 'integrations' / original.id / 'baseline', original.source_before, ref
         if origin.stage == 'baseline' or (origin.stage == 'target' and selected is not None):
             stage = 'baseline' if origin.stage == 'baseline' else 'target'
             snapshot = artifact.baseline if stage == 'baseline' else artifact.target
@@ -335,7 +345,7 @@ class VerificationRegistry:
         self.store._role(scope, ('owner',))
         _, _, workspace, _, _ = self._assignment(scope, attempt_id)
         origin = SubjectOrigin(kind='workspace-baseline', record_id=workspace.id,
-            record_hash=digest(workspace.model_dump(mode='json')), source_subject_hash=workspace.snapshot.subject_hash,
+            record_hash=digest(workspace.model_dump(mode='json', exclude={'input_snapshot', 'prerequisites'} - workspace.model_fields_set)), source_subject_hash=workspace.snapshot.subject_hash,
             source_base=workspace.snapshot.base)
         project, source, provenance, ref = self._origin_input(scope, origin)
         return self._register_capture(scope, project, source, ref=ref, provenance=provenance, origin=origin)
@@ -358,7 +368,7 @@ class VerificationRegistry:
             raise StoreError('verification_subject_stages')
         record = self.store._load('integrations', integration_id, IntegrationRecord)
         origin = SubjectOrigin(kind='integration-stage', record_id=record.id, stage=stage,
-            record_hash=digest(record.model_dump(mode='json')), checked_task_id=task_id,
+            record_hash=digest(record.model_dump(mode='json', exclude={'author_completions'} - record.model_fields_set)), checked_task_id=task_id,
             source_subject_hash=record.source_before.subject_hash, source_base=record.source_before.base)
         project, source, provenance, ref = self._origin_input(scope, origin)
         return self._register_capture(scope, project, source, ref=ref, provenance=provenance, origin=origin)

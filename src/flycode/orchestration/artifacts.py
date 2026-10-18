@@ -155,7 +155,7 @@ class Artifacts:
                     raise ValueError('Artifact link is unsupported')
             raw = read_regular(directory / 'manifest.json')
             if hashlib.sha256(raw).hexdigest() != record.patch_hash or json.loads(raw) != record.model_dump(
-                    mode='json', exclude={'patch_hash'}):
+                    mode='json', exclude={'patch_hash'}, exclude_unset=True):
                 raise ValueError('Artifact manifest changed')
             if hashlib.sha256(read_regular(directory / 'run-result.json')).hexdigest() != record.result_hash:
                 raise ValueError('Worker result changed')
@@ -182,6 +182,10 @@ class Artifacts:
         attempt, task, workflow = store._owned(scope, attempt_id, fence, running=True)
         Inputs(store).require(scope, attempt_id, fence)
         workspace = self.workspaces.get(scope, attempt_id)
+        from .composition import Compositions
+
+        composition = Compositions(store, self.directory.parent)
+        evidence = composition.evidence(scope, attempt)
         worker_row = store.db.execute('SELECT data FROM workers WHERE attempt_id=?', (attempt_id,)).fetchone()
         worker = WorkerRecord.model_validate_json(worker_row['data']) if worker_row else None
         if worker is None or not worker.stop_confirmed or worker.error or not worker.result_hash or worker.fence != fence:
@@ -213,17 +217,20 @@ class Artifacts:
             record = PatchArtifact(id=identity, project_id=task.project_id, workflow_id=workflow.id, task_id=task.id,
                 attempt_id=attempt.id, fence=fence, semantic_revision=attempt.semantic_revision,
                 contract_hash=attempt.contract_hash, workspace_id=workspace.id, result_hash=worker.result_hash,
-                base=workspace.snapshot, baseline=baseline, target=target, changes=tuple(changes), created_at=store.clock(), patch_hash='')
+                base=workspace.snapshot, baseline=baseline, target=target, changes=tuple(changes), prerequisites=workspace.prerequisites,
+                created_at=store.clock(), patch_hash='')
             raw = record.model_dump_json(exclude={'patch_hash'})
             record = changed(record, patch_hash=hashlib.sha256(raw.encode()).hexdigest())
             atomic_json(directory / 'manifest.json', raw)
             (directory / 'run-result.json').write_bytes(result_bytes)
+            composition.stable(scope, attempt, evidence)
             store._host_guard()
             with store.transaction():
                 store._host_sql()
                 winner = store.db.execute('SELECT id FROM artifacts WHERE attempt_id=?', (attempt_id,)).fetchone()
                 if winner is None:
                     attempt, task, workflow = store._owned(scope, attempt_id, fence, running=True)
+                    composition.metadata(scope, attempt)
                     Inputs(store).require(scope, attempt_id, fence, deep=False)
                     current_worker = WorkerRecord.model_validate_json(store.db.execute(
                         'SELECT data FROM workers WHERE attempt_id=?', (attempt_id,)).fetchone()['data'])

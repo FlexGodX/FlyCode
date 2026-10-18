@@ -3,7 +3,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from ..domain.orchestration import IntegrationBinding
-from ..domain.results import ReviewRecord
+from ..domain.results import PatchArtifact, ReviewRecord
 from ..verification.snapshot import capture, digest
 from .integration import Integration
 from .review_bindings import ReviewBindings
@@ -11,7 +11,7 @@ from .store import ACTIVE, StoreError, required_task
 
 
 def record_hash(record):
-    return digest(record.model_dump(mode='json'))
+    return digest(record.model_dump(mode='json', exclude_unset=isinstance(record, PatchArtifact)))
 
 
 class IntegrationBindings:
@@ -27,6 +27,8 @@ class IntegrationBindings:
         return IntegrationBinding.model_validate_json(row['data'])
 
     def verify_metadata(self, scope, binding):
+        from .completions import Completions
+
         store = self.store
         task, workflow = store.task(scope, binding.task_id), store.workflow(scope, binding.workflow_id)
         if not binding.matches(task, workflow):
@@ -42,9 +44,12 @@ class IntegrationBindings:
         root = store.task(scope, workflow.root_task_id)
         if root.id not in binding.author_attempts and root.current_attempt_id is not None:
             raise StoreError('incomplete_workflow')
+        completed = Completions(store, self.root).require_bound(scope, binding)
         for task_id, identity in binding.author_attempts.items():
             original, author = store.task(scope, task_id), store._attempt(identity)
-            if binding.previous_result_id is None:
+            if task_id in completed and binding.previous_result_id is None:
+                valid = original.current_attempt_id is None and original.state == author.state == 'succeeded'
+            elif binding.previous_result_id is None:
                 valid = (original.current_attempt_id == identity and original.state == author.state == 'awaiting_review'
                     and original.fence == author.fence + 1)
             else:
@@ -81,6 +86,8 @@ class IntegrationBindings:
 
     def bind(self, scope, task_id, artifact_ids, review_ids, *, approval_hashes, expected_revision, key,
              expected_binding_id=None, reruns=0, previous_result_id=None):
+        from .completions import Completions
+
         store = self.store
         store._role(scope, ('owner',))
         store.task(scope, task_id)
@@ -130,6 +137,7 @@ class IntegrationBindings:
             contract_hash=task.contract_hash, runtime_root=str(self.root), source_root=str(source), source_hash=before.subject_hash,
             artifact_hashes=hashes, artifact_records={item.id: record_hash(item) for item in artifacts}, review_ids=tuple(review_ids),
             review_records={item.id: record_hash(item) for item in reviews}, author_attempts=author_attempts,
+            author_completions=Completions(store, self.root).bindings(scope, author_attempts, previous_result_id),
             contracts={item.id: item.contract_hash for item in tasks}, semantic_revisions={item.id: item.semantic_revision for item in tasks},
             approval_hashes=approval_hashes, previous_result_id=previous_result_id, resolved_conflicts=tuple(item.id for item in resolved),
             reruns=reruns, created_at=store.clock())

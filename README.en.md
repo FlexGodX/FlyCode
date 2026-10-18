@@ -116,13 +116,18 @@ oracle, permissions or budgets block the old authority. `Pipelines.approve_team`
 adds a versioned route for up to three independent writer/reviewer pairs and one
 joint integrator. Every pair pins exact starting bytes and authority; integration
 waits for all approved reviews and verifies the combined result. The original
-route remains supported. Arbitrary cross-writer dependencies, automatic
+route remains supported. An automatic route for arbitrary DAGs, automatic
 replanning and child waiting still require a separate protocol.
 The internal `Completions.complete` gate finishes one task after independent
 checks of its exact artifact, preserving owner source and the unfinished workflow.
 Schema22 stores its immutable receipt and prerequisite pins; changed criteria,
 evidence or cancellation revoke dependent ownership until confirmed stop.
-Composing dependent writer inputs and executing their general route remain open.
+Dependent assignments pin exact predecessor receipts; their private checkout
+composes those checked changes over the original files. Integration combines
+sequential changes and branches, verifies both combined and applied results, and
+preserves owner dirty/untracked files. Conflicts require a separate repair and
+review; reopening requires fresh checks. A general preapproved DAG and durable
+child waiting are not implemented yet.
 An explicit primary compatibility probe requests
 one structured candidate; ordinary generation keeps its existing count and limits.
 The model transport adapter acquires an endpoint slot and charges the request

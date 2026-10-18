@@ -1,0 +1,131 @@
+{
+  "status": "validated",
+  "aggregate_complete": false,
+  "parent_commit": "bc672a821a2f7a346ff6bc5be72d30c4f7212bac",
+  "scope": "Task2 immutable prerequisite composition, sequential integration and conflict/reopen compatibility; general DAG/waits/projections remain open",
+  "source_manifest_sha256": "62883f2b94dd1bdebd572476dae196688fc592dd7df28ce428c52d4a7db02a55",
+  "source_files_unchanged": 279,
+  "archive": {
+    "path": "~/.cache/flycode/validation/flycode-dependent-2ysyxdbu",
+    "files": 42609,
+    "bytes": 198152419,
+    "manifest_sha256": "ec718739282abe13e906f2c1e1070a353d9c1b41018790b633d376ee82d0a475"
+  },
+  "measurements": [
+    {
+      "name": "initial",
+      "passed": 11,
+      "seconds": 37.59,
+      "overlapping": true,
+      "log": "flycode-dependency-composition-green-2.log",
+      "source_boundary": "before_final_scope_filter_correction"
+    },
+    {
+      "name": "expanded",
+      "passed": 30,
+      "seconds": 277.22,
+      "overlapping": true,
+      "log": "flycode-dependent-acceptance.log",
+      "source_boundary": "before_final_scope_filter_correction"
+    },
+    {
+      "name": "compatibility",
+      "passed": 17,
+      "seconds": 72.27,
+      "overlapping": true,
+      "log": "flycode-dependent-compatibility.log",
+      "source_boundary": "before_final_scope_filter_correction"
+    },
+    {
+      "name": "transition",
+      "passed": 3,
+      "seconds": 55.82,
+      "overlapping": true,
+      "log": "flycode-dependent-transition-green.log",
+      "source_boundary": "before_final_scope_filter_correction"
+    },
+    {
+      "name": "source-identity",
+      "passed": 2,
+      "seconds": 7.99,
+      "overlapping": true,
+      "log": "flycode-dependent-source-identity-green.log",
+      "source_boundary": "before_final_scope_filter_correction"
+    },
+    {
+      "name": "resolution",
+      "passed": 1,
+      "seconds": 41.04,
+      "overlapping": true,
+      "log": "flycode-dependent-resolution-green.log",
+      "source_boundary": "before_final_scope_filter_correction"
+    },
+    {
+      "name": "legacy-resolution",
+      "passed": 1,
+      "seconds": 31.42,
+      "overlapping": true,
+      "log": "flycode-dependent-legacy-resolution-green.log",
+      "source_boundary": "before_final_scope_filter_correction"
+    },
+    {
+      "name": "historical-binding",
+      "passed": 5,
+      "seconds": 181.72,
+      "overlapping": true,
+      "log": "flycode-dependent-author-binding-green.log",
+      "source_boundary": "before_final_scope_filter_correction"
+    },
+    {
+      "name": "final-root-delta",
+      "passed": 6,
+      "seconds": 132.48,
+      "overlapping": true,
+      "log": "flycode-dependent-root-author-green.log",
+      "source_boundary": "before_final_scope_filter_correction"
+    },
+    {
+      "name": "wheel-before-scope-correction",
+      "passed": 6,
+      "seconds": 166.09,
+      "overlapping": true,
+      "log": "wheel-final.log",
+      "source_boundary": "before_final_scope_filter_correction"
+    },
+    {
+      "name": "final-filtered-wheel",
+      "passed": 2,
+      "seconds": 59.36,
+      "overlapping": true,
+      "log": "wheel-boundary.log",
+      "source_boundary": "final_filtered_package"
+    }
+  ],
+  "wheel": {
+    "sha256": "1087399868074d05c3d6165b9a708f535838f199e3645758f9adf6be931d6145",
+    "files_equal": 171,
+    "readme_utf8_equal": true
+  },
+  "static": {
+    "ruff_source_files": 10,
+    "ruff_test_files": 1,
+    "scoped_mypy_source_files": 10,
+    "earlier_follow_imports_errors": 22,
+    "earlier_unchanged_files_with_errors": 11
+  },
+  "full_suite": false,
+  "live_model": false,
+  "real_graph": false,
+  "browser": false,
+  "training": false,
+  "brain_changes": false,
+  "failed_feature_setup_and_build_logs_retained": true,
+  "independent_review": "concrete findings reproduced and corrected; final scoped read-only review found no remaining blocker",
+  "isolation_correction": {
+    "caught_by": "precommit staged diff audit",
+    "earlier_unused_controller_operation_names_and_schema_numbers_retained": true,
+    "foreign_implementation_excluded": true,
+    "final_original_worker_contract_assertions": true,
+    "final_foreign_schema_23_24_rejected": true
+  }
+}

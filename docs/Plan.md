@@ -3103,3 +3103,15 @@ Native40, migrations8, final24 overlapping correction cases и final wheel10
 Общий DAG/child-wait/replan/UI результатов и Tasks5–8 остаются открытыми.
 Параллельный мозг/CLI/MaleCNS не входят в поставку; full/live-model/graph не запускались.
 [Отчёт завершения задачи](validation/2026-10-18-task-completion.md).
+
+Срез2026-10-18, композиция зависимых задач (Task2): назначение закрепляет точные
+receipts предшественников, отдельная копия получает их проверенные изменения,
+интеграция проверяет один исходный→итоговый delta и все критерии до/после применения.
+Последовательные правки, ветки, конфликты/исправление, registered imports и оба
+варианта root reopen проверены. Initial30, compatibility17, пересекающиеся
+correction deltas3/2/1/1/5/6, wheel6 и final scope-corrected wheel2 проходят; package171/README/CLI,
+279 неизменных inputs, Ruff11/scoped mypy10 проверены. Все сбои сохранены.
+Общий заранее одобренный DAG, child-wait/retry/replan, общие result views,
+нейронный допуск и остальные Tasks5–8 не закрыты. Только feature tests;
+параллельный мозг/CLI/MaleCNS исключён из поставки.
+[Отчёт композиции](validation/2026-10-18-dependent-composition.md).

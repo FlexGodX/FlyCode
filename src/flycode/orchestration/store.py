@@ -708,8 +708,6 @@ class Store:
             raise StoreError('state', 'Only completed or stopped work can be reopened')
         if any(item.current_attempt_id for item in self.tasks(scope, workflow.id)):
             raise StoreError('ownership', 'Stop all assignments before reopening their result')
-        self._invalidate_task_completions(scope, task, 'owner_reopened')
-        task = self._task(task.id)
         record = self._load('integrations', task.result_id, IntegrationRecord) if task.result_id else next((
             IntegrationRecord.model_validate_json(row['data']) for row in self.db.execute(
                 "SELECT data FROM integrations WHERE workflow_id=? AND state IN ('completed','invalidated') ORDER BY rowid DESC",
@@ -732,6 +730,7 @@ class Store:
                     self._save_task(old)
                     self._event(scope, workflow, 'review_retired', task=old, integration_id=record.id)
             task, workflow = self._task(task.id), self._workflow(workflow.id)
+        self._invalidate_task_completions(scope, task, 'owner_reopened')
         self._invalidate_dependencies(scope, task, 'owner_reopened')
         task = self._task(task.id)
         if task.id != workflow.root_task_id:
@@ -1026,6 +1025,11 @@ class Store:
         by_id = {item.id: item for item in tasks}
         if any(by_id[identity].state != 'succeeded' or not required_task(by_id[identity]) for identity in task.dependencies):
             reasons.append('dependency')
+        elif task.dependencies:
+            try:
+                self._prerequisites(scope, task)
+            except StoreError as error:
+                reasons.append(error.code)
         active = [attempt for attempt in attempts if attempt.state in ACTIVE]
         limits = workflow.budget
         if limits is None or task.budget is None:
@@ -1140,7 +1144,7 @@ class Store:
             workflow_revision=workflow.revision, workflow_semantic_revision=workflow.semantic_revision,
             task_revision=task.revision, semantic_revision=task.semantic_revision, contract_hash=task.contract_hash,
             profile_id=profile.id, profile_version=profile.version, profile_snapshot=profile, instance_id=instance.id, execution_binding_id=binding_id,
-            fence=fence, initial_budget=reserve, reserved=reserve, verification=task.kind == 'review',
+            fence=fence, prerequisites=self._prerequisites(scope, task), initial_budget=reserve, reserved=reserve, verification=task.kind == 'review',
             created_at=self.clock(), lease_until=self.clock() + 30.)
         self._save_attempt(attempt)
         self.db.execute('INSERT INTO reservations VALUES (?,?,?,?,?,?,?)',
@@ -1152,6 +1156,30 @@ class Store:
         self._event(scope, workflow, 'attempt_assigned', task=task, attempt=attempt,
                     revision=task.revision, fence=fence, reservation=reserve.model_dump())
         return attempt
+
+    def _prerequisites(self, scope, task):
+        if not task.dependencies:
+            return {}
+        from ..domain.results import ReviewExecution, TaskCompletion
+        from .completions import Completions
+
+        roots = set()
+        for identity in task.dependencies:
+            dependency = self.task(scope, identity)
+            if dependency.kind == 'review':
+                row = self.db.execute("""SELECT e.data FROM review_executions e JOIN attempts a ON e.id=a.id
+                    WHERE a.task_id=? AND a.state='succeeded' AND json_extract(a.data,'$.fence')=?""",
+                    (identity, dependency.fence - 1)).fetchone()
+                if row is None:
+                    raise StoreError('completion_dependency')
+                roots.add(ReviewExecution.model_validate_json(row['data']).runtime_root)
+            else:
+                if dependency.completion_id is None:
+                    raise StoreError('completion_dependency')
+                roots.add(self._load('task_completions', dependency.completion_id, TaskCompletion).runtime_root.path)
+        if len(roots) != 1:
+            raise StoreError('completion_scope')
+        return Completions(self, roots.pop())._inputs(scope, task, {}, frozenset())
 
     def dispatch_bound(self, scope, *, runtime_root, binding_ids, key, blocked_reasons=()):
         self._role(scope, ('runtime',))
@@ -1248,6 +1276,10 @@ class Store:
 
     def _owned(self, scope, attempt_id, fence, *, running=False):
         self._role(scope, ('runtime',))
+        return self._assignment(scope, attempt_id, fence, running=running)
+
+    def _assignment(self, scope, attempt_id, fence, *, running=False):
+        """Read scoped assignment facts without granting execution authority."""
         attempt = self._attempt(attempt_id)
         task = self.task(scope, attempt.task_id)
         workflow = self._workflow(attempt.workflow_id)

@@ -5,12 +5,13 @@ import os
 import shutil
 import stat
 import subprocess
+from itertools import chain
 from pathlib import Path
 from uuid import uuid4
 
 from ..domain.orchestration import WorkspaceRecord
 from ..verification.evidence import atomic_json, read_regular
-from ..verification.snapshot import capture, input_files
+from ..verification.snapshot import MAX_FILES, capture, input_files
 from .store import Store, StoreError
 
 
@@ -37,6 +38,21 @@ def _checkout(root: Path) -> str:
     return revision
 
 
+def _input_pins(directory):
+    pins = {}
+    for name in ('baseline', 'original'):
+        root = directory / name
+        if name == 'original' and not root.exists():
+            continue
+        for number, path in enumerate(chain((root,), root.rglob('*'))):
+            info = path.lstat()
+            if number >= MAX_FILES * 8 or not (stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode)):
+                raise StoreError('workspace_integrity')
+            pins[str(path.relative_to(directory))] = (info.st_dev, info.st_ino, info.st_mode, info.st_nlink,
+                info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+    return pins
+
+
 class Workspaces:
     def __init__(self, store: Store, root: Path):
         self.store, self.root = store, Path(root).resolve()
@@ -52,23 +68,40 @@ class Workspaces:
         record = self._record(scope, attempt_id)
         if record is None:
             raise StoreError('not_found', 'workspace')
-        directory = self.root / record.id
+        return self._verify(scope, record, self.root / record.id)
+
+    def _verify(self, scope, record, directory):
+        attempt_id = record.attempt_id
         try:
+            pins = _input_pins(directory)
             baseline, repository = directory / 'baseline', directory / 'repository'
             manifest = directory / 'workspace.json'
             if (directory.is_symlink() or baseline.is_symlink() or repository.is_symlink() or manifest.is_symlink()
                     or not baseline.is_dir() or not repository.is_dir()):
                 raise ValueError('Invalid workspace directories')
-            expected = record.model_dump_json().encode()
+            expected = record.model_dump_json(exclude={'input_snapshot', 'prerequisites'} - record.model_fields_set).encode()
             if read_regular(manifest, limit=len(expected)) != expected:
                 raise ValueError('Workspace manifest changed')
             files, excluded = input_files(baseline)
             hashes = {name: hashlib.sha256(data).hexdigest() for name, data in files.items()}
             modes = {name: stat.S_IMODE((baseline / name).stat().st_mode) for name in files}
-            if excluded or hashes != record.snapshot.files or modes != record.snapshot.modes:
+            snapshot = record.input_snapshot or record.snapshot
+            if excluded or hashes != snapshot.files or modes != snapshot.modes:
                 raise ValueError('Workspace baseline changed')
+            if record.input_snapshot is not None:
+                original = directory / 'original'
+                if original.is_symlink() or not original.is_dir():
+                    raise ValueError('Workspace source changed')
+                files, excluded = input_files(original)
+                if (excluded or {name: hashlib.sha256(data).hexdigest() for name, data in files.items()} != record.snapshot.files
+                        or {name: stat.S_IMODE((original / name).stat().st_mode) for name in files} != record.snapshot.modes):
+                    raise ValueError('Workspace source changed')
+            if record.prerequisites != self.store._attempt(attempt_id).prerequisites:
+                raise ValueError('Workspace prerequisites changed')
             if _git(repository, 'rev-parse', 'HEAD') != record.checkout_revision:
                 raise ValueError('Workspace checkout revision changed')
+            if _input_pins(directory) != pins:
+                raise ValueError('Workspace inputs changed during inspection')
         except (OSError, ValueError, subprocess.SubprocessError) as error:
             raise StoreError('workspace_integrity', 'The registered baseline or checkout changed') from error
         return record
@@ -81,6 +114,10 @@ class Workspaces:
         if store.db.in_transaction:
             raise RuntimeError('Workspace preparation cannot run in a SQLite transaction')
         attempt, task, _ = store._owned(scope, attempt_id, fence)
+        if task.dependencies or attempt.prerequisites:
+            from .composition import Compositions
+
+            Compositions(store, self.root.parent).metadata(scope, attempt)
         source = Path(source).resolve(strict=True)
         if self.root.is_relative_to(source):
             raise StoreError('workspace_location', 'Workspace storage must be outside the project')
@@ -89,6 +126,8 @@ class Workspaces:
             if (previous.source_root != str(source) or previous.fence != fence
                     or (expected_source_hash is not None and previous.snapshot.subject_hash != expected_source_hash)):
                 raise StoreError('idempotency', 'Attempt already has a different workspace')
+            if task.dependencies or attempt.prerequisites:
+                Compositions(store, self.root.parent).evidence(scope, attempt)
             return self.get(scope, attempt_id)
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         identity = uuid4().hex
@@ -99,14 +138,34 @@ class Workspaces:
             if ((task.base_snapshot_hash is not None and task.base_snapshot_hash != snapshot.subject_hash)
                     or (expected_source_hash is not None and expected_source_hash != snapshot.subject_hash)):
                 raise StoreError('snapshot_changed', 'The approved input snapshot changed')
+            input_snapshot, evidence = None, None
+            if attempt.prerequisites:
+                from .composition import Compositions
+
+                input_snapshot, evidence = Compositions(store, self.root.parent).write(scope, attempt, source, snapshot,
+                    staging / 'baseline', staging / 'input')
+                (staging / 'baseline').rename(staging / 'original')
+                (staging / 'input').rename(staging / 'baseline')
             repository = staging / 'repository'
             shutil.copytree(staging / 'baseline', repository)
+            pins = _input_pins(staging)
+            info = staging.stat()
+            identity_pin = (info.st_dev, info.st_ino)
             record = WorkspaceRecord(id=identity, attempt_id=attempt_id, fence=fence, contract_hash=attempt.contract_hash,
-                source_root=str(source), snapshot=snapshot, checkout_revision=_checkout(repository), created_at=store.clock())
+                source_root=str(source), snapshot=snapshot, input_snapshot=input_snapshot, prerequisites=attempt.prerequisites,
+                checkout_revision=_checkout(repository), created_at=store.clock())
             atomic_json(staging / 'workspace.json', record.model_dump_json())
             staging.rename(directory)
+            self._verify(scope, record, directory)
+            if evidence is not None:
+                Compositions(store, self.root.parent).stable(scope, attempt, evidence)
+            info = directory.stat()
+            if (info.st_dev, info.st_ino) != identity_pin or _input_pins(directory) != pins:
+                raise StoreError('workspace_integrity')
             with store.transaction():
                 attempt, task, workflow = store._owned(scope, attempt_id, fence)
+                if attempt.prerequisites:
+                    Compositions(store, self.root.parent).metadata(scope, attempt)
                 winner = self._record(scope, attempt_id)
                 if winner is None:
                     store.db.execute('INSERT INTO workspaces VALUES (?,?,?)', (identity, attempt_id, record.model_dump_json()))

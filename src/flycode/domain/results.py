@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import Field, field_validator
 
-from .orchestration import ExecutionPermission, QueueModel
+from .orchestration import CompletionInput, ExecutionPermission, QueueModel
 from .source import SourceRoot
 from .verification import SubjectSnapshot, VerificationVerdict
 
@@ -59,6 +59,7 @@ class PatchArtifact(QueueModel):
     changes: tuple[FileChange, ...]
     patch_hash: str
     created_at: float
+    prerequisites: dict[str, CompletionInput] = Field(default_factory=dict)
 
 
 class ReviewRecord(QueueModel):
@@ -73,11 +74,6 @@ class ReviewRecord(QueueModel):
     status: Literal['approved', 'changes_requested', 'inconclusive']
     verdict: VerificationVerdict
     created_at: float
-
-
-class CompletionInput(QueueModel):
-    id: str
-    sha256: str = Field(pattern=r'^[0-9a-f]{64}$')
 
 
 class TaskCompletion(QueueModel):
@@ -141,6 +137,7 @@ class IntegrationRecord(QueueModel):
     approval_hashes: dict[str, str] = Field(default_factory=dict)
     reruns: int = Field(default=0, ge=0, le=2)
     author_attempts: dict[str, str]
+    author_completions: dict[str, CompletionInput] = Field(default_factory=dict)
     changes: tuple[FileChange, ...] = ()
     candidate: SubjectSnapshot | None = None
     state: Literal['preparing', 'verifying', 'applying', 'reconciling', 'completed', 'failed', 'conflict', 'invalidated'] = 'preparing'

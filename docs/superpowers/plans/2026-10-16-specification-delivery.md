@@ -4,6 +4,14 @@
 
 **Goal:** Реализовать изменения §§100–103 с проверяемыми результатами, общей очередью задач и явным отделением исследовательских допусков.
 
+Current dependency increment (2026-10-18): [Task2](2026-10-18-dependent-execution.md)
+pins exact completed predecessors, composes private inputs and verifies one final
+original-to-combined delta. Conflict continuation, registered imports and both
+resolved-root reopen layouts are checked. Initial30, compatibility17, correction
+deltas, wheel6 and final scope-corrected wheel2 pass; counts overlap. [Report](../../validation/2026-10-18-dependent-composition.md).
+General preapproved DAG execution, child wait/retry/replan and shared result views
+remain open; existing v1/v2 authority is unchanged. No full/live-model/graph rerun.
+
 Current independent-team increment (2026-10-18): [version2 recipes](2026-10-18-team-pipeline.md)
 execute multiple independent writer/reviewer pairs and one joint integrator from
 one inert owner approval, preserving v1. Final42 native v1/v2 and6 extracted-wheel
