@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
-from .orchestration import QueueModel
+from .orchestration import QueueModel, TaskState
 from .source import SourceRoot
 
 
@@ -30,3 +30,15 @@ class ProjectStopGrant(QueueModel):
     project_revision: int = Field(ge=1)
     granted_at: float
     capability: Literal['stop'] = 'stop'
+
+
+class TaskStopReceipt(QueueModel):
+    task_id: str = Field(pattern=r'^[0-9a-f]{32}$')
+    revision: int = Field(ge=1)
+    state: TaskState
+    paused: bool
+
+
+class TaskStopPage(QueueModel):
+    items: list[TaskStopReceipt] = Field(max_length=100)
+    next_cursor: int | None = Field(default=None, ge=1)

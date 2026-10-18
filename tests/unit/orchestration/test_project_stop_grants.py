@@ -1,5 +1,6 @@
 """Historical Stop authority proves a prior physical resolution, never new work."""
 
+import json
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
@@ -13,7 +14,7 @@ from flycode.domain.orchestration import (
     WorkflowDraft,
 )
 from flycode.orchestration.projects import Projects
-from flycode.orchestration.store import Store, StoreError
+from flycode.orchestration.store import Store, StoreError, changed
 
 
 def test_two_connections_issue_one_immutable_prior_resolution_grant(tmp_path):
@@ -113,3 +114,56 @@ def test_schema19_grant_failure_preserves_schema18_rows(tmp_path, monkeypatch):
             for table in tables} == before
     finally:
         reopened.close()
+
+
+@pytest.mark.parametrize('changes', [
+    {'actor_id': 'other'}, {'project_id': 'f' * 32}, {'capability': 'resume'}, {'version': 'unknown'},
+])
+def test_stop_discovery_and_command_fail_closed_on_invalid_grant(tmp_path, changes):
+    root = tmp_path / 'source'
+    root.mkdir()
+    store = Store(tmp_path / 'state.sqlite')
+    try:
+        project = Projects(store).register(root, actor_id='owner')
+        scope = AccessScope(actor_id='owner', project_ids={project.id}, role='owner')
+        workflow = store.create_workflow(scope, WorkflowDraft(project_id=project.id,
+            task=TaskDraft(title='Private history')), key='draft')
+        row = store.db.execute('SELECT data FROM project_grants').fetchone()
+        data = {**json.loads(row['data']), **changes}
+        with store.transaction():
+            store.db.execute('UPDATE project_grants SET data=?', (json.dumps(data),))
+        for operation in (lambda: Projects(store).stop_page('owner'),
+                lambda: Projects(store).stop_command('owner', workflow.root_task_id,
+                    TaskCommand(operation='cancel', expected_revision=1, idempotency_key='cancel'))):
+            with pytest.raises(StoreError, match='scope'):
+                operation()
+        assert store._task(workflow.root_task_id).state == 'planned'
+    finally:
+        store.close()
+
+
+@pytest.mark.parametrize(('state', 'archived', 'retired', 'attempt', 'visible'), [
+    ('planned', False, None, None, True), ('planned', True, None, None, False),
+    ('ready', False, 'historical-result', None, False), ('cancelled', False, None, None, False),
+    ('cancelled', True, 'historical-result', 'unsettled-attempt', True),
+])
+def test_stop_discovery_keeps_unsettled_attempts_even_on_terminal_history(tmp_path, state, archived, retired, attempt, visible):
+    root = tmp_path / 'source'
+    root.mkdir()
+    store = Store(tmp_path / 'state.sqlite')
+    try:
+        project = Projects(store).register(root, actor_id='owner')
+        scope = AccessScope(actor_id='owner', project_ids={project.id}, role='owner')
+        workflow = store.create_workflow(scope, WorkflowDraft(project_id=project.id,
+            task=TaskDraft(title='Recovery projection')), key='draft')
+        # Seed a validated recovery record; this does not claim a worker exists.
+        task = changed(store._task(workflow.root_task_id), state=state, archived=archived,
+            retired_by_result=retired, current_attempt_id=attempt)
+        with store.transaction():
+            store._save_task(task)
+        page = Projects(store).stop_page('owner')
+        assert [item.task_id for item in page.items] == ([task.id] if visible else [])
+        assert page.next_cursor is None
+        assert Projects(store).stop_page('stranger').items == []
+    finally:
+        store.close()

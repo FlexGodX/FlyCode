@@ -15,6 +15,7 @@
     </aside>
     <main class="tasks-main">
       <header class="tasks-header"><div><p class="eyebrow">РАБОЧЕЕ ПРОСТРАНСТВО</p><h1>Задачи</h1><p id="connection" role="status">Подключаемся…</p></div><button class="primary" id="newDraft" disabled>Новая задача</button></header>
+      <div class="coordinator-controls"><p id="coordinatorStatus" role="status">Проверяем службу задач…</p><button id="attachCoordinator" disabled>Подключить выполнение</button></div>
       <div class="task-views" role="group" aria-label="Представление"><button data-view="board" aria-pressed="true">Доска</button><button data-view="list" aria-pressed="false">Список</button><button data-view="agents" aria-pressed="false">Агенты</button></div>
       <form class="task-filters" id="filters" role="search">
         <label>Поиск<input id="query" aria-label="Поиск задач" type="search" maxlength="200" placeholder="Номер, название или описание" /></label>
@@ -24,6 +25,7 @@
         <label class="archive-filter"><input id="archivedFilter" type="checkbox" /> С архивом</label>
       </form>
       <p class="task-notice" id="notice" role="alert" hidden></p>
+      <section id="stopSection" aria-labelledby="stopTitle" hidden><h2 id="stopTitle">Остановка недоступных задач</h2><p>Доступ к папке утрачен. Сохранено только право приостановить или отменить задачу.</p><div id="stopHandles" aria-live="polite"></div></section>
       <div id="taskContent" aria-live="polite"></div>
     </main>
   </div>
@@ -41,7 +43,7 @@
   <dialog id="taskDetail" aria-labelledby="detailTitle">
     <header class="dialog-header"><h2 id="detailTitle"></h2><button type="button" data-close="taskDetail" aria-label="Закрыть карточку">×</button></header>
     <div id="detailBody"></div><p id="detailError" role="alert"></p>
-    <section><h3>История и комментарии</h3><div id="taskHistory"></div><button id="moreHistory" hidden>Следующие события</button></section>
+    <section id="historySection"><h3>История и комментарии</h3><div id="taskHistory"></div><button id="moreHistory" hidden>Следующие события</button></section>
     <form id="commentForm"><label>Комментарий<textarea id="commentText" maxlength="8000" rows="3" required></textarea></label><button type="submit">Добавить комментарий</button></form>
   </dialog>
 </body>

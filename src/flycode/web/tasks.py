@@ -22,6 +22,7 @@ from ..domain.orchestration import (
     WorkflowBudget,
     WorkflowDraft,
 )
+from ..domain.project import TaskStopPage, TaskStopReceipt
 from ..orchestration.attach import (
     AttachmentStatus,
     CoordinatorClient,
@@ -53,13 +54,6 @@ class TaskStop(QueueModel):
     operation: Literal['pause', 'cancel']
     expected_revision: int = Field(ge=1)
     idempotency_key: str = Field(min_length=1, max_length=200)
-
-
-class TaskStopReceipt(QueueModel):
-    task_id: str
-    revision: int
-    state: TaskState
-    paused: bool
 
 
 class TaskCreation(QueueModel):
@@ -128,6 +122,17 @@ def task_router(manager) -> APIRouter:
             raise HTTPException(409, {'code': error.code}) from error
         finally:
             coordinator_gate.release()
+
+    @router.get('/api/tasks/stops')
+    def stop_handles(after: Annotated[int, Query(ge=0, le=2**63 - 1)] = 0,
+                     limit: Annotated[int, Query(ge=1, le=100)] = 50) -> TaskStopPage:
+        store = Store(default_state_path())
+        try:
+            return Projects(store).stop_page(actor, after=after, limit=limit)
+        except StoreError as error:
+            raise HTTPException(403 if error.code == 'scope' else 409, {'code': error.code}) from error
+        finally:
+            store.close()
 
     @router.get('/api/tasks/projects')
     def projects() -> list[dict]:

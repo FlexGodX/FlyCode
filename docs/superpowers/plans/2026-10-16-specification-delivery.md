@@ -95,6 +95,22 @@ pytest effects remain held. UI buttons/CLI attachment, shared verification and
 neural orchestration remain open; Tasks5–8 and §§90–99 are not closed.
 [Application report](../../validation/2026-10-17-application-coordinator.md).
 
+
+
+Validated Tasks coordinator controls (2026-10-18): explicit connection/status,
+minimal durable Stop discovery after root loss and page/app restart, identical
+lost-reply pause/cancel replay, revision conflicts and private-content purge.
+Final1169 exact IDs/1161pass/8expectedskip/0fail/error,
+1114.357s;263 unchanged frozen files. Wheel165/
+159 exact package files/README,CLI10,FlyWire5,Ruff/mypy3 pass.
+Main6 native browser cases plus packaged attachment/Stop/Tasks, classic/Desktop,
+non-Git projects and projectless chats pass. Real English Qwen pipeline
+110.966s/3model/34tools and4 matched provider receipts preserve owner
+bytes and zero unknown/reserve. Stop response40.3–53.3ms;
+49 actual custody receipts and597 evidence hashes are checked.
+Canonical CLI/shared verification/neural admission remain open; Tasks5–8 and
+§§90–99 are not closed. [Report](../../validation/2026-10-18-coordinator-controls.md).
+
 **Architecture:** Существующий одиночный runtime сохраняется как совместимый исполнитель. Новые задачи и попытки имеют единое транзакционное хранилище; tracker — его представление. Независимая проверка связывает verdict с фактическими байтами результата, а диспетчер резервирует ресурсы до вызова исполнителя.
 
 **Tech Stack:** Python >=3.10, Pydantic v2, SQLite, pytest, FastAPI, существующие HTML/CSS/JS, LM Studio.

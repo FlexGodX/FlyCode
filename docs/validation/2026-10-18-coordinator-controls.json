@@ -1,0 +1,198 @@
+{
+  "scope": "Explicit Tasks service attachment and durable minimal Stop controls",
+  "goal_complete": false,
+  "parent": "1ce53b6e10ff4f3309aaaf3f1e311107f1b73c05",
+  "source_manifest": "149f3093064c260790bd1e92cf3aeb6504b6499a11840b42da5861cd373feca9",
+  "runtime_fingerprint": "3cb8cf880e96d2540152c722c4d1819e297bf1ec84f6ac4c90b281743d1fa687",
+  "frozen_files": 263,
+  "full": {
+    "implementation_sha256": "149f3093064c260790bd1e92cf3aeb6504b6499a11840b42da5861cd373feca9",
+    "groups": {
+      "non-orchestration": {
+        "returncode": 0,
+        "observed_wait_seconds": 338.7151043340273,
+        "pytest_seconds": 338.317
+      },
+      "orchestration-1": {
+        "returncode": 0,
+        "observed_wait_seconds": 991.9655099580123,
+        "pytest_seconds": 991.429
+      },
+      "orchestration-2": {
+        "returncode": 0,
+        "observed_wait_seconds": 991.9649981249822,
+        "pytest_seconds": 633.498
+      },
+      "web": {
+        "returncode": 0,
+        "observed_wait_seconds": 122.30630674998974,
+        "pytest_seconds": 118.497
+      }
+    },
+    "registered_cases": 1169,
+    "observed_cases": 1169,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 8,
+    "seconds": 1114.357198542013,
+    "frozen_files_unchanged": 263,
+    "passed": true
+  },
+  "package": {
+    "passed": true,
+    "wheel_sha256": "23ce7c43f8c0b8bd3d5039bdfeb403160a4317c0db08140003e7272056021c52",
+    "exact_distribution_files": 159,
+    "readme_matches": true,
+    "wheel_cases": 165,
+    "wheel_seconds": 293.69923220798955,
+    "cli": [
+      {
+        "arguments": [
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "brains"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "run",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "ui",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "verify",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "train",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "benchmark",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "connectome",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "shadow-analysis",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "validate-rollout",
+          "--help"
+        ],
+        "returncode": 0
+      }
+    ]
+  },
+  "graph": {
+    "passed": true,
+    "cases": 5
+  },
+  "static": {
+    "passed": true,
+    "checks": [
+      {
+        "args": [
+          ".venv/bin/ruff",
+          "check",
+          "src/flycode/domain/project.py",
+          "src/flycode/orchestration/projects.py",
+          "src/flycode/web/tasks.py",
+          "tests/unit/web/test_canonical_tasks_api.py",
+          "tests/unit/orchestration/test_project_stop_grants.py",
+          "tests/browser/coordinator_runner.py"
+        ],
+        "returncode": 0
+      },
+      {
+        "args": [
+          ".venv/bin/mypy",
+          "src/flycode/domain/project.py",
+          "src/flycode/orchestration/projects.py",
+          "src/flycode/web/tasks.py",
+          "--follow-imports=silent"
+        ],
+        "returncode": 0
+      },
+      {
+        "args": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "returncode": 0
+      }
+    ]
+  },
+  "browser": {
+    "passed": true,
+    "native_cases": 6,
+    "wheel_cases": 3,
+    "projectless_interfaces": 2,
+    "stop_seconds": [
+      0.040323958999999375,
+      0.04615366699999868,
+      0.05332941699999901,
+      0.04678529199999866
+    ],
+    "classic_desktop_projects": true
+  },
+  "real_model": {
+    "passed": true,
+    "english_request": "Set the answer variable in src/example.py to exactly 1. Preserve all tests, README and user files. Run the tests to verify your change.",
+    "seconds": 110.96567745899665,
+    "model_calls": 3,
+    "tool_calls": 34,
+    "provider_receipts": 4,
+    "preserved_owner_bytes": true,
+    "zero_unknown_reservations": true,
+    "failed_pre_repair_tests": 2
+  },
+  "live_audit": {
+    "passed": true,
+    "checks": 2506,
+    "stable_input_hashes": 946,
+    "exact_stopped_receipts": 49,
+    "verification_artifact_hashes": 597
+  },
+  "evidence_root": "/private/var/folders/5v/q_zc0kvj07z83z4p9k2pfsvh0000gn/T/flycode-coordinator-controls-validation-h53ikcg8",
+  "archive": "/Users/Administrator/.cache/flycode/validation/flycode-coordinator-controls-h53ikcg8",
+  "remaining": [
+    "Canonical CLI attachment and task commands",
+    "Common verification plans/start/cancel/rerun/artifacts API/CLI/UI",
+    "Remaining Tasks5–8 acceptance and neural orchestration admission",
+    "Scientific §§90–99 remain unproven; historical trained transfer negative"
+  ]
+}

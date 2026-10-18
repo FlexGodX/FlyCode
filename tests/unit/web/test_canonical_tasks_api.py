@@ -544,3 +544,65 @@ def test_prior_resolution_allows_only_stop_after_root_loss_and_restart(folders, 
             assert response.status_code == 403 and response.json() == {'detail': {'code': 'scope'}}
     assert (displaced / 'owner.txt').read_text() == root.name
     assert (root / 'replacement.txt').read_text() == 'Do not touch replacement'
+
+
+def test_stop_discovery_survives_root_loss_without_private_card_scope(folders, tmp_path):
+    root, _ = folders
+    with session(root, tmp_path / 'history-a') as first:
+        project = register(first)
+        card = draft(first, project, title='Private title is never Stop discovery data')
+    identity = card['task']['id']
+    with session(root, tmp_path / 'history-b') as prior, session(root, tmp_path / 'history-c') as stranger:
+        empty = stranger.get('/api/tasks/stops')
+        assert empty.status_code == 200, empty.text
+        assert empty.json() == {'items': [], 'next_cursor': None}
+        assert prior.get('/api/tasks/' + identity).status_code == 200
+    root.rename(tmp_path / 'original')
+    root.mkdir()
+    (root / 'replacement.txt').write_text('Untouched replacement')
+    store = Store(default_state_path())
+    tables = ('project_grants', 'commands', 'events', 'reservations', 'model_calls', 'tool_calls')
+    before = {name: [tuple(row) for row in store.db.execute('SELECT * FROM ' + name + ' ORDER BY rowid')]
+        for name in tables}
+    try:
+        with session(root, tmp_path / 'history-b') as restarted, session(root, tmp_path / 'history-c') as stranger:
+            assert restarted.get('/api/tasks/' + identity).status_code == 403
+            page = restarted.get('/api/tasks/stops')
+            assert page.status_code == 200, page.text
+            assert page.json() == {'items': [{'task_id': identity, 'revision': 1, 'state': 'planned', 'paused': False}],
+                'next_cursor': None}
+            assert 'Private title' not in page.text and str(root) not in page.text
+            assert stranger.get('/api/tasks/stops?actor_id=history-b&project_id=' + project).json() == {
+                'items': [], 'next_cursor': None}
+            assert restarted.get('/api/tasks/stops', headers={'X-FlyCode-Token': ''}).status_code == 403
+            assert restarted.get('/api/tasks/stops', headers={'Origin': 'https://foreign.example'}).status_code == 403
+        assert {name: [tuple(row) for row in store.db.execute('SELECT * FROM ' + name + ' ORDER BY rowid')]
+            for name in tables} == before
+    finally:
+        store.close()
+    assert (root / 'replacement.txt').read_text() == 'Untouched replacement'
+
+
+def test_stop_discovery_pages_only_granted_unfinished_canonical_tasks(folders, tmp_path):
+    root, foreign_root = folders
+    with session(root, tmp_path / 'history') as own, session(foreign_root, tmp_path / 'foreign-history') as foreign:
+        project, foreign_project = register(own), register(foreign)
+        first = draft(own, project, key='first')['task']
+        draft(foreign, foreign_project, key='foreign')
+        finished = draft(own, project, key='finished')['task']
+        last = draft(own, project, key='last')['task']
+        cancelled = own.post('/api/tasks/' + finished['id'] + '/stop', json={
+            'operation': 'cancel', 'expected_revision': 1, 'idempotency_key': 'finish'}).json()
+        assert cancelled['state'] == 'cancelled'
+        paused = own.post('/api/tasks/' + last['id'] + '/stop', json={
+            'operation': 'pause', 'expected_revision': 1, 'idempotency_key': 'pause'}).json()
+        page = own.get('/api/tasks/stops?limit=1')
+        assert page.status_code == 200, page.text
+        assert page.json()['items'] == [{'task_id': first['id'], 'revision': 1, 'state': 'planned', 'paused': False}]
+        cursor = page.json()['next_cursor']
+        assert isinstance(cursor, int) and cursor > 0
+        following = own.get('/api/tasks/stops?limit=1&after=' + str(cursor)).json()
+        assert following == {'items': [paused], 'next_cursor': None}
+        assert own.get('/api/tasks/stops?after=' + str(cursor) + '&limit=100').json() == following
+        for query in ('after=-1', 'after=9223372036854775808', 'limit=0', 'limit=101'):
+            assert own.get('/api/tasks/stops?' + query).status_code == 422

@@ -156,8 +156,9 @@ Requests require the local bootstrap's `X-FlyCode-Token`; the server derives sco
 from verified physical folders. Drafts do not call a model. Folder replacement
 denies the previous ID; historical textual IDs are never implicitly imported.
 The shared `/tasks` screen uses these APIs for drafts, comments and commands.
-Protected API launch/attachment to the shared host is implemented; interface
-attachment controls and the verification API remain open.
+The explicit “Подключить выполнение” button attaches to the shared host; a separate
+status reports task-service availability. Opening Tasks never starts the service
+or grants execution approval. The common verification API remains open.
 Internal `Host` binds one owner to the physical database through a kernel lock,
 an external path pin and a session generation. Damaged ownership metadata or an
 active older manual attempt blocks automatic adoption. Lost authority denies new
@@ -174,6 +175,11 @@ Schema19 retains limited Stop authority after successful folder resolution:
 `expected_revision` and `idempotency_key`. Missing/replaced folders still deny reads and resume, while this route can
 stop previously authorized work. Its receipt reports command state; process stop
 is confirmed separately and unknown effects retain their reservations.
+`GET /api/tasks/stops` returns only task ID, revision, state and paused status for
+previously granted Stop authority. The screen retains these controls after folder
+loss, page reload and application restart, while hiding content and resume.
+A lost reply retries the identical command; a revision conflict requires another
+explicit action.
 The process publishes a private local endpoint. An internal client checks physical
 database identity, session generation and an authenticated response to a fresh
 challenge. Client disconnect preserves the Host; slow requests have a bounded

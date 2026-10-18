@@ -9,6 +9,9 @@
 .tasks-header h1 {font-size:28px;letter-spacing:-.7px;margin:6px 0}.eyebrow {font-size:10px;letter-spacing:1.5px;color:var(--muted)}
 #connection {color:var(--muted);font-size:12px;min-height:16px}.tasks-ui button {border:1px solid var(--line);border-radius:7px;background:var(--white);padding:10px 14px;min-height:44px}
 .tasks-ui .primary {color:var(--white);background:var(--green);border-color:var(--green)}.tasks-ui button:hover {border-color:var(--green)}
+.coordinator-controls {display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}.coordinator-controls p {color:var(--muted);font-size:12px;margin:0}
+#stopSection {margin:20px 0;overflow-wrap:anywhere}#stopSection h2 {font-size:16px}#stopSection>p {color:var(--muted);font-size:12px;line-height:1.7}
+.stop-handle {border:1px solid var(--line);border-radius:9px;padding:16px;margin:10px 0;background:var(--white);min-width:0}.stop-handle h3 {margin:0;font-size:12px}.stop-handle p {font-size:12px;line-height:1.7}.stop-handle [role=alert] {color:var(--red)}
 .task-views {display:flex;gap:4px;border-bottom:1px solid var(--line);margin:25px 0 20px;padding-bottom:10px}
 .task-views button {border-color:transparent;background:transparent}.task-views button[aria-pressed=true] {background:var(--green-soft);color:var(--green-dark);font-weight:600}
 .task-filters {display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin-bottom:24px}.tasks-ui label {display:grid;gap:7px;font-size:12px;color:var(--muted)}

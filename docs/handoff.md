@@ -2,6 +2,33 @@
 
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
+## Tasks coordinator controls — validated,2026-10-18
+
+Source manifest `149f3093064c260790bd1e92cf3aeb6504b6499a11840b42da5861cd373feca9`, runtime
+`3cb8cf880e96d2540152c722c4d1819e297bf1ec84f6ac4c90b281743d1fa687`; parent PUBLIC `1ce53b6e10ff4f3309aaaf3f1e311107f1b73c05`.
+Full1169 exact IDs/1161pass/8expectedskip/0fail/error,
+1114.357s;263 frozen files unchanged. Wheel165,
+CLI10,159 exact package bytes/README,FlyWire5 and Ruff/mypy3 pass.
+Main6 native browser cases and packaged attach/Stop/Tasks pass; classic/Desktop,
+non-Git projects and projectless chats remain compatible. Actual Qwen English
+pipeline110.966s/3model/34tools,4 matching provider receipts,
+zero reserve/unknown and unchanged owner files. Failure costs are retained.
+
+The page checks service status without launching it. Explicit attach survives
+client exit. Minimal Stop discovery derives only prior-resolution authority;
+missing source never grants reads/resume. Same-body replay handles lost pause
+and cancel replies; conflict requires explicit new intent. Native review/integration
+pause/cancel confirm exact custody independently of receipt/HTTP latency.
+[Report](validation/2026-10-18-coordinator-controls.md),
+[plan](superpowers/plans/2026-10-18-coordinator-controls.md).
+Evidence pointer `/private/tmp/flycode-coordinator-controls-validation-root.txt`;
+publication state `/private/tmp/flycode-delivery-current.json`.
+
+Next: canonical CLI access and shared verification plans/start/cancel/rerun/artifacts,
+then remaining Task5–8/neural admission acceptance. Overall goal stays active;
+scientific §§90–99 remain unproven and trained benchmark transfer remains negative.
+Earlier sections below describe immutable historical increments.
+
 ## Application attachment / historical Stop — validated,2026-10-17
 
 Current source manifest `2125e78446b4576161b05cb6be5648e9258155e46f9f6dbf58ad835dc2de2987`, runtime

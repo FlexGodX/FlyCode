@@ -84,7 +84,7 @@ const path = require("node:path");
     await page.getByLabel('Фильтр состояния').selectOption('');
     await page.getByRole('button',{name:new RegExp(task.short_id)}).click();
     let collide=true;
-    await page.route('**/api/tasks/*/commands',async route=>{
+    await page.route('**/api/tasks/*/stop',async route=>{
       if(collide){
         collide=false;const body=route.request().postDataJSON();
         await request('/api/tasks/'+task.id+'/commands',{operation:'set_priority',expected_revision:body.expected_revision,idempotency_key:'external-priority',changes:{priority:1}});

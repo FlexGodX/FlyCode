@@ -2,8 +2,15 @@
 from pathlib import Path
 from uuid import uuid4
 
-from ..domain.orchestration import AccessScope, TaskCommand
-from ..domain.project import CanonicalProject, ProjectStopGrant
+from pydantic import ValidationError
+
+from ..domain.orchestration import AccessScope, TaskCommand, WorkItem
+from ..domain.project import (
+    CanonicalProject,
+    ProjectStopGrant,
+    TaskStopPage,
+    TaskStopReceipt,
+)
 from ..domain.source import SourceClaim
 from .sources import Sources, _overlap
 from .store import StoreError, changed
@@ -92,13 +99,40 @@ class Projects:
             (actor_id, task.project_id)).fetchone()
         if row is None:
             raise StoreError('scope')
-        grant = ProjectStopGrant.model_validate_json(row['data'])
-        if (grant.actor_id, grant.project_id) != (actor_id, task.project_id):
-            raise StoreError('scope')
+        self._check_stop_grant(actor_id, task.project_id, row['data'])
         # Grants and task project IDs are immutable. Store.command rechecks scope,
         # revision, replay and fencing atomically; no filesystem check spans it.
         scope = AccessScope(actor_id=actor_id, project_ids=frozenset({task.project_id}), role='owner')
         return self.store.command(scope, task_id, command)
+
+    def _check_stop_grant(self, actor_id, project_id, data):
+        try:
+            grant = ProjectStopGrant.model_validate_json(data)
+        except ValidationError as error:
+            raise StoreError('scope') from error
+        if (grant.actor_id, grant.project_id) != (actor_id, project_id):
+            raise StoreError('scope')
+
+    def stop_page(self, actor_id: str, *, after=0, limit=50) -> TaskStopPage:
+        """Operational Stop handles only; no fresh scope, content or result refresh."""
+        if not 0 <= after <= 2**63 - 1 or not 1 <= limit <= 100:
+            raise StoreError('cursor')
+        rows = self.store.db.execute('''SELECT t.rowid AS cursor,t.id,t.data,w.project_id,g.data AS grant_data
+            FROM tasks t JOIN workflows w ON w.id=t.workflow_id
+            JOIN project_grants g ON g.project_id=w.project_id
+            WHERE g.actor_id=? AND t.rowid>? AND (
+                json_extract(t.data,'$.current_attempt_id') IS NOT NULL OR (
+                    NOT json_extract(t.data,'$.archived') AND json_extract(t.data,'$.retired_by_result') IS NULL
+                    AND t.state NOT IN ('succeeded','failed','cancelled')))
+            ORDER BY t.rowid LIMIT ?''', (actor_id, after, limit + 1)).fetchall()
+        items = []
+        for row in rows[:limit]:
+            task = WorkItem.model_validate_json(row['data'])
+            if (task.id, task.project_id) != (row['id'], row['project_id']):
+                raise StoreError('scope')
+            self._check_stop_grant(actor_id, task.project_id, row['grant_data'])
+            items.append(TaskStopReceipt(task_id=task.id, revision=task.revision, state=task.state, paused=task.paused))
+        return TaskStopPage(items=items, next_cursor=rows[limit - 1]['cursor'] if len(rows) > limit else None)
 
     def _busy(self, project):
         db = self.store.db

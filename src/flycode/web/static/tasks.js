@@ -6,6 +6,7 @@
   const columns = {drafts:"Черновики",queue:"Очередь",in_progress:"В работе",review:"На проверке",done:"Готово",blocked:"Ожидание",failed:"Ошибки",cancelled:"Отменённые"};
   let token, projects=[], cards=[], agents=[], view="board", selected=null, detail=null;
   const pendingMutations=new Map();
+  const pendingStops=new Map(),stopMessages=new Map();let stopHandles=[],coordinatorTimer,coordinatorBusy=false;
   let detailRequest=0, historyRequest=0;
   let refreshing=false, refreshAgain=false, historyAfter=null, historyLimit=50, historyComplete=false, delivery=null, streamTimer, refreshTimer;
   function node(tag,text,className) {const value=document.createElement(tag);if(text!==undefined)value.textContent=text;if(className)value.className=className;return value;}
@@ -19,7 +20,7 @@
   }
   async function api(url,body) {
     const response=await fetch(url,{headers:{"X-FlyCode-Token":token,"Content-Type":"application/json"},...(body===undefined?{}:{method:"POST",body:JSON.stringify(body)})});
-    const data=await response.json();if(!response.ok)throw new Error(errorText(data,response.status));return data;
+    const data=await response.json();if(!response.ok){const error=new Error(errorText(data,response.status));error.code=data.detail?.code;error.status=response.status;error.revision=data.detail?.revision;throw error;}return data;
   }
   function mutationKey(slot,payload) {
     const serialized=JSON.stringify(payload),previous=pendingMutations.get(slot);
@@ -79,23 +80,87 @@
     }
     filter.value=previous;draft.value=[...draft.options].some(option=>option.value===draftPrevious)?draftPrevious:draft.options[0]?.value||"";
   }
+  async function coordinator(attach=false) {
+    if(coordinatorBusy)return;coordinatorBusy=true;clearTimeout(coordinatorTimer);$("#attachCoordinator").disabled=true;
+    try {
+      await api(attach?"/api/tasks/coordinator/attach":"/api/tasks/coordinator",attach?{}:undefined);
+      $("#coordinatorStatus").textContent="Служба задач подключена";$("#attachCoordinator").hidden=true;
+    } catch(error) {
+      $("#coordinatorStatus").textContent=attach?error.message:"Служба задач недоступна";$("#attachCoordinator").hidden=false;
+    } finally {coordinatorBusy=false;$("#attachCoordinator").disabled=false;coordinatorTimer=setTimeout(coordinator,5000);}
+  }
+  function stopTitle(id,operation) {
+    return pendingStops.get(id)?.body.operation===operation?(operation==="pause"?"Подтвердить паузу":"Подтвердить отмену"):(operation==="pause"?"Приостановить":"Отменить задачу");
+  }
+  function renderStops() {
+    const rows=new Map(stopHandles.map(item=>[item.task_id,item]));
+    for(const [id,pending] of pendingStops)if(!rows.has(id))rows.set(id,{task_id:id,revision:pending.body.expected_revision,state:"unknown",paused:false});
+    const content=$("#stopHandles");content.replaceChildren();
+    for(const item of rows.values()) {
+      if(cards.some(card=>card.task.id===item.task_id))continue;
+      const box=node("article",undefined,"stop-handle");box.dataset.stopId=item.task_id;
+      box.append(node("h3",`Задача ${item.task_id}`),node("p",`Версия ${item.revision} · ${item.state==="unknown"?"Состояние требует обновления":label(item.state)}${item.paused?" · Пауза":""}`));
+      const actions=node("div",undefined,"task-actions");
+      for(const operation of ["pause","cancel"]) {
+        if(operation==="pause"&&item.paused&&pendingStops.get(item.task_id)?.body.operation!=="pause")continue;
+        const button=node("button",stopTitle(item.task_id,operation));button.disabled=Boolean(pendingStops.get(item.task_id)?.busy);
+        button.onclick=()=>stopCommand(item.task_id,operation,item.revision);actions.append(button);
+      }
+      box.append(actions);const message=stopMessages.get(item.task_id);
+      if(message){const text=node("p",message.text);text.setAttribute("role",message.error?"alert":"status");box.append(text);}content.append(box);
+    }
+    $("#stopSection").hidden=!content.childElementCount;
+  }
+  function hidePrivateDetail() {
+    detail=null;detailRequest++;historyRequest++;$("#detailBody").replaceChildren();$("#taskHistory").replaceChildren();$("#commentText").value="";
+    $("#detailTitle").textContent="Задача недоступна";$("#historySection").hidden=true;$("#commentForm").hidden=true;$("#moreHistory").hidden=true;
+    $("#taskDetail").close();
+  }
+  async function stopCommand(id,operation,revision) {
+    const previous=pendingStops.get(id);if(previous?.busy)return;
+    const pending=previous?.body.operation===operation?previous:{body:{operation,expected_revision:revision,idempotency_key:crypto.randomUUID()}};
+    pending.busy=true;pendingStops.set(id,pending);stopMessages.delete(id);renderStops();
+    if(selected===id)for(const button of $("#detailBody").querySelectorAll("button"))button.disabled=true;
+    try {
+      await api(`/api/tasks/${id}/stop`,pending.body);pendingStops.delete(id);
+      stopMessages.set(id,{text:"Команда принята. Остановка подтверждается отдельно.",error:false});
+    } catch(error) {
+      if(error.code==="revision") {
+        pendingStops.delete(id);
+        const item=stopHandles.find(item=>item.task_id===id);if(item&&error.revision)item.revision=Math.max(item.revision,error.revision);
+      }
+      stopMessages.set(id,{text:error.message,error:true});
+    } finally {
+      pending.busy=false;
+      if(selected===id)$("#detailError").textContent=stopMessages.get(id)?.text||"";
+      await refresh();renderStops();
+    }
+  }
   async function refresh() {
     if(refreshing){refreshAgain=true;return;}refreshing=true;
     try {
       do {
         refreshAgain=false;
+        try {
+          const handles=[];let cursor=0;
+          do {const page=await api(`/api/tasks/stops?limit=100&after=${cursor}`);handles.push(...page.items);cursor=page.next_cursor;}while(cursor!==null);
+          stopHandles=handles;
+        } catch(error) {showError(error);}
         const items=[];let after=0;
         do {const page=await api(`/api/tasks?limit=100&archived=${$("#archivedFilter").checked}&after=${after}`);items.push(...page.items);after=page.next_cursor;}while(after!==null);
         const current=await api("/api/agents/activity");
-        projects=await api("/api/tasks/projects");cards=items;agents=current;projectOptions();render();
+        projects=await api("/api/tasks/projects");cards=items;agents=current;projectOptions();render();renderStops();
         if(selected&&$("#taskDetail").open)await loadDetail(selected);
       } while(refreshAgain);
-    } catch(error) {showError(error);$("#connection").textContent="Данные могут быть устаревшими";}
-    finally {refreshing=false;}
+    } catch(error) {if(error.code==="scope"){cards=[];agents=[];render();hidePrivateDetail();}showError(error);$("#connection").textContent="Данные могут быть устаревшими";}
+    finally {refreshing=false;renderStops();}
   }
   function scheduleRefresh() {clearTimeout(refreshTimer);refreshTimer=setTimeout(refresh,150);}
   async function loadDetail(id) {
-    const request=++detailRequest,card=await api(`/api/tasks/${id}`);if(request!==detailRequest||selected!==id||!$("#taskDetail").open)return;
+    const request=++detailRequest;let card;
+    try {card=await api(`/api/tasks/${id}`);}catch(error){if(request===detailRequest&&selected===id&&error.code==="scope")hidePrivateDetail();throw error;}
+    if(request!==detailRequest||selected!==id||!$("#taskDetail").open)return;
+    $("#historySection").hidden=false;$("#commentForm").hidden=false;
     detail=card;const task=card.task,body=$("#detailBody");$("#detailTitle").textContent=task.title;body.replaceChildren();
     const dl=node("dl");
     const values={"Номер":task.short_id,"Проект":projectName(task.project_id),"Состояние":label(task.state)+(task.paused?" · Пауза":""),"Приоритет":task.priority,"Версия":task.revision,"Описание":task.objective||"—","Критерии":task.acceptance?JSON.stringify(task.acceptance,null,2):"Нет критериев","Разрешение":task.permissions?.approved?"Выдано":"Не выдано","Бюджет":task.budget?`${task.budget.model_calls} моделей / ${task.budget.tool_calls} инструментов`:"Не задан","Блокировки":card.blockers.map(value=>reasons[value]||value).join(" · ")||"—","Результат":task.result_id||"Не опубликован"};
@@ -104,10 +169,15 @@
     const actions=node("div",undefined,"task-actions");
     const options=[];
     if(task.state==="planned")options.push(["enqueue","Поставить в очередь"]);
-    if(!["succeeded","failed","cancelled"].includes(task.state))options.push([task.paused?"resume":"pause",task.paused?"Продолжить":"Приостановить"],["cancel","Отменить задачу"]);
+    const pending=pendingStops.get(id);
+    if(!["succeeded","failed","cancelled"].includes(task.state)||pending) {
+      if(pending?.body.operation==="pause"||!task.paused)options.push(["pause",stopTitle(id,"pause")]);
+      else if(!pending)options.push(["resume","Продолжить"]);
+      options.push(["cancel",stopTitle(id,"cancel")]);
+    }
     if(["failed","retry_wait"].includes(task.state))options.push(["retry","Повторить"]);
     if(["succeeded","failed","cancelled"].includes(task.state))options.push(["reopen","Открыть заново"],["archive",task.archived?"Уже в архиве":"В архив"]);
-    for(const [operation,title] of options){const button=node("button",title);button.disabled=operation==="archive"&&task.archived;button.onclick=()=>command(operation);actions.append(button);}body.append(actions);
+    for(const [operation,title] of options){const button=node("button",title);button.disabled=Boolean(pending?.busy)||(operation==="archive"&&task.archived);button.onclick=()=>command(operation);actions.append(button);}body.append(actions);
     await loadHistory(id,false);
   }
   async function openTask(id) {
@@ -118,7 +188,7 @@
     const request=++historyRequest,limit=historyLimit+(more?50:0),followTail=historyComplete;
     let after=0, events=[];
     do {
-      const page=await api(`/api/tasks/${id}/events?limit=50&after=${after}`);
+      let page;try {page=await api(`/api/tasks/${id}/events?limit=50&after=${after}`);}catch(error){if(request===historyRequest&&selected===id&&error.code==="scope")hidePrivateDetail();throw error;}
       events.push(...page.items);after=page.next_cursor;
     } while(after!==null&&(followTail||events.length<limit));
     if(request!==historyRequest||selected!==id||!$("#taskDetail").open)return;
@@ -133,6 +203,7 @@
   }
   async function command(operation) {
     if(!detail)return;const id=selected,revision=detail.task.revision;$("#detailError").textContent="";
+    if(operation==="pause"||operation==="cancel")return stopCommand(id,operation,revision);
     const buttons=[...$("#detailBody").querySelectorAll("button")];buttons.forEach(button=>button.disabled=true);
     try {const body={operation,expected_revision:revision};await api(`/api/tasks/${id}/commands`,{...body,idempotency_key:mutationKey("command:"+id,body)});pendingMutations.delete("command:"+id);await refresh();}
     catch(error) {if(selected===id)showError(error,"#detailError");await refresh();}
@@ -181,6 +252,7 @@
     catch(error){showError(error,"#detailError");}finally{submit.disabled=false;}
   };
   $("#moreHistory").onclick=()=>loadHistory(selected,true).catch(error=>showError(error,"#detailError"));
-  window.addEventListener("pagehide",()=>{clearTimeout(streamTimer);clearTimeout(refreshTimer);});
-  (async()=>{try{token=(await(await fetch("/api/bootstrap")).json()).token;await refresh();$("#newDraft").disabled=false;listen();}catch(error){showError(error);$("#connection").textContent="Не удалось загрузить задачи";}})();
+  $("#attachCoordinator").onclick=()=>coordinator(true);
+  window.addEventListener("pagehide",()=>{clearTimeout(streamTimer);clearTimeout(refreshTimer);clearTimeout(coordinatorTimer);});
+  (async()=>{try{token=(await(await fetch("/api/bootstrap")).json()).token;coordinator();await refresh();$("#newDraft").disabled=false;listen();}catch(error){showError(error);$("#connection").textContent="Не удалось загрузить задачи";}})();
 })();
