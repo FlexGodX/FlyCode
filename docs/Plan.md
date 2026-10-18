@@ -3130,3 +3130,19 @@ UTF-8 README/CLI/Ruff4/scoped mypy3 и280 неизменных inputs прове
 потомков; каскад остановки уже работавших потомков здесь не реализован.
 Full/live-model/graph/UI/training не запускались; параллельный мозг исключён.
 [Отчёт ограниченного DAG](validation/2026-10-18-dependency-recipe.md).
+
+Срез2026-10-19, иерархия DAG (продолжение Task3): version3 поддерживает вложенные
+структурные группы в прежних пределах64 задач, глубины3 и8 детей. Реальный граф
+из13 задач:4 автора,3 группы,9 attempts; каждую группу закрывают только её
+собственные merged/applied verdicts, а не успех детей. Нулевой бюджет, отсутствие
+профиля и прошлых попыток не позволяют группе стать исполнителем.
+Expanded7pass/1fail363.11s сохраняет остановку недофинансированного тестового
+сценария; corrected positive1/124.64s, compatibility20/367.52s и extracted-wheel4/
+173.03s проходят. Whole8-case native rerun не заявляется. Расход успешного workflow:
+4 model/93 tools, без резервов и unknowns. Package171/UTF-8 README/CLI/Ruff7/scoped
+mypy6 и281 неизменный packaging input проверены; шесть runtime файлов совпадают
+между финальными границами. Все сбои и неполный первый static review сохранены.
+Task4 с отдельным resumable parent/child-wait/retry/replan, общие result views,
+нейронный допуск и оставшаяся aggregate/research приёмка открыты. Full/live-model/
+graph/UI/training не запускались; параллельный мозг/schema23–25 не включены.
+[Отчёт иерархии](validation/2026-10-19-dependency-hierarchy.md).

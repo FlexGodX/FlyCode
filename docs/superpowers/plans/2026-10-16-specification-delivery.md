@@ -4,6 +4,16 @@
 
 **Goal:** Реализовать изменения §§100–103 с проверяемыми результатами, общей очередью задач и явным отделением исследовательских допусков.
 
+Current hierarchy increment (2026-10-19): [version3 structural groups](2026-10-18-dependent-execution.md)
+extends the writer DAG under the shared64-task/depth3/children8 limits. Actual
+four-author/three-group/nine-attempt completion requires every group's own
+merged/applied checks. Native7pass/1fail retains an underfunded fixture boundary;
+corrected positive1, affected compatibility20 and extracted-wheel4 pass. Counts
+overlap; [report](../../validation/2026-10-19-dependency-hierarchy.md) records all
+source/test boundaries and the completion-coverage correction. Task4 durable
+parent wait/retry/replan, common result views and aggregate/research acceptance
+remain open. Parallel brain changes and full/live-model/graph/UI runs are excluded.
+
 Current bounded DAG increment (2026-10-18): [version3 recipes](2026-10-18-dependent-execution.md)
 automatically complete exact checked predecessors and bind dependent revisions
 from one owner approval, within the existing three-pair sibling layout. Real

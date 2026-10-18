@@ -1,5 +1,38 @@
 # FlyCode handoff brief
 
+## Nested dependency hierarchy — validated,2026-10-19
+
+Version3 now accepts nested structural aggregate groups under the shared64-task,
+depth3 and children8 limits. Four actual writers and their reviews advance from
+one owner approval; the13-task graph uses nine attempts. Each of three groups
+has its own exact merged/applied verification; child success alone cannot finish
+it. Groups have no profile, execution budget or prior attempt. General parent
+workers remain blocked until Task4 introduces distinct resumable authority.
+
+Expanded native7pass/1fail363.11s retained a45-tool test-budget failure; the
+corrected positive1 passes124.64s with the exact73-tool integration allowance.
+Total workflow spend4 model/93 tools, zero reservations/unknowns. Seven negative
+cases cover scope/metadata, ancestor pause/all claims and failed parent criteria.
+Compatibility20 pass367.52s; final extracted-wheel4 pass173.03s. Counts overlap;
+no whole8-case native rerun is claimed. Ruff7/scoped mypy6, package171/UTF-8
+README/CLI and281 unchanged packaging inputs pass. All six final runtime files
+match the native compatibility and package boundaries.
+[Report](validation/2026-10-19-dependency-hierarchy.md),
+[plan](superpowers/plans/2026-10-18-dependent-execution.md).
+
+The first static review missed completion coverage; a real incomplete_workflow
+RED led to the exact aggregate exception and a second scoped static review.
+Both scope and test-fixture/static failures remain retained. Current package
+excludes parallel brain/schema23–25/controller/CLI changes. No full suite, live
+model, graph, UI or training was run in this feature continuation.
+
+Next Task4: durable parent suspension/checkpoint, actual confirmed group stop
+and slot release, mandatory-child proof pins, a new fenced continuation, retained
+spending/deadline and bounded retry/replan. Do not turn a previously running
+parent into a structural group or use child success as its own proof. Task5
+common result views and overall/neural/research acceptance remain active.
+Earlier checkpoints retain their historical boundaries.
+
 ## Bounded dependency recipe — validated,2026-10-18
 
 Version3 `Pipelines.approve_dag` accepts acyclic writer dependencies within the

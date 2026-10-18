@@ -23,7 +23,15 @@ from .inputs import Inputs
 from .projects import Projects
 from .review import Reviews
 from .sources import Sources
-from .store import ACTIVE, Store, StoreError, changed, covers, required_task
+from .store import (
+    ACTIVE,
+    Store,
+    StoreError,
+    changed,
+    covers,
+    required_task,
+    structural_aggregate,
+)
 from .tools import Tools
 from .verification import CheckExecutor, _succeed, accepted
 
@@ -60,9 +68,16 @@ class Integration:
     def _requirements(self, scope, record):
         workflow = self.store.workflow(scope, record.workflow_id)
         tasks = set(record.author_attempts) | {workflow.root_task_id, self.store._attempt(record.attempt_id).task_id}
+        tasks.update(self.aggregate_tasks(scope, workflow.id, tasks))
         for identity in record.resolved_conflicts:
             tasks.update(self._requirements(scope, self.get(scope, identity)))
         return tasks
+
+    def aggregate_tasks(self, scope, workflow_id, excluded):
+        """Structural parents have no executable profile, budget or prior attempt."""
+        tasks = [item for item in self.store.tasks(scope, workflow_id) if required_task(item)]
+        attempts = self.store.attempts(scope, workflow_id)
+        return {item.id for item in tasks if item.id not in excluded and structural_aggregate(item, tasks, attempts)}
 
     def _lineage_basis(self, scope, record):
         """Prove each explicit root reopen without rewriting the original conflict."""
@@ -580,10 +595,11 @@ class Integration:
         resolved = self._resolution_inputs(scope, workflow.id, artifacts)
         resolved_tasks = set().union(*(self._requirements(scope, item) for item in resolved))
         tasks = [item for item in store.tasks(scope, workflow.id) if required_task(item)]
+        aggregates = self.aggregate_tasks(scope, workflow.id, {*author_attempts, workflow.root_task_id, task.id})
         root_task = store.task(scope, workflow.root_task_id)
         if root_task.id not in author_attempts and root_task.current_attempt_id is not None:
             raise StoreError('incomplete_workflow', 'An unselected root assignment cannot be completed as an aggregate')
-        if set(approval_hashes) != set(author_attempts) | {workflow.root_task_id, task.id} | resolved_tasks:
+        if set(approval_hashes) != set(author_attempts) | {workflow.root_task_id, task.id} | resolved_tasks | aggregates:
             raise StoreError('approval_scope')
         from .completions import Completions
         from .composition import Compositions
@@ -607,7 +623,7 @@ class Integration:
             created_at=store.clock())
         restoring = self._restorable_reviews(scope, record)
         if any(item.state != 'succeeded'
-                and item.id not in {*author_attempts, task.id, workflow.root_task_id, *resolved_tasks, *restoring} for item in tasks):
+                and item.id not in {*author_attempts, task.id, workflow.root_task_id, *resolved_tasks, *restoring, *aggregates} for item in tasks):
             raise StoreError('incomplete_workflow')
         self._guard(scope, record, deep=True)
         if conflicts:
@@ -752,6 +768,13 @@ class Integration:
                         store._event(scope, workflow, 'verified_task_revalidated', task=original,
                             integration_id=record.id, evidence_id=record.applied_verdicts[task_id].evidence_id)
                 _succeed(store, scope, attempt, task, workflow, evidence_id=record.applied_verdicts[task.id].evidence_id)
+                for identity in self.aggregate_tasks(scope, workflow.id,
+                        {*record.author_attempts, workflow.root_task_id, task.id}):
+                    original = store.task(scope, identity)
+                    store._save_task(changed(original, state='succeeded', revision=original.revision + 1,
+                        updated_at=store.clock()))
+                    store._event(scope, workflow, 'verified_aggregate_completed', task=original, integration_id=record.id,
+                        evidence_id=record.applied_verdicts[identity].evidence_id)
                 resolved_tasks = self._requirements(scope, record) if record.resolved_conflicts else set()
                 for identity in resolved_tasks - set(record.author_attempts) - {task.id}:
                     original = store.task(scope, identity)

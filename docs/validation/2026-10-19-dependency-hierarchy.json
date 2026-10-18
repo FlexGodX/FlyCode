@@ -1,0 +1,157 @@
+{
+  "status": "validated",
+  "scope": "Task3 version3 developer/reviewer DAG with nested structural aggregates under shared64-task/depth3/children8 limits; not durable resumable-parent waits",
+  "aggregate_complete": false,
+  "parent_commit": "4b8450b20875fc8f55d67ecb7d4297d141f2f1dd",
+  "source": {
+    "root": "/private/tmp/flycode-hierarchy-budget-green-8k7ueae1",
+    "base": "4b8450b20875fc8f55d67ecb7d4297d141f2f1dd",
+    "owned": [
+      "src/flycode/orchestration/completions.py",
+      "src/flycode/orchestration/store.py",
+      "src/flycode/domain/pipeline.py",
+      "src/flycode/orchestration/pipeline.py",
+      "src/flycode/orchestration/integration.py",
+      "src/flycode/orchestration/integration_bindings.py",
+      "tests/unit/orchestration/test_hierarchical_recipe.py"
+    ],
+    "sha256": {
+      "src/flycode/orchestration/completions.py": "eb9c2b3a217a8151fa237927c0e44d1a23f297aea7bfef9c4bb5ca9aa4b79967",
+      "src/flycode/orchestration/store.py": "d9a430cfea4e0c90dfcc9d0c05e67547e861c19761428f34f327503749c404d9",
+      "src/flycode/domain/pipeline.py": "05e540ad100944ec011db266497860690d16c962e557f09bd65c0fadcfe27918",
+      "src/flycode/orchestration/pipeline.py": "9051137ff61ef82a6952266c3ce3984a8ec3c07a4fb52cb5b90ebc4180e45484",
+      "src/flycode/orchestration/integration.py": "22942cf87f271451ff9847a8835f6ebed0e2540b71ae054c836e0e32c5abcdfc",
+      "src/flycode/orchestration/integration_bindings.py": "ef7a35245e2e8f7fd6111f228d0104a045c12c1f9e4228a65f9a587346dd5ef5",
+      "tests/unit/orchestration/test_hierarchical_recipe.py": "c555dbdd124b51794e155a7508414b2e5d5e9ab51ca4ebb94d2a4bcca7fd4f5d"
+    }
+  },
+  "packaging_inputs": {
+    "files": 281,
+    "unchanged": true,
+    "manifest_sha256": "f10bee94db27053a276ebdfa8606df294ad5029f12b0d98074a8ebb3ea9ef759",
+    "readme_updated_after_native": true,
+    "runtime_files_identical_across_final_native_and_package": 6
+  },
+  "archive": {
+    "path": "~/.cache/flycode/validation/flycode-hierarchy-eopkmsy3",
+    "files": 16506,
+    "bytes": 120809035,
+    "manifest_sha256": "729eadaf3fe7f2d19ad49904b638414e57b2bb94a00d95d3d57b950139abe912",
+    "skipped_special_or_links": 38
+  },
+  "measurements": [
+    {
+      "name": "initial-feature-red",
+      "failed": 1,
+      "seconds": 0.72,
+      "log": "flycode-hierarchy-red.log",
+      "boundary": "published three-pair limit"
+    },
+    {
+      "name": "initial-hierarchy-attempt",
+      "passed": 3,
+      "failed": 1,
+      "seconds": 74.88,
+      "log": "flycode-hierarchy-first-green.log",
+      "boundary": "before correct extra-file negative-control oracle and metadata/coverage corrections"
+    },
+    {
+      "name": "aggregate-metadata-red",
+      "failed": 2,
+      "seconds": 1.72,
+      "log": "flycode-hierarchy-metadata-red.log",
+      "boundary": "before zero-budget structural parent metadata correction"
+    },
+    {
+      "name": "metadata-corrected",
+      "passed": 5,
+      "failed": 1,
+      "seconds": 116.46,
+      "log": "flycode-hierarchy-corrected.log",
+      "boundary": "before completion author-coverage exception"
+    },
+    {
+      "name": "expanded",
+      "passed": 7,
+      "failed": 1,
+      "seconds": 363.11,
+      "log": "flycode-hierarchy-coverage-green.log",
+      "boundary": "final six runtime files, fixture integration budget45"
+    },
+    {
+      "name": "corrected-positive",
+      "passed": 1,
+      "seconds": 124.64,
+      "log": "flycode-hierarchy-budget-green.log",
+      "boundary": "final six runtime files and final fixture integration budget73"
+    },
+    {
+      "name": "affected-compatibility",
+      "passed": 20,
+      "seconds": 367.52,
+      "log": "flycode-hierarchy-compatibility.log",
+      "boundary": "final six runtime files"
+    },
+    {
+      "name": "extracted-wheel",
+      "passed": 4,
+      "seconds": 173.03,
+      "log": "flycode-hierarchy-delivery-20261019/wheel.log",
+      "boundary": "final package and fixture budget73"
+    }
+  ],
+  "counts_overlap": true,
+  "whole_native_eight_case_rerun": false,
+  "actual_success": {
+    "tasks": 13,
+    "writers": 4,
+    "structural_groups": 3,
+    "attempts": 9,
+    "requirements_checked_on_combined_and_applied": 9,
+    "model_calls": 4,
+    "tool_calls": 93,
+    "integrator_budget": 73,
+    "reservations": 0,
+    "unknown_spending": false,
+    "owner_dirty_preserved": true,
+    "current_completion_verified_before_owner_change": true,
+    "explicit_group_objective_change_invalidates_result": true
+  },
+  "wheel": {
+    "sha256": "08f98382d8f85e1d1a4bbc442c5ac3ca099f0e7730800ff86108bdf696e5a7b5",
+    "files_equal": 171,
+    "readme_utf8_equal": true
+  },
+  "static": {
+    "ruff_files": 7,
+    "scoped_mypy_source_files": 6,
+    "extracted_cli_help": true
+  },
+  "failure_diagnoses": [
+    "Initial version3 rejected fourth pair/nested groups before enqueue",
+    "A fixture reused parser negative-control oracle for fourth extra-file output; inconclusive review correctly blocked completion",
+    "Ready zero-budget group could not change metadata/contract; one structural predicate now shared by Store readiness and integration coverage",
+    "Completion author coverage treated non-executing groups as missing writers; exception now requires structural identity and exact approved contract/revision",
+    "Fixture kept45 integrator tools for nine requirements requiring73; actual reservation ledger spent45 then cancelled verification and rolled source back; final owner-approved test budget73 preserves shared120 cap",
+    "Early F821 out-of-scope aggregate variable/import formatting and unused test locals were corrected and static logs retained",
+    "A diagnostic SQL read initially looked for spent in saved attempt JSON; actual spending was read from reservations"
+  ],
+  "review": {
+    "initial_static_review_missed_completion_coverage": true,
+    "final_static_coverage_review": "No remaining findings reported after exact structural coverage correction; active/published executable parents and historical receipts retain ordinary guards",
+    "independent_tests_claimed": false
+  },
+  "remaining": [
+    "Task4 durable parent checkpoint/suspension, confirmed stop/slot release, child proof pins and new fenced resume",
+    "bounded retry/replan without spending/deadline reset",
+    "Task5 common result projections and remaining aggregate UI/CLI/API",
+    "separate neural orchestration admission, real matrix and research acceptance"
+  ],
+  "full_suite": false,
+  "live_model": false,
+  "real_graph": false,
+  "browser": false,
+  "training": false,
+  "brain_changes": false,
+  "foreign_schema_23_24_25_rejected_in_package": true
+}

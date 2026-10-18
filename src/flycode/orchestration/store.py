@@ -51,6 +51,13 @@ def required_task(task: WorkItem) -> bool:
     return task.retired_by_result is None
 
 
+def structural_aggregate(task, tasks, attempts):
+    return (task.kind == 'implementation' and not task.allowed_profile_ids and not task.input_artifacts
+        and not task.dependencies and task.budget is not None and task.budget.model_calls + task.budget.tool_calls == 0
+        and task.current_attempt_id is None and any(item.parent_id == task.id and required_task(item) for item in tasks)
+        and not any(item.task_id == task.id for item in attempts))
+
+
 def default_state_path() -> Path:
     return Path(os.environ.get('FLYCODE_STATE_DATABASE') or Path.home() / '.local/share/flycode/state.sqlite').expanduser().resolve()
 
@@ -678,9 +685,16 @@ class Store:
             return task
 
     def _ready(self, task, workflow):
+        aggregate = False
+        if task.budget is not None and task.budget.model_calls + task.budget.tool_calls == 0:
+            children = [self._task(row['id']) for row in self.db.execute(
+                'SELECT id FROM tasks WHERE workflow_id=? AND parent_id=?', (workflow.id, task.id))]
+            attempts = [self._attempt(row['id']) for row in self.db.execute(
+                'SELECT id FROM attempts WHERE task_id=?', (task.id,))]
+            aggregate = structural_aggregate(task, children, attempts)
         if (not task.objective.strip() or task.acceptance is None or task.permissions is None
                 or not task.permissions.approved or task.budget is None or workflow.budget is None
-                or not task.budget.model_calls + task.budget.tool_calls or not task.permissions.tools):
+                or (not task.budget.model_calls + task.budget.tool_calls and not aggregate) or not task.permissions.tools):
             raise StoreError('incomplete', 'Objective, criteria, approved permissions and budget are required')
         if (task.budget.model_calls > workflow.budget.max_model_calls
                 or task.budget.tool_calls > workflow.budget.max_tool_calls):

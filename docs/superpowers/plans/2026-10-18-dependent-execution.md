@@ -67,14 +67,32 @@ assert source.read_bytes() == original
 
 - [x] RED real subprocess A→B→join with no manual claims or owner commands between stages, truthful states and current final result; validate the whole DAG before enqueue. Checked within the existing three-pair sibling layout.
 - [x] Implement event-driven completion/materialization using task-completion and composition contracts. Pin future bindings/semantic revisions in receipts and atomically recheck dependencies and budget before claim.
-- [ ] Cover independent progress during a blocked branch, race/restart/lost reply, failed prerequisite, pause, late worker, changed criteria/source, max tasks/depth and exhausted budget. Commit after actual verified completion.
+- [x] Cover independent progress during a blocked branch, race/restart/lost reply, failed prerequisite, pause, late worker, changed criteria/source, max tasks/depth and exhausted budget. Commit after actual verified completion. The hierarchy extension adds four writers/three nested aggregates, exact parent checks and the inherited Store structural/fence boundaries.
 
 The version3 checkpoint covers independent progress, two-connection races,
 failed outbox/restart, failed prerequisites, branch/root pause, all canonical
 claim routes, changed source/criteria/evidence and exact cumulative budget.
-Existing Store graph-limit/expired-fence checks also pass. Arbitrary task
-hierarchies beyond the current three-pair sibling layout remain open; do not
-interpret this bounded checkpoint as completion of that broader acceptance.
+Existing Store graph-limit/expired-fence checks also pass. This paragraph records
+the initial three-pair checkpoint; the checked hierarchy continuation below
+extends version3 under those same limits. Resumable parent authority stays in Task4.
+
+### Task3 hierarchy continuation
+
+1. Add `test_hierarchical_recipe.py`: four approved writers across nested
+   aggregate groups (depth3), real A→B→join→fourth output, nine attempts and
+   independently checked group criteria. Confirm the existing three-pair gate
+   produces a real RED before changing source.
+2. Extend version3 only to the existing64-task/depth3/children8 limits. Infer
+   structural aggregate nodes from the exact approved graph; they have no
+   profiles, inputs or execution budget and never receive attempts. Validate
+   every node before enqueue; v1/v2 retain their sibling contracts.
+3. Include every aggregate's owner-approved oracle in the final combined and
+   applied checks. Only that gate may complete an aggregate. Exact graph,
+   criteria, source and evidence revisions still invalidate the result.
+4. Exercise missing aggregate approval, executable/leaf impostors, ancestor
+   pause, failed aggregate criterion and post-completion criteria changes.
+   Run feature/legacy compatibility, package checks and independent read-only
+   review before publishing this extension. Do not close durable child waits.
 
 ### Task4: Durable child wait and bounded retry/replan
 
@@ -144,3 +162,27 @@ This publishes the bounded working route, not full general hierarchy acceptance.
 Complete the remaining Task3 hierarchy scope, Task4 durable suspension/retry/
 replan and Task5 common result projections before closing this subplan. The
 aggregate goal and neural/research acceptance remain separate and active.
+
+## Task3 hierarchy checkpoint, 2026-10-19
+
+Version3 supports an acyclic developer/reviewer DAG with nested structural
+aggregates under the existing64-task/depth3/children8 limits. The actual13-task
+route has four authors, three groups, nine process attempts and nine separate
+merged/applied requirements. Groups have no execution budget/profile/attempt;
+only their own accepted criteria allow final completion. Prior attempts or
+assignments leave a parent subject to ordinary author coverage.
+
+Expanded native7pass/1fail363.11s retains a confirmed budget barrier in an
+underfunded test scenario; the corrected positive1 passes124.64s. Twenty affected
+compatibility cases pass367.52s; final extracted-wheel4 pass173.03s. This is no
+claim of a complete repeated8-case native run. All six runtime files match these
+final boundaries; test budget changed45→73, without changing the shared120 cap.
+The successful route spends4 model/93 tool calls with no reservations/unknowns.
+Ruff7/scoped mypy6, exact package171/UTF-8 README/CLI and281 packaging inputs pass.
+Full failures, source boundaries and review limitations are in the
+[report](../../validation/2026-10-19-dependency-hierarchy.md).
+
+Task3's structural hierarchy route is checked. Task4 must distinguish a real
+resumable parent from these non-executing groups and preserve a durable partial
+checkpoint across stopped process/slot release and new fenced assignment. Retry/
+replan, Task5 common views and aggregate/neural/research acceptance remain open.

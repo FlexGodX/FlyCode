@@ -22,7 +22,7 @@ from .artifacts import Artifacts
 from .integration import registered_source
 from .review import Reviews
 from .sources import Sources
-from .store import StoreError, changed, required_task
+from .store import StoreError, changed, required_task, structural_aggregate
 from .verification import _succeed, accepted
 
 
@@ -241,9 +241,15 @@ class Completions:
         """An integrator retains original-source proof while applying its checked delta."""
         covered, _ = self.lineage(scope, record)
         workflow = self.store.workflow(scope, record.workflow_id)
+        tasks = self.store.tasks(scope, workflow.id)
+        attempts = self.store.attempts(scope, workflow.id)
+        aggregates = {task.id for task in tasks if structural_aggregate(task, tasks, attempts)
+            and task.id in record.approval_hashes and record.contracts.get(task.id) == task.contract_hash
+            and record.semantic_revisions.get(task.id) == task.semantic_revision}
         if coverage and any(task.kind != 'review' and required_task(task) and task.id not in covered
+                and task.id not in aggregates
                 and (task.id != workflow.root_task_id or task.completion_id is not None)
-                for task in self.store.tasks(scope, workflow.id)):
+                for task in tasks):
             raise StoreError('incomplete_workflow')
         if record.previous_result_id is not None:
             return self._historical_bound(scope, record, deep=deep)

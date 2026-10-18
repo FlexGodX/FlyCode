@@ -116,12 +116,15 @@ oracle, permissions or budgets block the old authority. `Pipelines.approve_team`
 adds a versioned route for up to three independent writer/reviewer pairs and one
 joint integrator. Every pair pins exact starting bytes and authority; integration
 waits for all approved reviews and verifies the combined result. The original
-route remains supported. `Pipelines.approve_dag` (version3) permits acyclic
-dependencies among those three writers: after exact predecessor checks, the
+route remains supported. `Pipelines.approve_dag` (version3) permits an acyclic
+writer graph with nested structural groups under the shared64-task, depth3 and
+eight-children limits: after exact predecessor checks, the
 dispatcher records its completion and creates a corresponding new binding for
 the dependent task. One initial approval suffices; no manual assignments are
 needed between stages. Pausing a branch blocks new admissions of its descendants
 while independent branches can progress.
+Groups receive no process or execution budget; their own criteria are checked
+on both the combined and applied result before completion.
 The internal `Completions.complete` gate finishes one task after independent
 checks of its exact artifact, preserving owner source and the unfinished workflow.
 Schema22 stores its immutable receipt and prerequisite pins; changed criteria,
@@ -130,8 +133,8 @@ Dependent assignments pin exact predecessor receipts; their private checkout
 composes those checked changes over the original files. Integration combines
 sequential changes and branches, verifies both combined and applied results, and
 preserves owner dirty/untracked files. Conflicts require a separate repair and
-review; reopening requires fresh checks. Arbitrary hierarchies up to64 tasks,
-durable child waiting, automatic retry/replanning and common result views remain
+review; reopening requires fresh checks. Resuming a parent after its children,
+automatic retry/replanning and common result views remain
 unimplemented.
 An explicit primary compatibility probe requests
 one structured candidate; ordinary generation keeps its existing count and limits.

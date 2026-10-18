@@ -31,6 +31,7 @@ class Pipelines:
         self.store, self.root = store, Path(root).resolve()
         self.reviews = ReviewBindings(store, self.root)
         self.integration_bindings = IntegrationBindings(store, self.root)
+        self.integration = Integration(store, self.root)
 
     def get(self, scope, identity):
         row = self.store.db.execute('SELECT data FROM pipelines WHERE id=?', (identity,)).fetchone()
@@ -108,7 +109,8 @@ class Pipelines:
             store._event(scope, workflow, 'pipeline_approved', recipe_id=recipe.id)
             recipe = changed(recipe, approval_sequence=store.db.execute('SELECT MAX(sequence) FROM events').fetchone()[0])
             store.db.execute('INSERT INTO pipelines VALUES (?,?,?)', (recipe.id, workflow.id, recipe.model_dump_json()))
-            for identity in (workflow.root_task_id, *sorted(pairs)):
+            aggregates = set(tasks) - {workflow.root_task_id, integrator_id, *pairs, *pairs.values()}
+            for identity in (workflow.root_task_id, *sorted(aggregates), *sorted(pairs)):
                 task = tasks[identity]
                 if dependent and identity in pairs and task.dependencies:
                     continue
@@ -177,8 +179,9 @@ class Pipelines:
         workflow = store.workflow(scope, workflow_id)
         tasks = {item.id: item for item in store.tasks(scope, workflow_id)}
         ids = {workflow.root_task_id, integrator_id, *pairs, *pairs.values()}
-        if (not 1 <= len(pairs) <= 3 or len(ids) != 2 * len(pairs) + 2
-                or set(tasks) != ids or set(revisions) != ids or workflow.state != 'draft'):
+        aggregates = self.integration.aggregate_tasks(scope, workflow.id, ids) if dependent else set()
+        if (not 1 <= len(pairs) <= (31 if dependent else 3) or len(ids) != 2 * len(pairs) + 2
+                or set(tasks) != ids | aggregates or set(revisions) != set(tasks) or workflow.state != 'draft'):
             raise StoreError('pipeline_scope')
         if store.db.execute('SELECT 1 FROM pipelines WHERE workflow_id=?', (workflow_id,)).fetchone():
             raise StoreError('pipeline_exists')
@@ -189,10 +192,14 @@ class Pipelines:
             if (task.state != 'planned' or task.current_attempt_id is not None or task.paused or task.archived
                     or not required_task(task) or task.input_artifacts):
                 raise StoreError('pipeline_state')
+            if dependent:
+                store._validate_graph(scope, workflow, task)
             store._ready(task, workflow)
+            if identity in aggregates:
+                continue
             if identity == workflow.root_task_id:
                 continue
-            if task.parent_id != workflow.root_task_id or not task.allowed_profile_ids:
+            if task.parent_id not in {workflow.root_task_id, *aggregates} or not task.allowed_profile_ids:
                 raise StoreError('pipeline_scope')
             role = 'developer' if identity in pairs else 'reviewer'
             if task.kind != ('implementation' if identity in pairs else 'review'):
@@ -214,8 +221,6 @@ class Pipelines:
                     or tasks[reviewer_id].dependencies
                     or contract_hash(tasks[writer_id].acceptance) != contract_hash(tasks[reviewer_id].acceptance)):
                 raise StoreError('pipeline_scope')
-            if dependent:
-                store._validate_graph(scope, workflow, tasks[writer_id])
             row = store.db.execute('SELECT id FROM worker_bindings WHERE task_id=? AND current=1', (writer_id,)).fetchone()
             if row is None:
                 raise StoreError('binding_required')
@@ -241,14 +246,20 @@ class Pipelines:
         if recipe.version != 3:
             return False
         branches = Pipelines._branches(recipe)
+        def paused_ancestor(identity):
+            while identity is not None:
+                if tasks[identity].paused:
+                    return True
+                identity = tasks[identity].parent_id
+            return False
         blocked = {branch.writer_id for branch in branches
-            if tasks[branch.writer_id].paused or tasks[branch.reviewer_id].paused}
+            if paused_ancestor(branch.writer_id) or paused_ancestor(branch.reviewer_id)}
         while True:
             following = {branch.writer_id for branch in branches if set(tasks[branch.writer_id].dependencies) & blocked}
             if following <= blocked:
                 break
             blocked |= following
-        return ((identity == recipe.integrator_id and bool(blocked))
+        return (paused_ancestor(identity) or (identity == recipe.integrator_id and bool(blocked))
             or any(branch.writer_id in blocked and identity in {branch.writer_id, branch.reviewer_id} for branch in branches))
 
     def _guard(self, scope, recipe):
@@ -481,6 +492,8 @@ class Pipelines:
                         raise StoreError('review_changed')
                     reviews.append(integrated.reviews.get(scope, row[0]['id']))
                 expected = {**tasks, task.id: task}
+                aggregates = integrated.aggregate_tasks(scope, workflow.id,
+                    {workflow.root_task_id, *outputs, task.id}) if recipe.version == 3 else set()
                 binding = IntegrationBinding(**common, source_root=recipe.source_root, source_hash=recipe.source_hash,
                     artifact_hashes={artifact.id: artifact.patch_hash for artifact, _, _ in outputs.values()},
                     artifact_records={artifact.id: record_hash(artifact) for artifact, _, _ in outputs.values()},
@@ -490,7 +503,7 @@ class Pipelines:
                         {writer: author.id for writer, (_, author, _) in outputs.items()}) if recipe.version == 3 else {},
                     contracts={key: item.contract_hash for key, item in expected.items()},
                     semantic_revisions={key: item.semantic_revision for key, item in expected.items()},
-                    approval_hashes={key: recipe.approval_hashes[key] for key in (workflow.root_task_id, *outputs, task.id)})
+                    approval_hashes={key: recipe.approval_hashes[key] for key in (workflow.root_task_id, *outputs, *sorted(aggregates), task.id)})
                 integrated._reviewed(scope, binding)
             with store.transaction():
                 workflow, current, now = self._guard(scope, recipe)

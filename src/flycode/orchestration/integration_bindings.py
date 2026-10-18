@@ -127,6 +127,7 @@ class IntegrationBindings:
         resolved = service._resolution_inputs(scope, workflow.id, artifacts)
         author_attempts = {item.task_id: item.attempt_id for item in artifacts}
         required = set(author_attempts) | {workflow.root_task_id, task.id}
+        required.update(service.aggregate_tasks(scope, workflow.id, required))
         required.update(set().union(*(service._requirements(scope, item) for item in resolved)))
         if set(approval_hashes) != required:
             raise StoreError('approval_scope')

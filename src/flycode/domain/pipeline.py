@@ -64,3 +64,4 @@ class TeamPipelineRecipe(_MultiPipelineRecipe):
 
 class DependencyPipelineRecipe(_MultiPipelineRecipe):
     version: Literal[3] = 3
+    branches: tuple[PipelineBranch, ...] = Field(min_length=1, max_length=31)
