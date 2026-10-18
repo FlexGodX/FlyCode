@@ -794,6 +794,13 @@ skipped/xfail, flaky, timeout и неполное evidence не дают усп�
 Standalone CLI сохраняет scope `registered-suite`. Подробности — в
 [спецификации проверок](docs/specs/testing-module.md).
 
+Внутренний `VerificationRegistry` сохраняет server-owned снимки и профили в
+общей SQLite-базе (schema20), а копии байтов — в закреплённой приватной папке.
+Регистрация не запускает проверяемый код или модель. Профили приёмки используют
+отдельные oracle bytes; их действующая версия выбирается атомарно с записью
+профиля. Общие команды запуска/отмены/повтора, CLI/API и экран проверки по TST-13
+ещё разрабатываются; этот каталог сам по себе фазу25 не закрывает.
+
 Live single/dual smoke на LM Studio прошли: single использовал 3 запроса Qwen
 без оценщика, dual — 3 Qwen + 3 Jev. Оба исправили fixture и отдельно прошли
 acceptance plan с неизменными утверждёнными тестами. [Результаты и границы](docs/validation/2026-10-16-model-selection.json).

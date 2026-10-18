@@ -784,6 +784,13 @@ exact criteria/check/case IDs; newer owner approval invalidates previous results
 The standalone CLI retains `registered-suite` scope. See the
 [verification specification](docs/specs/testing-module.md).
 
+The internal `VerificationRegistry` stores server-owned subjects and profiles in
+the shared SQLite database (schema20), with captured bytes in a pinned private
+directory. Registration runs no subject code or model. Acceptance profiles use
+independent oracle bytes; their current approval is selected atomically with
+profile publication. Shared start/cancel/rerun commands, CLI/API and the TST-13
+screen remain under development; this catalogue alone does not complete Phase25.
+
 Live LM Studio single/dual smoke passed: single used 3 Qwen requests without a
 scorer; dual used 3 Qwen + 3 Jev. Both repaired the fixture and separately passed
 an acceptance plan with unchanged owner-approved tests. [Results and scope](docs/validation/2026-10-16-model-selection.json).

@@ -3051,3 +3051,14 @@ countdown исключён из model fingerprint, реальные config chang
 Итоги final full/wheel/graph/actual-model:
 [проверенный CLI](validation/2026-10-18-canonical-cli.md). Общие verification
 plans/start/cancel/rerun/artifacts и оставшиеся Tasks5–8 не закрыты.
+
+
+Срез2026-10-18, каталог verification (schema20): неизменяемые снимки/профили и
+текущий owner approval хранятся в общем Store; descriptor-backed копии не следуют
+подменённым каталогам. Регистрация не запускает workflow, модель или инструменты.
+Full1236 exact IDs/1228pass/8expectedskip/0fail/error,1824.535с;270 неизменных файлов.
+Focused68, wheel62/162 package files/README/CLI, FlyWire5 и Ruff13/scoped mypy4
+проверены. Общие executable plans/start/cancel/rerun/Host recovery/API/CLI/UI
+остаются следующим обязательным этапом; фаза25/TST13 и Tasks5–8 не закрыты.
+[Отчёт каталога](validation/2026-10-18-verification-catalogue.md),
+[полный план управления](superpowers/plans/2026-10-18-verification-control.md).

@@ -1,0 +1,95 @@
+{
+  "scope": "Trusted immutable verification catalogue, Task1 of shared verification control; not TST13 or overall goal completion",
+  "parent_commit": "be2fc4d9c77925e2574b32222ba4d4f0a8a8898b",
+  "source_manifest_sha256": "6cd759e3d13ec599cf84ee86e6491ac1ccbd1bf3f8a7557290c148b40ccf780a",
+  "runtime_fingerprint": "5d984b23baf8cc2dd7b7e87b37953dd44774973f0155e99473e58b3fe559ac86",
+  "schema_version": 20,
+  "full": {
+    "collected": 1236,
+    "passed": 1228,
+    "skipped": 8,
+    "failures": 0,
+    "errors": 0,
+    "exact_case_counter_verified": true,
+    "source_files": 270,
+    "source_unchanged": true,
+    "wall_seconds": 1824.5346058330033,
+    "skipped_ids": [
+      "tests/e2e/test_environment_autonomy.py::test_agent_repairs_and_runs_fastapi_postgres[bias_control-full]",
+      "tests/e2e/test_environment_autonomy.py::test_agent_repairs_and_runs_fastapi_postgres[hard_control-full]",
+      "tests/e2e/test_lmstudio.py::test_installed_qwen_and_jev_repair_a_toy_repository",
+      "tests/e2e/test_real_connectome.py::test_real_flywire_runs_the_same_tasks[bias_control-toy_arithmetic_bug]",
+      "tests/e2e/test_real_connectome.py::test_real_flywire_runs_the_same_tasks[bias_control-toy_import_bug]",
+      "tests/e2e/test_real_connectome.py::test_real_flywire_runs_the_same_tasks[hard_control-toy_arithmetic_bug]",
+      "tests/e2e/test_real_connectome.py::test_real_flywire_runs_the_same_tasks[hard_control-toy_import_bug]",
+      "tests/e2e/test_real_connectome.py::test_constrained_training_improves_explicit_multicandidate_task_selection"
+    ]
+  },
+  "focused": {
+    "passed": 68,
+    "pytest_seconds": 9.49,
+    "new_registry_cases": 31
+  },
+  "wheel": {
+    "wheel_sha256": "ff4453612a228e0d05d4786836d090775c091d2d20b30d1c06c98ec290b502e7",
+    "exact_package_files": 162,
+    "readme_metadata_matches": true,
+    "passed": 62,
+    "exact_source_case_ids_match": true,
+    "failures": 0,
+    "skips": 0,
+    "import_origin_asserted": true,
+    "pytest_seconds": 9.81,
+    "cli": {
+      "exit_code": 0,
+      "import_origin_asserted": true,
+      "functional_and_full_available": true
+    }
+  },
+  "graph": {
+    "passed": 5,
+    "case_ids_match": true,
+    "skipped": 0,
+    "source_unchanged": true,
+    "graph_fingerprint": "7adea43f9f823703c8116a6321a78adfdc9aac9c14c80e04bfa6d991f8c6712f",
+    "pytest_seconds": 5.42
+  },
+  "static": {
+    "ruff_changed_files": 13,
+    "ruff": "passed",
+    "mypy_source_files": 4,
+    "mypy_mode": "--ignore-missing-imports --follow-imports=silent",
+    "mypy": "passed",
+    "diff_check": "passed"
+  },
+  "evidence_archive": {
+    "path": "~/.cache/flycode/validation/flycode-verification-catalogue-4i6315_o",
+    "regular_files": 597,
+    "bytes": 6367831,
+    "skipped_nonregular": 0,
+    "manifest_sha256": "e58433362c58e355daa3c556cfdc6c90b82b447002893139447924260d1aba08",
+    "independent_rehash_passed": true
+  },
+  "retained_failures": [
+    "Original missing-catalogue REDs",
+    "Environment tuple/list equality assertion corrected to canonical JSON",
+    "Initial symlink and non-atomic approval publication failures",
+    "Descriptor-path late-parent and identical-tree failures",
+    "UTF-8 wheel METADATA parser setup error; no wheel tests started in that failed preparation"
+  ],
+  "boundaries": {
+    "new_live_model_measurement": false,
+    "new_browser_measurement": false,
+    "neural_promotion": false,
+    "tst13_complete": false,
+    "overall_goal_complete": false
+  },
+  "remaining": [
+    "Immutable executable plan binding and provenance import",
+    "CAS/idempotent start/cancel/rerun and cumulative budgets",
+    "Shared Coordinator/Host execution, recovery and exact custody",
+    "Protected API/CLI/events/artifact/reproduction access",
+    "Verification screen and browser acceptance",
+    "Remaining delivery Tasks5\u20138 and scientific \u00a7\u00a790\u201399"
+  ]
+}

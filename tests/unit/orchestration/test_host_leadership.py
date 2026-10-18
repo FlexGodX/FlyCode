@@ -825,7 +825,7 @@ def test_schema18_creation_failure_rolls_back_both_tables_and_keeps_queue(setup,
     assert snapshot(store) == before
     migrated = Store(store.path)
     try:
-        assert migrated.db.execute('PRAGMA user_version').fetchone()[0] == 19
+        assert migrated.db.execute('PRAGMA user_version').fetchone()[0] == 20
         assert snapshot(migrated) == before
     finally:
         migrated.close()

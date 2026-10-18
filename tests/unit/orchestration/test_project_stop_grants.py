@@ -108,7 +108,7 @@ def test_schema19_grant_failure_preserves_schema18_rows(tmp_path, monkeypatch):
         assert not reader.execute("SELECT 1 FROM sqlite_master WHERE name='project_grants'").fetchone()
     reopened = Store(path)
     try:
-        assert reopened.db.execute('PRAGMA user_version').fetchone()[0] == 19
+        assert reopened.db.execute('PRAGMA user_version').fetchone()[0] == 20
         assert reopened.db.execute('SELECT COUNT(*) FROM project_grants').fetchone()[0] == 0
         assert {table: [tuple(row) for row in reopened.db.execute('SELECT * FROM ' + table + ' ORDER BY rowid')]
             for table in tables} == before

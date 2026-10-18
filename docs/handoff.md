@@ -1,5 +1,35 @@
 # FlyCode handoff brief
 
+## Verification catalogue — validated,2026-10-18
+
+Schema20 adds trusted immutable subjects/profiles and atomic approval heads to the
+same Store, with descriptor-backed private copies. Non-Git dirty/untracked bytes,
+physical root replacements, failed publication, concurrent version ordering and
+late parent substitutions have behavioral coverage. No workflow/model/tool call
+is created by registration. Legacy engine/capture callers remain compatible.
+
+Full1236 exact IDs:1228pass/8explicit opt-in skips/0fail/error,1824.535s driver wall;
+270 frozen files unchanged. Focused68, extracted-wheel62/162 exact package files/
+README/CLI, actual FlyWire5, Ruff13 and scoped mypy4 pass. Both historical web15s
+cases pass here, but their old latency cause stays unresolved. No new live LM or
+browser measurement and no neural admission is claimed in this catalogue slice.
+[Report](validation/2026-10-18-verification-catalogue.md),
+[full control plan](superpowers/plans/2026-10-18-verification-control.md).
+Archive597 regular files/6367831bytes is independently hashed. Current source
+manifest6cd759e3d13ec599cf84ee86e6491ac1ccbd1bf3f8a7557290c148b40ccf780a,
+runtime5d984b23baf8cc2dd7b7e87b37953dd44774973f0155e99473e58b3fe559ac86.
+All full/package/graph handles are terminal. Evidence root pointer:
+`/private/tmp/flycode-verification-catalogue-validation-root.txt`.
+
+Next implement Task2 executable plan binding, host-owned staged subject imports,
+CAS/idempotent start/cancel/rerun and cumulative budgets. Notes:
+`/private/tmp/flycode-next-verification-control-notes.md`. Git provenance in the
+original snapshot must survive copying without .git. Workflow checks must use
+shared spending/reserve, not a second budget or fabricated agent attempt. Then
+connect actual execution/recovery to the same Coordinator pool4, API/CLI and UI.
+Overall goal, TST13, remaining Tasks5–8 and §§90–99 remain open; negative trained
+Qwen transfer stays rejected. Earlier sections are historical measurements.
+
 ## Canonical Tasks CLI — validated,2026-10-18
 
 Source manifest `2838b84f5c53075060f82dc1301eb1b35baeffee7c287c47aebb1e4e4109b599`, runtime

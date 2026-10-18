@@ -8,7 +8,7 @@ import platform
 import re
 import stat
 import subprocess
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from ..domain.verification import SubjectRef, SubjectSnapshot
 from ..research.identity import implementation_fingerprint
@@ -82,7 +82,37 @@ def _metadata_git(root, *arguments, overrides=()):
         env=environment, check=False, capture_output=True, timeout=5)
 
 
-def capture(root: Path, destination: Path | None = None, *, ref: SubjectRef | None = None) -> SubjectSnapshot:
+def write_files(directory_fd: int, files: dict[str, bytes], modes: dict[str, int]) -> None:
+    """Write new private files relative to an owned directory, never following links."""
+    for name, data in files.items():
+        relative = PurePosixPath(name)
+        if relative.is_absolute() or not relative.parts or '..' in relative.parts:
+            raise ValueError('Snapshot path escapes its directory')
+        parent = os.dup(directory_fd)
+        try:
+            for part in relative.parts[:-1]:
+                try:
+                    os.mkdir(part, mode=0o700, dir_fd=parent)
+                    os.fsync(parent)
+                except FileExistsError:
+                    pass
+                child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
+                os.close(parent)
+                parent = child
+            descriptor = os.open(relative.name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                0o600, dir_fd=parent)
+            with os.fdopen(descriptor, 'wb') as stream:
+                stream.write(data)
+                stream.flush()
+                os.fchmod(stream.fileno(), modes[name])
+                os.fsync(stream.fileno())
+            os.fsync(parent)
+        finally:
+            os.close(parent)
+
+
+def capture(root: Path, destination: Path | None = None, *, ref: SubjectRef | None = None,
+            destination_fd: int | None = None) -> SubjectSnapshot:
     root = root.resolve(strict=True)
     if destination is not None and destination.resolve().is_relative_to(root):
         raise ValueError('Snapshot storage must be outside the source project')
@@ -131,7 +161,9 @@ def capture(root: Path, destination: Path | None = None, *, ref: SubjectRef | No
         identity['ref'] = ref.model_dump()
     snapshot = SubjectSnapshot(subject_hash=digest(identity), files=hashes, modes=modes,
                                excluded=excluded, base=base, inventory=inventory, environment=environment, ref=ref)
-    if destination is not None:
+    if destination_fd is not None:
+        write_files(destination_fd, files, modes)
+    elif destination is not None:
         destination.mkdir(parents=True, exist_ok=False)
         for name, data in files.items():
             target = destination / name

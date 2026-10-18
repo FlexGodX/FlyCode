@@ -16,7 +16,7 @@ from ..domain.verification import (
 )
 from .evidence import atomic_json
 from .plan import PlanBuilder, contract_hash, registered_checks
-from .snapshot import digest, input_files
+from .snapshot import digest, input_files, write_files
 
 
 class ApprovedOracle(VerificationModel):
@@ -32,9 +32,11 @@ class ApprovedOracle(VerificationModel):
 
 
 class OracleRegistry:
-    def __init__(self, directory: Path):
-        self.directory = directory.resolve()
-        self.directory.mkdir(parents=True, exist_ok=True)
+    def __init__(self, directory: Path, *, directory_fd: int | None = None):
+        self.directory = directory.absolute() if directory_fd is not None else directory.resolve()
+        self.directory_fd = directory_fd
+        if directory_fd is None:
+            self.directory.mkdir(parents=True, exist_ok=True)
 
     def approve(self, contract: AcceptanceContract, checks: list[CheckSpec], root: Path) -> str:
         """Trusted registration only; deliberately absent from agent tools/API commands."""
@@ -49,6 +51,14 @@ class OracleRegistry:
             files={name: hashlib.sha256(data).hexdigest() for name, data in files.items()},
             modes={name: stat.S_IMODE((root / name).stat().st_mode) for name in files})
         key = approved.fingerprint()
+        if self.directory_fd is not None:
+            payloads = {f'{key}/files/{name}': data for name, data in files.items()}
+            payloads[f'{key}/approval.json'] = approved.model_dump_json().encode()
+            payloads['heads.json'] = json.dumps({contract.id: key}, sort_keys=True).encode()
+            modes = {f'{key}/files/{name}': mode for name, mode in approved.modes.items()}
+            modes.update({f'{key}/approval.json': 0o600, 'heads.json': 0o600})
+            write_files(self.directory_fd, payloads, modes)
+            return key
         if (self.directory / key).exists():
             self.read(key)
             self._activate(key, approved)

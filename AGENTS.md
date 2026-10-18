@@ -203,6 +203,8 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Inspect each prerequisite tool result before dependent checks, edits or publication; a failed preparation must not launch its measurement.
 - When validating file stability across a read, compare identity/permissions/size/mtime; access time can change during an ordinary read.
 - Establish the reaper before spawning a detached child; a failed Thread.start must not leave a started child without its cleanup owner.
+- Write captured subject/oracle bytes through an owned directory descriptor; recheck saved staged identities after final reads before publication.
+- Decode wheel METADATA as UTF-8 text before parsing its unlabelled README body; the byte email parser replaces non-ASCII characters.
 - Import modules that evaluate subprocess.Popen type annotations before replacing Popen with a test wrapper.
 
 ## 12. How this file was built
