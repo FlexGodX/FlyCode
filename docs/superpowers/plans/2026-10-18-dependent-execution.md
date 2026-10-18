@@ -108,6 +108,10 @@ extends version3 under those same limits. Resumable parent authority stays in Ta
   retained costs/deadline/max3, races/restart/Stop and final wheel46 are checked.
   [Report](../../validation/2026-10-19-review-retries.md). Graph revision/replan
   remains part of the unchecked combined acceptance above.
+- [x] Existing unfinished-child graph revisions, immutable stage generations and
+  carried exact proofs are checked (wheel33+delta1).
+  [Report](../../validation/2026-10-19-graph-replans.md). New-branch admission,
+  controller proposals and the combined Task4 acceptance remain open.
 
 #### Native parent-continuation route
 
@@ -187,6 +191,45 @@ post-review retry. Ordinary writers may preapprove at most two.
 
 Do not mark all Task4 complete from this recovery route: bounded graph replanning
 and remaining aggregate acceptance still require their own actual verification.
+
+#### Owner-approved bounded graph revisions
+
+The first graph-replan increment revises objectives/dependencies of existing,
+uncompleted child writers. Keep task IDs and all criteria/permissions/budgets;
+no replacement IDs can reset lifetime spending or max3. It does not close new
+branch creation, neural replan proposals or aggregate Task4 acceptance.
+
+Files: `domain/pipeline.py` typed graph receipt/input, `domain/results.py`
+optional artifact lineage; `orchestration/replans.py` owner CAS and immutable
+chain; exact consumers `pipeline.py`, `store.py`, `continuations.py`, `retries.py`,
+`artifacts.py`; test `test_pipeline_replans.py`.
+
+1. [x] RED native rejected child reaches stopped review; `Pipelines.replan` is
+   absent. Assert replacement objective, new fenced worker from original bytes,
+   fresh review, parent continuation and final integration. Retain previous
+   base recipe, receipts, author/review/evidence and cumulative ledger/deadline.
+2. [x] Implement `Pipelines.replan(scope, pipeline_id, *, changes,
+   expected_revision, expected_revisions, key)`. Owner-only, exact workflow and
+   complete task revisions, strict objective/dependency whitelist, version4,
+   at most2 graph revisions. Reject active/unknown custody, pause/cancel,
+   resumed parent/integration, cycles/foreign edges, completed or already terminal writers, changed
+   criteria, missing models/source/oracles/evidence, max3 or spent budgets.
+3. [x] Append typed `GraphRevisionReceipt` to existing pipeline_receipts;
+   original pipelines row stays unchanged. Pin base/previous hashes, owner,
+   effective recipe, retained physical stage hashes and exact rejected-review checkpoints.
+   Namespace future stages by graph revision. All execution readers use the
+   same effective recipe and logical receipt view; stale grants fail closed.
+4. [x] Atomically retire exact stopped author, reset its reviewer and bind a
+   new writer contract without refunds, grant/deadline extension or SQL-held
+   source reads. Carry parent wait and unchanged completed branches with exact
+   receipts; preserve original checkpoint authority. New artifacts pin graph
+   input so tampering old failure/graph evidence invalidates current result.
+5. [x] Verify native end-to-end, two connections, duplicate/lost reply, rollback
+   and restart; stale owner/task/graph grants, strict inputs, cycles, Stop,
+   deadline, exhausted attempts, unresolved costs, source and receipt tamper.
+   Run affected retry/parent/dependency routes and retained hash consumers,
+   Ruff/mypy, extracted wheel and exact source inventory. Review and publish
+   only checked bytes with README RU/EN and honest phase status.
 
 ### Task5: Common projections and publication
 

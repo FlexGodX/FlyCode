@@ -4,6 +4,17 @@
 
 **Goal:** Реализовать изменения §§100–103 с проверяемыми результатами, общей очередью задач и явным отделением исследовательских допусков.
 
+Current owner graph-revision increment (2026-10-19): immutable version4 grants
+revise existing unfinished child objectives/edges under exact owner CAS, stopped
+ownership and unchanged IDs/criteria/permissions/costs/deadline/max3. Final
+extracted-wheel33 plus appended same-wheel delta1 cover all34 current feature
+cases; native30/graph2 route1/race+HTTP2, compatibility46+28 and combined-brain2
+pass. Ruff11/scoped mypy10/package174/UTF-8 README/CLI/307 unchanged inputs pass;
+initial recursive mypy22 errors in unchanged modules are retained. Exact source
+boundaries/failures appear in the [report](../../validation/2026-10-19-graph-replans.md).
+New-branch graph revisions/controller proposals, common result views and aggregate/
+neural/research acceptance remain open. No full/live-LM/graph/UI/training rerun.
+
 Current rejected-review retry increment (2026-10-19): version4 explicit owner
 policies cap new fenced correction attempts while retaining exact failures,
 feedback, spending/deadline and max3. Native44/compatibility54, final delta11 and

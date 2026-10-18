@@ -41,7 +41,7 @@ class Pipelines:
         row = self.store.db.execute('SELECT data FROM pipelines WHERE id=?', (identity,)).fetchone()
         if row is None:
             raise StoreError('not_found', 'pipeline')
-        recipe = self._recipe(row['data'])
+        recipe = self.effective(self.store, row['data'])
         self.store.workflow(scope, recipe.workflow_id)
         if recipe.runtime_root != str(self.root):
             raise StoreError('pipeline_scope')
@@ -51,6 +51,28 @@ class Pipelines:
     def _recipe(raw):
         model = {2: TeamPipelineRecipe, 3: DependencyPipelineRecipe, 4: ParentPipelineRecipe}.get(json.loads(raw).get('version'), PipelineRecipe)
         return model.model_validate_json(raw)
+
+    @staticmethod
+    def effective(store, raw):
+        from .replans import Replans
+
+        return Replans.effective(store, raw)
+
+    @staticmethod
+    def receipts(store, recipe):
+        from .replans import Replans
+
+        return Replans.receipts(store, recipe)
+
+    @staticmethod
+    def stage(recipe, logical):
+        number = getattr(recipe, 'graph_revision', 0)
+        return f'g{number}:' + logical if number else logical
+
+    def replan(self, scope, identity, **values):
+        from .replans import Replans
+
+        return Replans(self.store, self.root).approve(scope, identity, **values)
 
     @staticmethod
     def _branches(recipe):
@@ -283,8 +305,7 @@ class Pipelines:
         return workflow, tasks, profiles, bindings
 
     def _receipts(self, recipe):
-        return {row['stage']: json.loads(row['data']) for row in self.store.db.execute(
-            'SELECT stage,data FROM pipeline_receipts WHERE pipeline_id=?', (recipe.id,))}
+        return self.receipts(self.store, recipe)
 
     @staticmethod
     def _receipt_binding(raw):
@@ -333,8 +354,15 @@ class Pipelines:
         if recipe.version == 4:
             row = store.db.execute('SELECT data FROM pipelines WHERE id=? AND workflow_id=?',
                 (recipe.id, recipe.workflow_id)).fetchone()
-            if row is None or Pipelines._recipe(row['data']) != recipe:
+            if row is None or Pipelines.effective(store, row['data']) != recipe:
                 raise StoreError('pipeline_changed')
+            if recipe.graph_revision:
+                from .replans import Replans
+                from .retries import Retries
+
+                for record in Replans.records(store, row['data'])[1]:
+                    for rejection in record.rejections:
+                        Retries(store, recipe.runtime_root).metadata(scope, rejection)
         workflow = store.workflow(scope, recipe.workflow_id)
         if (workflow.semantic_revision != recipe.workflow_semantic_revision
                 or workflow.budget != recipe.workflow_budget):
@@ -344,8 +372,7 @@ class Pipelines:
         tasks = {item.id: item for item in store.tasks(scope, workflow.id)}
         if set(tasks) != set(recipe.tasks):
             raise StoreError('pipeline_scope')
-        receipts = {row['stage']: json.loads(row['data']) for row in store.db.execute(
-            'SELECT stage,data FROM pipeline_receipts WHERE pipeline_id=?', (recipe.id,))}
+        receipts = Pipelines.receipts(store, recipe)
         bindings = [Pipelines._receipt_binding(value['binding']) for value in receipts.values() if 'binding' in value]
         by_id = {binding.task_id: binding for binding in bindings}
         resets = {}
@@ -470,7 +497,7 @@ class Pipelines:
                 if completions.metadata(scope, proof.id) != proof:
                     raise StoreError('revision')
                 receipt = {'completion_id': proof.id, 'completion_hash': record_hash(proof), 'artifact_id': proof.artifact_id}
-                store.db.execute('INSERT INTO pipeline_receipts VALUES (?,?,?)', (recipe.id, stage, json.dumps(receipt)))
+                store.db.execute('INSERT INTO pipeline_receipts VALUES (?,?,?)', (recipe.id, self.stage(recipe, stage), json.dumps(receipt)))
                 store._save_workflow(changed(workflow, revision=workflow.revision + 1))
                 store._event(scope, workflow, 'pipeline_task_completed', task=current[task.id], recipe_id=recipe.id,
                     completion_id=proof.id, artifact_id=proof.artifact_id)
@@ -504,7 +531,7 @@ class Pipelines:
                 store.db.execute('UPDATE worker_bindings SET current=0 WHERE task_id=? AND current=1', (task.id,))
                 store.db.execute('INSERT INTO worker_bindings VALUES (?,?,?,?)', (binding.id, task.id, 1, binding.model_dump_json()))
                 receipt = {'binding': binding.model_dump_json(), 'prerequisites': {key: value.model_dump(mode='json') for key, value in pins.items()}}
-                store.db.execute('INSERT INTO pipeline_receipts VALUES (?,?,?)', (recipe.id, stage, json.dumps(receipt)))
+                store.db.execute('INSERT INTO pipeline_receipts VALUES (?,?,?)', (recipe.id, self.stage(recipe, stage), json.dumps(receipt)))
                 store._save_workflow(changed(workflow, revision=workflow.revision + 1))
                 store._event(scope, workflow, 'pipeline_materialized', task=ready, recipe_id=recipe.id, stage=stage, binding_id=binding.id)
             return True
@@ -580,6 +607,11 @@ class Pipelines:
                         key=lambda item: item.number, default=None)
                     if previous is not None:
                         common.update(revision=previous.review_binding.revision + 1, previous_id=previous.review_binding.id)
+                if recipe.version == 4 and recipe.graph_revision and 'previous_id' not in common:
+                    row = store.db.execute('SELECT data FROM review_bindings WHERE task_id=? ORDER BY rowid DESC LIMIT 1', (task.id,)).fetchone()
+                    if row is not None:
+                        previous = self._receipt_binding(row['data'])
+                        common.update(revision=previous.revision + 1, previous_id=previous.id)
                 artifact, author, sequence = next(iter(outputs.values()))
                 service._pins(scope, task, artifact)
                 binding = ReviewBinding(**common, artifact_id=artifact.id, patch_hash=artifact.patch_hash,
@@ -645,7 +677,7 @@ class Pipelines:
                     receipt = {'binding': binding.model_dump_json(),
                         'artifact_sequences': {artifact.id: sequence for artifact, _, sequence in outputs.values()}}
                     provenance = {'artifact_ids': list(receipt['artifact_sequences'])}
-                store.db.execute('INSERT INTO pipeline_receipts VALUES (?,?,?)', (recipe.id, stage, json.dumps(receipt)))
+                store.db.execute('INSERT INTO pipeline_receipts VALUES (?,?,?)', (recipe.id, self.stage(recipe, stage), json.dumps(receipt)))
                 store._save_workflow(changed(workflow, revision=workflow.revision + 1))
                 store._event(scope, workflow, 'pipeline_materialized', task=task, recipe_id=recipe.id, stage=stage,
                     binding_id=binding.id, **provenance)

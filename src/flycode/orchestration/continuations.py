@@ -32,7 +32,7 @@ class Continuations:
         row = self.store.db.execute('SELECT data FROM pipelines WHERE workflow_id=?', (task.workflow_id,)).fetchone()
         if row is None:
             return None
-        recipe = Pipelines._recipe(row['data'])
+        recipe = Pipelines.effective(self.store, row['data'])
         if recipe.version != 4 or recipe.parent_id != task_id:
             return None
         if recipe.runtime_root != str(self.root):
@@ -102,7 +102,7 @@ class Continuations:
                     if not child.dependencies:
                         store._save_task(changed(child, state='ready', queued_at=store.clock(),
                             revision=child.revision + 1, updated_at=store.clock()))
-                store.db.execute('INSERT INTO pipeline_receipts VALUES (?,?,?)', (recipe.id, stage, saved.model_dump_json()))
+                store.db.execute('INSERT INTO pipeline_receipts VALUES (?,?,?)', (recipe.id, service.stage(recipe, stage), saved.model_dump_json()))
                 store._save_workflow(changed(workflow, revision=workflow.revision + 1))
                 store._event(scope, workflow, 'parent_suspended', task=parent, attempt=author,
                     checkpoint_id=saved.id, artifact_id=artifact.id, children=self.children(recipe))
@@ -155,7 +155,7 @@ class Continuations:
             receipt = {'binding': binding.model_dump_json(), 'checkpoint_id': checkpoint[0].id,
                 'prerequisites': {key: value.model_dump(mode='json') for key, value in pins.items()}}
             store.db.execute('INSERT INTO pipeline_receipts VALUES (?,?,?)',
-                (recipe.id, 'writer:' + parent.id, json.dumps(receipt)))
+                (recipe.id, service.stage(recipe, 'writer:' + parent.id), json.dumps(receipt)))
             store._save_workflow(changed(workflow, revision=workflow.revision + 1))
             store._event(scope, workflow, 'parent_continuation_ready', task=ready,
                 checkpoint_id=checkpoint[0].id, binding_id=binding.id, prerequisites=receipt['prerequisites'])

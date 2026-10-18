@@ -87,6 +87,7 @@ class ParentPipelineRecipe(_MultiPipelineRecipe):
     branches: tuple[PipelineBranch, ...] = Field(min_length=2, max_length=31)
     parent_id: str
     preparation_steps: int = Field(ge=1, le=59)
+    graph_revision: int = Field(default=0, ge=0, le=2, strict=True)
     retry_policies: dict[str, RetryPolicy] = Field(default_factory=dict)
 
 
@@ -118,4 +119,22 @@ class RetryCheckpoint(QueueModel):
     review_binding: ReviewBinding
     artifact_sequence: int
     reset_semantic_revision: int
+    created_at: float
+
+
+class GraphInput(QueueModel):
+    pipeline_id: str
+    number: int = Field(ge=1, le=2, strict=True)
+    receipt_hash: str
+
+
+class GraphRevisionReceipt(QueueModel):
+    number: int = Field(ge=1, le=2, strict=True)
+    base_hash: str
+    previous_hash: str
+    owner_id: str
+    recipe: ParentPipelineRecipe
+    carried: dict[str, str]
+    carry_hashes: dict[str, str]
+    rejections: tuple[RetryCheckpoint, ...]
     created_at: float

@@ -173,6 +173,10 @@ class Artifacts:
             from .retries import Retries
 
             Retries(self.store, self.directory.parent).require_artifact(scope, record)
+        if record.graph_input is not None:
+            from .replans import Replans
+
+            Replans(self.store, self.directory.parent).require_artifact(scope, record)
         return record
 
     def publish(self, scope, attempt_id, fence) -> PatchArtifact:
@@ -230,12 +234,16 @@ class Artifacts:
             from .retries import Retries
 
             retry = Retries(store, self.directory.parent).checkpoint(scope, attempt, deep=True)
+            from .replans import Replans
+
+            graph_input = Replans(store, self.directory.parent).input(scope, attempt, deep=True)
             record = PatchArtifact(id=identity, project_id=task.project_id, workflow_id=workflow.id, task_id=task.id,
                 attempt_id=attempt.id, fence=fence, semantic_revision=attempt.semantic_revision,
                 contract_hash=attempt.contract_hash, workspace_id=workspace.id, result_hash=worker.result_hash,
                 base=workspace.snapshot, baseline=baseline, target=target, changes=tuple(changes), prerequisites=workspace.prerequisites,
                 created_at=store.clock(), patch_hash='', **({'continuation': checkpoint[0]} if checkpoint is not None else {}),
-                **({'retry': retry[0]} if retry is not None else {}))
+                **({'retry': retry[0]} if retry is not None else {}),
+                **({'graph_input': graph_input} if graph_input is not None else {}))
             raw = record.model_dump_json(exclude={'patch_hash'}, exclude_unset=True)
             record = record.model_copy(update={'patch_hash': hashlib.sha256(raw.encode()).hexdigest()})
             atomic_json(directory / 'manifest.json', raw)

@@ -3177,3 +3177,21 @@ unchanged inputs проходят. Счётчики пересекаются; na
 [отчёте](validation/2026-10-19-review-retries.md). Параллельные изменения мозга
 сохранены в общей папке и исключены из публичного пакета. Graph replan, общие
 представления результатов и aggregate/neural/research acceptance остаются открыты.
+
+
+Поставка owner-approved версий графа,2026-10-19: внутренний `Pipelines.replan`
+добавляет до двух immutable версий v4 для целей/зависимостей существующих ещё
+не завершённых дочерних задач. Все ID, критерии, права, бюджеты, расходы, срок,
+max3 и checkpoint родителя сохраняются. Точные grants/stages/review/proofs
+закреплены в append-only receipts; новые artifacts проверяют graph lineage.
+Подтверждённые Stop/settlement и полный owner CAS обязательны. Новый автор
+начинает с исходной копии и проходит свежие review/combined/applied checks.
+Final extracted-wheel33 и добавленный same-wheel delta1 покрывают все34 текущих
+feature cases; native30/graph2 route1/race+HTTP2, compatibility46+28 и combined-brain2
+проходят. Ruff11/scoped mypy10/package174/UTF-8 README/CLI/307 unchanged inputs
+проходят; recursive mypy22 errors в неизменённых модулях сохранены в
+[отчёте](validation/2026-10-19-graph-replans.md). Источники отдельных прогонов
+и пересечение счётчиков явно отмечены. Параллельные изменения мозга/schema
+сохранены отдельно от публичного пакета. New-branch graph admission, controller
+proposals, общие result views и aggregate/neural/research acceptance открыты;
+весь Task4 и полная цель не закрыты. Full/live-LM/graph/UI/training не запускались.

@@ -1040,9 +1040,8 @@ class Store:
         if pipeline is not None:
             from .pipeline import Pipelines
 
-            recipe = Pipelines._recipe(pipeline['data'])
-            receipts = {row['stage']: json.loads(row['data']) for row in self.db.execute(
-                'SELECT stage,data FROM pipeline_receipts WHERE pipeline_id=?', (recipe.id,))} if recipe.version == 4 else {}
+            recipe = Pipelines.effective(self, pipeline['data'])
+            receipts = Pipelines.receipts(self, recipe) if recipe.version == 4 else {}
             blocked = Pipelines._task_blocked(recipe, by_id, task.id, receipts)
             cap = Pipelines.attempt_cap(recipe, task.id)
             if cap is not None and (reserve.model_calls > cap.model_calls or reserve.tool_calls > cap.tool_calls):
@@ -1121,7 +1120,7 @@ class Store:
         if row is not None:
             from .pipeline import Pipelines
 
-            cap = Pipelines.attempt_cap(Pipelines._recipe(row['data']), task.id)
+            cap = Pipelines.attempt_cap(Pipelines.effective(self, row['data']), task.id)
             if cap is not None:
                 models, tools = min(models, cap.model_calls), min(tools, cap.tool_calls)
         return BudgetAmount(model_calls=max(0, min(models, model_free)), tool_calls=max(0, min(tools, tool_free)))
@@ -1323,7 +1322,7 @@ class Store:
             from .pipeline import Pipelines
 
             try:
-                recipe = Pipelines._recipe(row['data'])
+                recipe = Pipelines.effective(self, row['data'])
                 if recipe.version == 4:
                     Pipelines.guard_metadata(self, scope, recipe)
             except ValueError as error:

@@ -103,7 +103,7 @@ class ReviewBindings:
         artifact = self.artifacts._record(scope, binding.artifact_id)
         author = self._pins(scope, task, artifact)
         hashes = {digest(artifact.model_dump(mode='json', exclude_unset=True))}
-        missing = {'continuation', 'retry'} - artifact.model_fields_set
+        missing = {'continuation', 'retry', 'graph_input'} - artifact.model_fields_set
         if missing:
             # Retained full-model hashes omitted fields introduced by later versions.
             hashes.add(digest(artifact.model_dump(mode='json', exclude=missing)))

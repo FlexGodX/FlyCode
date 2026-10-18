@@ -72,11 +72,13 @@ class AttemptCortex:
         if self.artifacts is None:
             return ''
         from .continuations import Continuations
+        from .replans import Replans
         from .retries import Retries
 
         attempt, _, _ = self.store._owned(self.scope, self.attempt_id, self.fence, running=True)
         root = self.artifacts.directory.parent
-        return Continuations(self.store, root).context(self.scope, attempt) + Retries(self.store, root).context(self.scope, attempt)
+        return (Continuations(self.store, root).context(self.scope, attempt) + Retries(self.store, root).context(self.scope, attempt)
+            + Replans(self.store, root).context(self.scope, attempt))
 
     def _context(self, context: CortexContext) -> CortexContext:
         attempt, task, _ = self.store._owned(self.scope, self.attempt_id, self.fence, running=True)

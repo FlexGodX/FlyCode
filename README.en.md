@@ -145,7 +145,13 @@ it still needs fresh review and integration. All spending, the original deadline
 and the three-attempt limit remain cumulative: one parent retry after preparation,
 or up to two child-writer retries. Missing policy grants no automatic retries.
 Rejected results and evidence remain in history and in the checked lineage.
-Graph replanning and common result views remain unimplemented.
+The internal owner API `Pipelines.replan` creates up to two new graph revisions
+for objective/dependency changes to existing unfinished child writers. It retains
+task IDs, criteria, permissions, budgets, history and confirmed results; a rejected
+review requires exact stopped ownership and settled spending. Previous generations
+remain immutable and new artifacts pin their lineage. The replacement attempt
+starts from the original source copy and needs fresh review. New-branch creation,
+controller replan proposals and common result views remain unimplemented.
 An explicit primary compatibility probe requests
 one structured candidate; ordinary generation keeps its existing count and limits.
 The model transport adapter acquires an endpoint slot and charges the request

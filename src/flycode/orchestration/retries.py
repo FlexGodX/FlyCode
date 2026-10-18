@@ -85,11 +85,10 @@ class Retries:
         row = self.store.db.execute('SELECT data FROM pipelines WHERE workflow_id=?', (attempt.workflow_id,)).fetchone()
         if row is None:
             return None
-        recipe = Pipelines._recipe(row['data'])
+        recipe = Pipelines.effective(self.store, row['data'])
         if recipe.version != 4:
             return None
-        receipts = {row['stage']: json.loads(row['data']) for row in self.store.db.execute(
-            'SELECT stage,data FROM pipeline_receipts WHERE pipeline_id=?', (recipe.id,))}
+        receipts = Pipelines.receipts(self.store, recipe)
         saved = max((item for item in self.checkpoints(receipts) if item.task_id == attempt.task_id),
             key=lambda item: item.number, default=None)
         if saved is None or attempt.id == saved.author_attempt_id or attempt.fence <= saved.author_fence:
@@ -184,8 +183,11 @@ class Retries:
                 store._save_task(ready)
                 store._save_task(reset)
                 store.db.execute('UPDATE review_bindings SET current=0 WHERE task_id=?', (reviewer.id,))
-                store.db.execute('DELETE FROM pipeline_receipts WHERE pipeline_id=? AND stage=?', (recipe.id, stage))
-                store.db.execute('INSERT INTO pipeline_receipts VALUES (?,?,?)', (recipe.id, key, saved.model_dump_json()))
+                store.db.execute('DELETE FROM pipeline_receipts WHERE pipeline_id=? AND stage=?', (recipe.id, service.stage(recipe, stage)))
+                if recipe.graph_revision:
+                    store.db.execute('INSERT OR REPLACE INTO pipeline_receipts VALUES (?,?,?)',
+                        (recipe.id, service.stage(recipe, 'retired:' + stage), '{}'))
+                store.db.execute('INSERT INTO pipeline_receipts VALUES (?,?,?)', (recipe.id, service.stage(recipe, key), saved.model_dump_json()))
                 store._save_workflow(changed(workflow, revision=workflow.revision + 1))
                 store._event(scope, workflow, 'pipeline_retry_ready', task=ready, checkpoint_id=saved.id,
                     artifact_id=artifact.id, review_id=review.id, number=number)
@@ -264,8 +266,8 @@ class Retries:
 
     def require_artifact(self, scope, artifact):
         saved = artifact.retry
-        row = self.store.db.execute('SELECT data FROM pipeline_receipts WHERE pipeline_id=? AND stage=?',
-            (saved.pipeline_id, 'retry:' + saved.task_id + ':' + str(saved.number))).fetchone()
+        row = self.store.db.execute("SELECT data FROM pipeline_receipts WHERE pipeline_id=? AND json_extract(data,'$.id')=?",
+            (saved.pipeline_id, saved.id)).fetchone()
         if (row is None or RetryCheckpoint.model_validate_json(row['data']) != saved
                 or artifact.task_id != saved.task_id or artifact.fence <= saved.author_fence or artifact.id == saved.artifact_id):
             raise StoreError('retry_changed')

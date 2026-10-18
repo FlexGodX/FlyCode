@@ -1,5 +1,36 @@
 # FlyCode handoff brief
 
+## Owner graph revisions — checked,2026-10-19
+
+Version4 `Pipelines.replan` admits at most2 owner-approved objective/dependency
+revisions of existing unfinished child writers. Original IDs/criteria/access/
+budgets/spending/deadline/max3 and the suspended parent's checkpoint survive.
+Append-only typed graph receipts retain exact stage generations, carried proofs
+and rejected review ownership/evidence; every execution reader uses the effective
+grant. New artifacts pin graph lineage. Fresh source-copy attempts require new
+review and final combined/applied verification. Unknown/live ownership, Stop,
+stale CAS, source/evidence changes and exhausted budgets cannot self-grant work.
+
+Native30, guards27, native graph2 route1, race/HTTP2, retry compatibility46 and
+old route compatibility28 pass. Final extracted wheel33 passes314.42s; an appended
+carried-failed-review case passes the same wheel1 in92.92s. All34 feature cases
+are covered across the two frozen test collections. Combined-brain interop2,
+Ruff11/scoped mypy10, package174/UTF-8 README/CLI and307 unchanged frozen inputs
+pass. Source boundaries/count overlap, retained REDs/setup errors and initial
+recursive mypy22 errors in unchanged modules are explicit in the
+[report](validation/2026-10-19-graph-replans.md). No full/live-LM/graph/UI/training
+or scientific acceptance claim. Parallel brain/schema changes are preserved in
+the shared checkout and excluded from this public package.
+
+Next: Task4 graph revisions must also admit genuinely new owner-approved branches
+within64 historical tasks, without replacing failed IDs or refunding lifetime
+costs/attempts. Existing `create_task` changes workflow semantics and therefore
+cannot extend an active v4 recipe implicitly. Controller proposals remain
+unimplemented. Finish these remaining explicit authority/graph acceptance routes,
+then Task5 common result/wait/review projections and aggregate/neural/research
+acceptance. Do not mark the combined Task4 checkboxes or full goal complete.
+Earlier checkpoints retain their historical source boundaries.
+
 ## Rejected-review retry — checked,2026-10-19
 
 Version4 owner `retry_policies` grants bounded writer/reviewer caps and fresh
