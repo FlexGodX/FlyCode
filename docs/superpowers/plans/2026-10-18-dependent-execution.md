@@ -104,6 +104,11 @@ extends version3 under those same limits. Resumable parent authority stays in Ta
 - [ ] Implement bounded durable waits, continuation/input lineage, dependency failure blockers, timeout/Stop and explicit retry/replan authority. Questions/messages remain addressed data and cannot self-grant rights.
 - [ ] Verify retry/resume retain original spending/deadline, max3 attempts and pool4; no recursive child/question/replan avalanche. Parent and workflow each still require their own verified criteria. Commit checked runtime behavior.
 
+- [x] Explicit negative-review retry authority, exact failed-byte/feedback lineage,
+  retained costs/deadline/max3, races/restart/Stop and final wheel46 are checked.
+  [Report](../../validation/2026-10-19-review-retries.md). Graph revision/replan
+  remains part of the unchecked combined acceptance above.
+
 #### Native parent-continuation route
 
 Add owner-only `Pipelines.approve_parent(scope, workflow_id, pairs,
@@ -133,6 +138,55 @@ keep the child baseline for its eventual reviewed patch. Pin checkpoint/context
 lineage and block conflicts/tamper. Exercise two stores, restart, Stop/deadline,
 failed child, changed authority/evidence and cumulative limits before publication.
 This route does not by itself close the separate bounded retry/replan acceptance.
+
+#### Owner-approved retry after a rejected review
+
+This continuation implements ORC-03 negative-review recovery under ORC-08 limits;
+replanning remains a separate graph-version change. Extend only version4
+`approve_parent(..., retry_policies=None)` with an explicit writer-ID mapping of
+`RetryPolicy(max_retries, writer_budget, reviewer_budget)`. Default/missing grants
+no retry. Per-attempt caps apply to manual, automatic and bound dispatch; all
+previous costs and the original deadline remain authoritative. Root preparation
+counts toward the global max3 attempts, so a root can preapprove at most one
+post-review retry. Ordinary writers may preapprove at most two.
+
+1. Create `tests/unit/orchestration/test_pipeline_retries.py` using real
+   `parent_ready`: child lifetime2/2, reviewer8 tools, policy1 retry capped1/1
+   and0/4. First writer edits parser0→-1, review requests changes; retry sees
+   those exact failed bytes and review diagnostics, edits -1→1 and completes
+   fresh review plus parent/final integration from the original approval.
+   Assert distinct fences, both immutable artifacts/reviews, current final proof,
+   unchanged source until integration, lifetime spending and no manual claims.
+2. Add Pydantic `RetryPolicy` and `RetryCheckpoint` in `domain/pipeline.py`;
+   optional lineage in `domain/results.py`. Create `orchestration/retries.py`
+   for host-owned exact failure validation, bounded context/restoration and one
+   atomic retry receipt/event. Keep `pipeline_receipts`; no schema migration or
+   new worker RPC. Preserve old omitted-field/full-model artifact hashes.
+3. In `pipeline.py`, validate policies before enqueue; store caps without changing
+   existing request replay when the mapping is absent. After a confirmed exact
+   `changes_requested` review, archive the old review-stage receipt/binding and
+   save a typed reviewer reset state. The author keeps its unchanged contract
+   and source binding, loses old assignment ownership and receives a new fenced
+   attempt. New review binding chains to the old binding; final integration
+   selects the exact current successful reviewer fence, retaining failed history.
+4. `Store._eligibility` rejects reservations above the approved per-attempt cap;
+   `_remaining_reservation` applies that cap for both automatic claim routes.
+   Retry admission checks remaining task/workflow budgets, max attempts, time,
+   uncertainty, source/criteria/profile/permission/Host and paused ancestry before
+   the atomic recheck. Exhaustion saves a machine blocker and never refunds cost.
+5. `Runtime`, `Workspaces` and `Artifacts` consume the exact retry checkpoint.
+   Restore compatible failed bytes over the checked prerequisite baseline; append
+   bounded immutable run/review data without dropping required diagnostics.
+   New artifacts pin the prior failed artifact/review/evidence, so tamper/deletion
+   invalidates completion. A message or failed model assertion grants no authority.
+6. Exercise two connections, outbox rollback/restart/lost reply, root and child
+   retries, max3/lifetime exhaustion, absent policy, inconclusive/unknown checks,
+   changed bytes/criteria/permissions/source and Stop/deadline/Host races. Verify
+   old version1/2/3/4 routes and retained hash contracts, then exact wheel/CLI,
+   independent read-only review, README RU/EN/status/evidence and checked push.
+
+Do not mark all Task4 complete from this recovery route: bounded graph replanning
+and remaining aggregate acceptance still require their own actual verification.
 
 ### Task5: Common projections and publication
 

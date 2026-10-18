@@ -3162,3 +3162,18 @@ Native34/158.57s, compatibility12/118.64s и extracted-wheel6/
 Bounded retry/replan, общие result views и aggregate/neural/research приёмка остаются
 открытыми; full/live-model/graph/UI/training не запускались. Параллельные правки
 мозга/schema23–25 сохранены и исключены из проверенного пакета и коммита.
+
+Поставка ограниченных повторов после отклонённого review,2026-10-19:
+version4 принимает явный owner `retry_policies`, сохраняет расходы/срок/max3,
+восстанавливает точные неудачные изменения и передаёт диагностику в фактический
+HTTP-запрос. Новый fence, свежие review и общая интеграция обязательны; история
+отказов/evidence остаётся частью проверяемой цепочки. Без политики повторов нет.
+Native44 и compatibility54, final policy/unknown delta11, extracted-wheel46 и
+combined-brain interop3 проходят; Ruff12/mypy11, package173/UTF-8 README/CLI и177
+unchanged inputs проходят. Счётчики пересекаются; native44/compatibility54 относятся
+к границе до последней instance-validation правки, wheel46 проверяет финальный
+пакет. Реальные процессы/pytest/HTTP используют тестовые ответы модели; live LM и
+научный допуск не заявляются. Все отказы и варианты исходников сохранены в
+[отчёте](validation/2026-10-19-review-retries.md). Параллельные изменения мозга
+сохранены в общей папке и исключены из публичного пакета. Graph replan, общие
+представления результатов и aggregate/neural/research acceptance остаются открыты.

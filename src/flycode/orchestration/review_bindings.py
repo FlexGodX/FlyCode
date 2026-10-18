@@ -103,9 +103,10 @@ class ReviewBindings:
         artifact = self.artifacts._record(scope, binding.artifact_id)
         author = self._pins(scope, task, artifact)
         hashes = {digest(artifact.model_dump(mode='json', exclude_unset=True))}
-        if 'continuation' not in artifact.model_fields_set:
-            # Retained bindings used the full pre-continuation model, including default prerequisites.
-            hashes.add(digest(artifact.model_dump(mode='json', exclude={'continuation'})))
+        missing = {'continuation', 'retry'} - artifact.model_fields_set
+        if missing:
+            # Retained full-model hashes omitted fields introduced by later versions.
+            hashes.add(digest(artifact.model_dump(mode='json', exclude=missing)))
         if (binding.artifact_hash not in hashes or author.id != binding.author_attempt_id
                 or author.instance_id != binding.author_instance_id or author.fence != binding.author_fence
                 or self.store.task(scope, artifact.task_id).semantic_revision != binding.author_semantic_revision

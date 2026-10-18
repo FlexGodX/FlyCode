@@ -125,6 +125,9 @@ class Runtime:
         task_spec = TaskSpec(id=task.id, task=task.objective, seed=seed, max_steps=attempt.reserved.tool_calls + 1,
             max_tool_calls=attempt.reserved.tool_calls + 1)
         task_spec = Continuations(self.store, self.root).configure(scope, attempt, task_spec)
+        from .retries import Retries
+
+        task_spec = Retries(self.store, self.root).configure(scope, attempt, task_spec)
         record = WorkerRecord(id=uuid4().hex, attempt_id=attempt_id, fence=fence, created_at=self.store.clock())
         with self.store.transaction():
             self.store._claim_execution(scope, attempt_id, fence, 'worker')
@@ -464,6 +467,17 @@ class WorkerHandle:
                         if attempt.state == 'running':
                             connection._reconcile(self.scope, workflow, attempt, 'artifact_' + error.code)
                         connection._event(self.scope, workflow, 'artifact_blocked', task=task, attempt=attempt, reason=error.code)
+                    try:
+                        with connection.transaction():
+                            current_task = connection.task(self.scope, attempt.task_id)
+                            current_workflow = connection.workflow(self.scope, attempt.workflow_id)
+                            connection._confirm_stopped(self.scope, attempt.id, attempt.fence,
+                                outcome='retry_wait' if current_task.paused or current_workflow.state == 'pausing' else 'failed',
+                                expenditure_confirmed=True)
+                    except StoreError as settlement:
+                        if settlement.code not in {'resource_busy', 'uncertain'}:
+                            raise
+                        self.error = settlement.code
         except (OSError, ValueError, sqlite3.Error, subprocess.SubprocessError) as error:
             self.error = type(error).__name__ + ':' + str(getattr(error, 'code', 'supervision'))
             self.stopping.set()

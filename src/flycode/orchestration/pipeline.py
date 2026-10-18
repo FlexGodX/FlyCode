@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 from uuid import uuid4
 
+from pydantic import TypeAdapter
+
 from ..domain.orchestration import (
     IntegrationBinding,
     ReviewBinding,
@@ -14,6 +16,7 @@ from ..domain.pipeline import (
     ParentPipelineRecipe,
     PipelineBranch,
     PipelineRecipe,
+    RetryPolicy,
     TeamPipelineRecipe,
 )
 from ..domain.results import ReviewRecord
@@ -57,6 +60,18 @@ class Pipelines:
             worker_binding_id=recipe.worker_binding_id, worker_binding_hash=recipe.worker_binding_hash),)
 
     @staticmethod
+    def attempt_cap(recipe, task_id):
+        if recipe.version == 4:
+            for branch in recipe.branches:
+                policy = recipe.retry_policies.get(branch.writer_id)
+                if policy is not None:
+                    if task_id == branch.writer_id:
+                        return policy.writer_budget
+                    if task_id == branch.reviewer_id:
+                        return policy.reviewer_budget
+        return None
+
+    @staticmethod
     def _review_stage(recipe, branch):
         return 'review' if recipe.version == 1 else 'review:' + branch.reviewer_id
 
@@ -71,13 +86,13 @@ class Pipelines:
             expected_revisions=expected_revisions, approval_hashes=approval_hashes, key=key, reruns=reruns, dependent=True)
 
     def approve_parent(self, scope, workflow_id, pairs, integrator_id, *, source,
-                       expected_revisions, approval_hashes, key, preparation_steps=1, reruns=0):
+                       expected_revisions, approval_hashes, key, preparation_steps=1, reruns=0, retry_policies=None):
         return self._approve_many(scope, workflow_id, pairs, integrator_id, source=source,
             expected_revisions=expected_revisions, approval_hashes=approval_hashes, key=key, reruns=reruns,
-            dependent=True, parent=True, preparation_steps=preparation_steps)
+            dependent=True, parent=True, preparation_steps=preparation_steps, retry_policies=retry_policies)
 
     def _approve_many(self, scope, workflow_id, pairs, integrator_id, *, source,
-                      expected_revisions, approval_hashes, key, reruns, dependent=False, parent=False, preparation_steps=1):
+                      expected_revisions, approval_hashes, key, reruns, dependent=False, parent=False, preparation_steps=1, retry_policies=None):
         store = self.store
         store._role(scope, ('owner',))
         store.workflow(scope, workflow_id)
@@ -85,8 +100,11 @@ class Pipelines:
         request = {('parent_pipeline' if parent else 'dependency_pipeline' if dependent else 'team_pipeline'): workflow_id, 'pairs': pairs, 'integrator': integrator_id,
             'revisions': expected_revisions, 'approvals': approval_hashes, 'source': str(source),
             'root': str(self.root), 'reruns': reruns}
+        policies = TypeAdapter(dict[str, RetryPolicy]).validate_python(retry_policies) if retry_policies is not None else {}
         if parent:
             request['preparation_steps'] = preparation_steps
+            if policies:
+                request['retry_policies'] = {key: value.model_dump(mode='json') for key, value in policies.items()}
         with store.transaction():
             found, saved, _ = store._replay(scope, key, request)
             if found:
@@ -98,6 +116,20 @@ class Pipelines:
                 if (type(preparation_steps) is not int or not 1 <= preparation_steps < min(
                         root.budget.model_calls, root.budget.tool_calls) or root.dependencies):
                     raise StoreError('parent_budget')
+                if not set(policies) <= set(pairs):
+                    raise StoreError('retry_scope')
+                for identity, policy in policies.items():
+                    count = policy.max_retries + 1 + int(identity == root.id)
+                    writer, reviewer = tasks[identity], tasks[pairs[identity]]
+                    if (count > workflow.budget.max_attempts or policy.writer_budget.model_calls < 1
+                            or policy.writer_budget.tool_calls < 1 or policy.reviewer_budget.model_calls != 0
+                            or policy.reviewer_budget.tool_calls < 1
+                            or writer.budget.model_calls < count * policy.writer_budget.model_calls
+                            or writer.budget.tool_calls < count * policy.writer_budget.tool_calls
+                            or reviewer.budget.tool_calls < (policy.max_retries + 1) * policy.reviewer_budget.tool_calls
+                            or (identity == root.id and preparation_steps > min(
+                                policy.writer_budget.model_calls, policy.writer_budget.tool_calls))):
+                        raise StoreError('retry_budget')
         source = Path(source).resolve(strict=True)
         first = next(iter(bindings.values()))
         if str(source) != first.source_root or capture(source).subject_hash != first.source_hash:
@@ -120,7 +152,7 @@ class Pipelines:
                 integrator_id=integrator_id, tasks=tasks, profiles=profiles, source_root=str(source),
                 runtime_root=str(self.root), source_hash=first.source_hash, approval_hashes=approval_hashes,
                 reruns=reruns, approval_sequence=0, created_at=store.clock(),
-                **({'parent_id': workflow.root_task_id, 'preparation_steps': preparation_steps} if parent else {}))
+                **({'parent_id': workflow.root_task_id, 'preparation_steps': preparation_steps, 'retry_policies': policies} if parent else {}))
             store._event(scope, workflow, 'pipeline_approved', recipe_id=recipe.id)
             recipe = changed(recipe, approval_sequence=store.db.execute('SELECT MAX(sequence) FROM events').fetchone()[0])
             store.db.execute('INSERT INTO pipelines VALUES (?,?,?)', (recipe.id, workflow.id, recipe.model_dump_json()))
@@ -298,6 +330,11 @@ class Pipelines:
     @staticmethod
     def guard_metadata(store, scope, recipe):
         """Check delegated graph authority using stored models only."""
+        if recipe.version == 4:
+            row = store.db.execute('SELECT data FROM pipelines WHERE id=? AND workflow_id=?',
+                (recipe.id, recipe.workflow_id)).fetchone()
+            if row is None or Pipelines._recipe(row['data']) != recipe:
+                raise StoreError('pipeline_changed')
         workflow = store.workflow(scope, recipe.workflow_id)
         if (workflow.semantic_revision != recipe.workflow_semantic_revision
                 or workflow.budget != recipe.workflow_budget):
@@ -311,8 +348,21 @@ class Pipelines:
             'SELECT stage,data FROM pipeline_receipts WHERE pipeline_id=?', (recipe.id,))}
         bindings = [Pipelines._receipt_binding(value['binding']) for value in receipts.values() if 'binding' in value]
         by_id = {binding.task_id: binding for binding in bindings}
+        resets = {}
+        if recipe.version == 4:
+            from .retries import Retries
+
+            for checkpoint in sorted(Retries.checkpoints(receipts), key=lambda item: item.number):
+                policy = recipe.retry_policies.get(checkpoint.task_id)
+                branch = next((item for item in recipe.branches if item.writer_id == checkpoint.task_id), None)
+                if (policy is None or branch is None or checkpoint.pipeline_id != recipe.id
+                        or checkpoint.number > policy.max_retries or checkpoint.review_binding.task_id != branch.reviewer_id
+                        or checkpoint.reset_semantic_revision != recipe.tasks[branch.reviewer_id].semantic_revision + 2 * checkpoint.number):
+                    raise StoreError('retry_changed')
+                Retries(store, recipe.runtime_root).metadata(scope, checkpoint)
+                resets[branch.reviewer_id] = changed(recipe.tasks[branch.reviewer_id], semantic_revision=checkpoint.reset_semantic_revision)
         for identity, task in tasks.items():
-            expected = by_id.get(identity, recipe.tasks[identity])
+            expected = by_id.get(identity, resets.get(identity, recipe.tasks[identity]))
             if (task.semantic_revision != expected.semantic_revision or task.contract_hash != expected.contract_hash
                     or (task.paused and (recipe.version not in {3, 4} or identity == workflow.root_task_id))
                     or task.archived or not required_task(task)
@@ -481,7 +531,10 @@ class Pipelines:
                 return ()
             if recipe.version == 4:
                 from .continuations import Continuations
+                from .retries import Retries
 
+                if Retries(store, self.root).advance(scope, self, recipe, tasks, receipts):
+                    return ()
                 if Continuations(store, self.root).advance(scope, self, recipe, tasks, receipts):
                     return ()
             if recipe.version in {3, 4} and self._advance_dependencies(scope, recipe, tasks, receipts):
@@ -520,6 +573,13 @@ class Pipelines:
                 'workflow_semantic_revision': workflow.semantic_revision, 'contract_hash': task.contract_hash,
                 'runtime_root': str(self.root), 'reruns': recipe.reruns, 'created_at': store.clock()}
             if review_mode:
+                if recipe.version == 4:
+                    from .retries import Retries
+
+                    previous = max((item for item in Retries.checkpoints(receipts) if item.review_binding.task_id == task.id),
+                        key=lambda item: item.number, default=None)
+                    if previous is not None:
+                        common.update(revision=previous.review_binding.revision + 1, previous_id=previous.review_binding.id)
                 artifact, author, sequence = next(iter(outputs.values()))
                 service._pins(scope, task, artifact)
                 binding = ReviewBinding(**common, artifact_id=artifact.id, patch_hash=artifact.patch_hash,
@@ -533,8 +593,9 @@ class Pipelines:
                     reviewer = tasks[branch.reviewer_id]
                     if reviewer.state != 'succeeded' or reviewer.current_attempt_id is not None:
                         raise StoreError('pipeline_wait')
-                    row = store.db.execute('SELECT id FROM reviews WHERE attempt_id IN (SELECT id FROM attempts WHERE task_id=?)',
-                        (reviewer.id,)).fetchall()
+                    row = store.db.execute("SELECT r.id FROM reviews r JOIN attempts a ON a.id=r.attempt_id "
+                        "WHERE a.task_id=? AND a.state='succeeded' AND json_extract(a.data,'$.fence')=?",
+                        (reviewer.id, reviewer.fence - 1)).fetchall()
                     if len(row) != 1:
                         raise StoreError('review_changed')
                     reviews.append(integrated.reviews.get(scope, row[0]['id']))

@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import Field, field_validator
 
 from .orchestration import CompletionInput, ExecutionPermission, QueueModel
-from .pipeline import ContinuationCheckpoint
+from .pipeline import ContinuationCheckpoint, RetryCheckpoint
 from .source import SourceRoot
 from .verification import SubjectSnapshot, VerificationVerdict
 
@@ -62,6 +62,7 @@ class PatchArtifact(QueueModel):
     created_at: float
     prerequisites: dict[str, CompletionInput] = Field(default_factory=dict)
     continuation: ContinuationCheckpoint | None = None
+    retry: RetryCheckpoint | None = None
 
 
 class ReviewRecord(QueueModel):

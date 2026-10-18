@@ -12,6 +12,7 @@ from ..llm.catalogue import CatalogueBusy
 from ..llm.lmstudio import LMStudioCortex
 from ..llm.openai_compatible import OpenAICompatibleLLM
 from ..llm.protocol import CortexContext
+from ..policy.model_routing import plan_model_calls
 from .artifacts import Artifacts
 from .messages import Messages
 from .resources import Resources
@@ -27,6 +28,7 @@ class AttemptCortex:
         self.artifacts = Artifacts(store, artifact_root) if artifact_root is not None else None
         attempt, task, workflow = store._owned(scope, attempt_id, fence, running=True)
         self._has_inputs = bool(task.input_artifacts)
+        self._resume_text = ''
         profile = attempt.profile_snapshot
         if not store._binding_current(profile) or profile.loaded_instance_id is None:
             raise StoreError('model_unavailable')
@@ -66,6 +68,16 @@ class AttemptCortex:
         return Resources(self.store).execute(self.scope, self.attempt_id, self.fence,
             key='inference:' + uuid4().hex, request=request, should_stop=self.should_stop)
 
+    def _resume_context(self):
+        if self.artifacts is None:
+            return ''
+        from .continuations import Continuations
+        from .retries import Retries
+
+        attempt, _, _ = self.store._owned(self.scope, self.attempt_id, self.fence, running=True)
+        root = self.artifacts.directory.parent
+        return Continuations(self.store, root).context(self.scope, attempt) + Retries(self.store, root).context(self.scope, attempt)
+
     def _context(self, context: CortexContext) -> CortexContext:
         attempt, task, _ = self.store._owned(self.scope, self.attempt_id, self.fence, running=True)
         if task.permissions is None or task.acceptance is None:
@@ -82,6 +94,8 @@ class AttemptCortex:
                 + '\nRead a pinned target with read_file arguments {artifact_id, path}. '
                 'read_file with only {path} reads the current workspace. '
                 'edit_file/create_file change only the workspace, never the pinned inputs.')
+        self._resume_text = self._resume_context()
+        text += self._resume_text
         base_text = text
         tools = list(task.permissions.tools)
         if 'send_message' in tools:
@@ -107,7 +121,7 @@ class AttemptCortex:
             with self.store.transaction():
                 attempt, task, workflow = self.store._owned(self.scope, self.attempt_id, self.fence, running=True)
                 self.store._event(self.scope, workflow, 'message_tool_context_deferred', task=task, attempt=attempt)
-        if task.input_artifacts:
+        if task.input_artifacts or self._resume_text:
             facts = list(dict.fromkeys(reversed(result.working_memory)))[::-1]
             notes, logs = list(result.episodic_notes), list(result.observation.recent_logs)
             removed = {'facts': 0, 'lessons': 0, 'logs': 0, 'duplicates': len(result.working_memory) - len(facts)}
@@ -134,7 +148,7 @@ class AttemptCortex:
                     attempt, task, workflow = self.store._owned(self.scope, self.attempt_id, self.fence, running=True)
                     self.store._event(self.scope, workflow, 'artifact_context_compacted', task=task, attempt=attempt,
                         removed=removed)
-        if task.input_artifacts and not self.core.reasoner.context_fits(result):
+        if (task.input_artifacts or self._resume_text) and not self.core.reasoner.context_fits(result):
             with self.store.transaction():
                 attempt, task, workflow = self.store._owned(self.scope, self.attempt_id, self.fence, running=True)
                 self.store._event(self.scope, workflow, 'artifact_context_blocked', task=task, attempt=attempt,
@@ -145,6 +159,9 @@ class AttemptCortex:
     def generate_candidates(self, context: CortexContext):
         if self.store.db.in_transaction:
             raise RuntimeError('Model transport cannot run in a SQLite transaction')
+        if not self.core._has_budget() and plan_model_calls(context).call_reasoner:
+            self.store._owned(self.scope, self.attempt_id, self.fence, running=True)
+            return self.core.generate_candidates(context)
         context = self._context(context)
         bus = Messages(self.store)
         pending = sorted([*bus.pending(self.scope, self.attempt_id, self.fence),
@@ -182,6 +199,13 @@ class AttemptCortex:
             context = with_messages(excerpts)
         before = self.core.reasoner.request_count
         candidates = self.core.generate_candidates(context)
+        if self._resume_text:
+            try:
+                if self._resume_context() != self._resume_text:
+                    raise StoreError('resume_context_changed')
+            except (OSError, ValueError):
+                self.core.last_routing.error = 'resume_context_stale'
+                return []
         if self.artifacts is not None and self._has_inputs:
             try:
                 self.artifacts.inputs(self.scope, self.attempt_id, self.fence)

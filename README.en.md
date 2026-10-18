@@ -138,8 +138,14 @@ review; reopening requires fresh checks. The internal `Pipelines.approve_parent`
 its slot while mandatory children execute. After independent child checks, a new
 fenced parent attempt receives exact inputs and retains the original cumulative
 budget and deadline. Its partial bytes and context remain pinned; its own review
-and final integration checks are still required. Automatic retry/replanning and
-common result views remain unimplemented.
+and final integration checks are still required. Optional `retry_policies` lets
+the owner preapprove correction of rejected output with separate writer/reviewer
+attempt caps. A fresh attempt receives exact failed changes and review diagnostics;
+it still needs fresh review and integration. All spending, the original deadline
+and the three-attempt limit remain cumulative: one parent retry after preparation,
+or up to two child-writer retries. Missing policy grants no automatic retries.
+Rejected results and evidence remain in history and in the checked lineage.
+Graph replanning and common result views remain unimplemented.
 An explicit primary compatibility probe requests
 one structured candidate; ordinary generation keeps its existing count and limits.
 The model transport adapter acquires an endpoint slot and charges the request

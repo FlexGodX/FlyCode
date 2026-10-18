@@ -152,9 +152,11 @@ class Workspaces:
             info = staging.stat()
             identity_pin = (info.st_dev, info.st_ino)
             from .continuations import Continuations
+            from .retries import Retries
 
             revision = _checkout(repository)
-            Continuations(store, self.root.parent).restore(scope, attempt, repository)
+            if not Retries(store, self.root.parent).restore(scope, attempt, repository):
+                Continuations(store, self.root.parent).restore(scope, attempt, repository)
             record = WorkspaceRecord(id=identity, attempt_id=attempt_id, fence=fence, contract_hash=attempt.contract_hash,
                 source_root=str(source), snapshot=snapshot, input_snapshot=input_snapshot, prerequisites=attempt.prerequisites,
                 checkout_revision=revision, created_at=store.clock())

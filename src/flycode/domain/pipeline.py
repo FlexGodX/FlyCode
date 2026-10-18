@@ -1,9 +1,16 @@
 """Owner-approved future-output recipes; concrete stages remain immutable."""
 from typing import Literal
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
-from .orchestration import AgentProfile, QueueModel, WorkflowBudget, WorkItem
+from .orchestration import (
+    AgentProfile,
+    BudgetAmount,
+    QueueModel,
+    ReviewBinding,
+    WorkflowBudget,
+    WorkItem,
+)
 
 
 class PipelineRecipe(QueueModel):
@@ -67,11 +74,20 @@ class DependencyPipelineRecipe(_MultiPipelineRecipe):
     branches: tuple[PipelineBranch, ...] = Field(min_length=1, max_length=31)
 
 
+class RetryPolicy(QueueModel):
+    model_config = ConfigDict(revalidate_instances='always')
+
+    max_retries: int = Field(ge=1, le=2, strict=True)
+    writer_budget: BudgetAmount
+    reviewer_budget: BudgetAmount
+
+
 class ParentPipelineRecipe(_MultiPipelineRecipe):
     version: Literal[4] = 4
     branches: tuple[PipelineBranch, ...] = Field(min_length=2, max_length=31)
     parent_id: str
     preparation_steps: int = Field(ge=1, le=59)
+    retry_policies: dict[str, RetryPolicy] = Field(default_factory=dict)
 
 
 class ContinuationCheckpoint(QueueModel):
@@ -84,4 +100,22 @@ class ContinuationCheckpoint(QueueModel):
     fence: int
     semantic_revision: int
     contract_hash: str
+    created_at: float
+
+
+class RetryCheckpoint(QueueModel):
+    id: str
+    pipeline_id: str
+    task_id: str
+    number: int = Field(ge=1, le=2)
+    artifact_id: str
+    artifact_hash: str
+    review_id: str
+    review_hash: str
+    author_attempt_id: str
+    author_fence: int
+    reviewer_attempt_id: str
+    review_binding: ReviewBinding
+    artifact_sequence: int
+    reset_semantic_revision: int
     created_at: float

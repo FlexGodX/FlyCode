@@ -4,6 +4,16 @@
 
 **Goal:** Реализовать изменения §§100–103 с проверяемыми результатами, общей очередью задач и явным отделением исследовательских допусков.
 
+Current rejected-review retry increment (2026-10-19): version4 explicit owner
+policies cap new fenced correction attempts while retaining exact failures,
+feedback, spending/deadline and max3. Native44/compatibility54, final delta11 and
+complete final extracted-wheel46 pass; combined-brain interop3, Ruff12/mypy11,
+package173/UTF-8 README/CLI and177 unchanged inputs pass. Counts overlap; final
+wheel covers the last policy guard. [Report](../../validation/2026-10-19-review-retries.md)
+retains38 boundaries and all failures. Parallel brain changes remain separate.
+Bounded graph replan, common result views and aggregate/neural/research acceptance
+stay open; no full-suite/live-model/graph/UI/training rerun is claimed.
+
 Current parent-wait increment (2026-10-19): version4 pins stopped partial work,
 verified mandatory children and a new fenced continuation under original costs/
 deadline. Native34, compatibility12 and extracted-wheel6 pass; Ruff12/mypy10,

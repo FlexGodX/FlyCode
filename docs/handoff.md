@@ -1,5 +1,35 @@
 # FlyCode handoff brief
 
+## Rejected-review retry — checked,2026-10-19
+
+Version4 owner `retry_policies` grants bounded writer/reviewer caps and fresh
+fenced correction after exact changes_requested evidence. Missing policy grants
+none. Old artifacts/reviews/evidence, spent budget, original deadline and max3
+attempts remain pinned. Parent preparation leaves at most one review retry;
+child writers allow up to two. Final completion still needs fresh review and
+combined/applied checks; deleted failed evidence invalidates the final result.
+
+Native44, compatibility54 and final policy/unknown delta11 pass; complete final
+extracted-wheel46 passes411.59s. Ruff12/mypy11, package173/UTF-8 README/CLI and177
+unchanged inputs pass. Counts overlap and source boundaries differ as documented.
+Three actual child/parent interop routes pass in a frozen copy with the parallel
+brain; its changes are preserved in the shared checkout and excluded from the
+published package. Final-wheel ledgers prove8 attempts/4 model/39 tools for one
+retry,10 attempts/5 model/42 tools for two, zero reservations/unknowns.
+[Report](validation/2026-10-19-review-retries.md) records all38 boundaries, REDs,
+fixture failures, prompt probes, owner-authorized continuation, package and archive.
+No full-suite/live-model/graph/UI/training rerun is claimed for this increment.
+
+Next: Task4 bounded owner-approved graph replan with immutable original/active
+authority and retained stage generations. Never change base v4 recipe/semantic
+pins in place or replace failed task IDs to reset their lifetime budget/max3.
+Existing pipeline_receipts can hold a bounded typed revision chain without
+colliding with parallel schema23–25. Mandatory criteria, permission, spent budget,
+deadline, original parent checkpoint and carried completion proof must survive;
+activation requires confirmed quiescence and exact owner CAS. Task5 common
+wait/review/result projections and full aggregate/neural/research acceptance remain
+open. Earlier checkpoints below retain their historical source boundaries.
+
 ## Durable parent wait — validated,2026-10-19
 
 Version4 owner approval now runs a genuine parent preparation, stopped checkpoint,
