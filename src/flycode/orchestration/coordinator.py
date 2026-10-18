@@ -14,6 +14,9 @@ from threading import Event
 from ..domain.orchestration import AccessScope, WorkerBinding
 from ..llm.catalogue import ModelCatalogue
 from ..verification.acceptance import input_identity
+from ..verification.control import VerificationControl
+from ..verification.evidence import read_regular
+from ..verification.execution import VerificationExecutor
 from .attach import AttachmentServer
 from .dispatch import Dispatcher
 from .host import Host
@@ -44,14 +47,15 @@ class Coordinator:
                 except (OSError, ValueError):
                     continue
         else:
-            projects.update(row[0] for row in store.db.execute('SELECT DISTINCT project_id FROM workflows'))
+            return self.host._scope(store)
         return AccessScope(actor_id='managed-host:' + self.host.session.id, project_ids=projects, role='runtime')
 
     def _inputs(self, store, scope):
         tables = ('workflows', 'tasks', 'profiles', 'instances', 'reservations', 'worker_bindings',
             'review_bindings', 'pipelines', 'pipeline_receipts', 'artifacts', 'reviews', 'integrations',
             'model_admissions', 'model_calls', 'tool_calls', 'canonical_projects', 'source_claims',
-            'workers', 'review_executions', 'execution_lanes')
+            'workers', 'review_executions', 'execution_lanes', 'verification_plans', 'verification_subjects',
+            'verification_profiles', 'verification_profile_heads', 'verification_storage', 'verification_reservations')
         data = {table: [tuple(row) for row in store.db.execute('SELECT * FROM ' + table + ' ORDER BY rowid')]
             for table in tables}
         data['queue_paused'] = store._counter('queue_paused')
@@ -59,6 +63,10 @@ class Coordinator:
         data['attempts'] = [json.loads(row[0]) for row in store.db.execute('SELECT data FROM attempts ORDER BY rowid')]
         for attempt in data['attempts']:
             attempt.pop('lease_until', None)
+        data['verification_executions'] = [json.loads(row[0]) for row in store.db.execute(
+            'SELECT data FROM verification_executions ORDER BY rowid')]
+        for execution in data['verification_executions']:
+            execution.pop('lease_until', None)
         roots, sources = {self.host.registration.runtime_root.path}, set()
         for table in ('worker_bindings', 'review_bindings', 'pipelines'):
             for row in data[table]:
@@ -84,17 +92,43 @@ class Coordinator:
             scope = self._scope(store, current=True)
             signature, roots = self._inputs(store, scope)
             if signature != previous:
-                for root in roots:
+                for root in roots if store.workflows(scope) else []:
                     key = hashlib.sha256((signature + ':' + root).encode()).hexdigest()
                     result = Dispatcher(store, Path(root)).select(scope, key='host-select:' + key)
                     if result.attempt is not None:
-                        return signature, (root, scope, result.attempt.id)
+                        return signature, (root, scope, result.attempt.id, 'agent')
+                control = VerificationControl(store)
+                for row in store.db.execute("SELECT e.id,p.project_id FROM verification_executions e "
+                        "JOIN verification_plans p ON p.id=e.plan_id WHERE e.state='queued' ORDER BY e.rowid").fetchall():
+                    if row['project_id'] not in scope.project_ids:
+                        continue
+                    try:
+                        execution = control.claim(scope, row['id'])
+                    except (OSError, ValueError) as error:
+                        if isinstance(error, StoreError) and error.code.startswith('host_'):
+                            raise
+                        reason = getattr(error, 'code', type(error).__name__)
+                        if reason not in {'instance_limit', 'paused', 'revision', 'verification_state'}:
+                            control.block_queued(scope, row['id'], reason)
+                        continue
+                    return signature, (None, scope, execution.id, 'verification')
             return signature, None
         finally:
             store.close()
 
-    def _execute(self, root, scope, attempt_id):
+    def _execute(self, root, scope, attempt_id, kind='agent'):
         store = self._connect()
+        if kind == 'verification':
+            try:
+                execution = VerificationControl(store)._execution(attempt_id)
+                VerificationExecutor(store, attempt_id, execution.fence).run()
+            except (OSError, ValueError):
+                # The executor retains its failed preparation/custody record;
+                # reconciliation, rather than a fresh run, owns the next step.
+                pass
+            finally:
+                store.close()
+            return
         dispatcher = Dispatcher(store, Path(root))
         try:
             dispatcher.launch(scope, attempt_id)
@@ -119,9 +153,17 @@ class Coordinator:
                     except StoreError as error:
                         if error.code not in {'fence', 'wall_deadline'}:
                             raise
+        control = VerificationControl(store)
+        for row in store.db.execute("SELECT id FROM verification_executions WHERE state IN "
+                "('preparing','running','evaluating')").fetchall():
+            execution = control._execution(row['id'])
+            try:
+                control.heartbeat(scope, execution.id, execution.fence)
+            except StoreError as error:
+                if error.code.startswith('host_'):
+                    raise
 
-    def _recovery_state(self, store, identity):
-        attempt = store._attempt(identity)
+    def _recovery_state(self, store, identity, kind='agent'):
         data, paths = {}, set()
         def references(value):
             if isinstance(value, dict):
@@ -132,9 +174,11 @@ class Coordinator:
             elif isinstance(value, list):
                 for item in value:
                     references(item)
-        for table, column in (('attempts', 'id'), ('reservations', 'attempt_id'), ('workers', 'attempt_id'),
+        tables = (('verification_executions', 'id'), ('verification_reservations', 'execution_id')) if kind == 'verification' else (
+                ('attempts', 'id'), ('reservations', 'attempt_id'), ('workers', 'attempt_id'),
                 ('review_executions', 'id'), ('integrations', 'attempt_id'), ('workspaces', 'attempt_id'),
-                ('model_calls', 'attempt_id'), ('tool_calls', 'attempt_id'), ('execution_lanes', 'attempt_id')):
+                ('model_calls', 'attempt_id'), ('tool_calls', 'attempt_id'), ('execution_lanes', 'attempt_id'))
+        for table, column in tables:
             rows = [dict(row) for row in store.db.execute('SELECT * FROM ' + table + ' WHERE ' + column + '=?', (identity,))]
             data[table] = rows
             for row in rows:
@@ -148,23 +192,41 @@ class Coordinator:
                         paths.add(Path(record['runtime_root']) / 'reviews' / identity / 'coordinator.lock')
                     elif table == 'integrations' and record.get('runtime_root'):
                         paths.add(Path(record['runtime_root']) / 'integrations' / record['id'] / 'coordinator.lock')
-        data['claims'] = [tuple(row) for row in store.db.execute(
-            "SELECT * FROM source_claims WHERE json_extract(data,'$.attempt_id')=?", (identity,))]
-        data['task'] = store._task(attempt.task_id).model_dump(mode='json')
+                    elif table == 'verification_executions' and record.get('coordinator_root'):
+                        root = Path(record['coordinator_root']['path'])
+                        paths.update((root, root / 'coordinator.lock'))
+                        paths.update(root.parents)
+        if kind == 'agent':
+            attempt = store._attempt(identity)
+            data['claims'] = [tuple(row) for row in store.db.execute(
+                "SELECT * FROM source_claims WHERE json_extract(data,'$.attempt_id')=?", (identity,))]
+            data['task'] = store._task(attempt.task_id).model_dump(mode='json')
         data['files'] = {}
         for path in sorted(paths):
             try:
                 info = path.lstat()
                 data['files'][str(path)] = (info.st_dev, info.st_ino, info.st_mode, info.st_nlink,
-                    hashlib.sha256(path.read_bytes()).hexdigest() if path.name == 'process.json' and stat.S_ISREG(info.st_mode) else None)
-            except OSError as error:
+                    hashlib.sha256(read_regular(path, limit=64 * 1024)).hexdigest()
+                    if path.name == 'process.json' and stat.S_ISREG(info.st_mode) else None)
+            except (OSError, ValueError) as error:
                 data['files'][str(path)] = type(error).__name__
         return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 
-    def _recover(self, identity):
+    def _recover(self, identity, kind='agent'):
         store = self._connect()
         try:
-            observed = self._recovery_state(store, identity)
+            observed = self._recovery_state(store, identity, kind)
+            if kind == 'verification':
+                execution = VerificationControl(store)._execution(identity)
+                try:
+                    VerificationExecutor(store, identity, execution.fence).recover()
+                    return observed, False
+                except StoreError as error:
+                    if error.code.startswith('host_'):
+                        raise
+                    VerificationControl(store).recovery_blocked(self._scope(store, current=False),
+                        identity, execution.fence, error.code)
+                    return observed, error.code in {'coordinator_running', 'process_unconfirmed', 'revision'}
             retry = False
             scope = self._scope(store, current=False)
             attempt = store._attempt(identity)
@@ -223,6 +285,7 @@ class Coordinator:
                 self.host.check()
                 scope = self._scope(store, current=False)
                 store.expire(scope)
+                VerificationControl(store).expire(scope)
                 now = time.monotonic()
                 if now - pulse >= 10:
                     self._pulse(store, scope)
@@ -240,18 +303,21 @@ class Coordinator:
                     signature, selected = admission.result()
                     admission = None
                     if selected is not None:
-                        root, assigned_scope, identity = selected
-                        stages[identity] = stage_pool.submit(self._execute, root, assigned_scope, identity)
-                targets = {row[0] for row in store.db.execute("SELECT id FROM attempts WHERE state IN ('stopping','reconciling')")}
-                targets.update(row[0] for row in store.db.execute("SELECT json_extract(data,'$.attempt_id') FROM source_claims "
+                        root, assigned_scope, identity, kind = selected
+                        stages[(kind, identity)] = stage_pool.submit(self._execute, root, assigned_scope, identity, kind)
+                targets = {('agent', row[0]) for row in store.db.execute("SELECT id FROM attempts WHERE state IN ('stopping','reconciling')")}
+                targets.update(('agent', row[0]) for row in store.db.execute("SELECT json_extract(data,'$.attempt_id') FROM source_claims "
                     "WHERE owner_kind='integration' AND state!='released'"))
-                for identity in targets - stages.keys() - recoveries.keys():
+                targets.update(('verification', row[0]) for row in store.db.execute(
+                    "SELECT id FROM verification_executions WHERE state IN ('cancelling','reconciling')"))
+                for job in targets - stages.keys() - recoveries.keys():
                     if len(stages) + len(recoveries) >= 4:
                         break
-                    fingerprint = self._recovery_state(store, identity)
-                    observed, probe_at = reconciled.get(identity, (None, None))
+                    kind, identity = job
+                    fingerprint = self._recovery_state(store, identity, kind)
+                    observed, probe_at = reconciled.get(job, (None, None))
                     if observed != fingerprint or (probe_at is not None and now >= probe_at):
-                        recoveries[identity] = stage_pool.submit(self._recover, identity)
+                        recoveries[job] = stage_pool.submit(self._recover, identity, kind)
                 reconciled = {identity: value for identity, value in reconciled.items() if identity in targets}
                 if admission is None and len(stages) + len(recoveries) < 4 and now - checked >= .5:
                     admission = admission_pool.submit(self._select, signature)

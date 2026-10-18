@@ -4,6 +4,16 @@
 
 **Goal:** Реализовать изменения §§100–103 с проверяемыми результатами, общей очередью задач и явным отделением исследовательских допусков.
 
+Current verified increment (2026-10-18): [shared verification control](2026-10-18-verification-control.md)
+adds registered plans/start/cancel/rerun, real shared-pool execution/recovery,
+protected API/CLI/SSE/artifacts/reproduction and `/verification` in both interfaces.
+Feature-only native/API/CLI checks, packaged browser and classic/Desktop/projects/
+projectless compatibility pass; no full-suite/graph/live-model rerun is claimed
+under the user's latest test instruction. Exact overlapping counts and source
+boundaries are in the [report](../../validation/2026-10-18-verification-control.md).
+Automatic pipeline review/result projections and child-wait/DAG execution remain
+open alongside aggregate Tasks5–8. The parallel brain implementation is excluded.
+
 Current follow-up: [shared source admission](2026-10-17-shared-source-admission.md)
 is validated after the approved pipeline publication. Schema15/legacy custody
 and anchored native rename/mkdir have final978-ID evidence:970 pass/8 expected

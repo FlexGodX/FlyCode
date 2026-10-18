@@ -12,6 +12,8 @@
 
 ## Global Constraints
 
+- Parallel ownership,2026-10-18: this continuation owns verification, orchestration control and its API/CLI/UI. The parallel brain agent owns biological backends/data/training. Preserve its edits and use existing BrainBackend contracts; coordinate any necessary shared interface change before editing it.
+- After each feature, run only its targeted tests; UI changes use browser/interface checks. Do not launch the full repository suite during this continuation. Historical full-suite results below remain historical evidence.
 - «Метаданные/очередь — SQLite; большие файлы — серверное artifact storage.»
 - «Standalone test plan имеет собственный явно видимый бюджет.»
 - «Повторы сохраняют исходные результаты; изменение кода инвалидирует approval.»
@@ -77,7 +79,7 @@ with store.transaction():
 
 **Interfaces:** `create_plan(scope, draft: VerificationPlanDraft) -> RegisteredVerificationPlan`; `VerificationControl(store).command(scope, plan_id, command: VerificationCommand) -> VerificationExecution | RegisteredVerificationPlan`; `get(scope, plan_id)`, `events(scope, plan_id, after=0, limit=100)`. Draft contains only registered subject/profile IDs, profile version, explicit budget and idempotency key. Commands contain operation/start/cancel/rerun, expected revision and key.
 
-- [ ] RED real two-connection race: two start commands at one revision must create one queued execution; identical lost-response replay returns the first result, changed payload conflicts.
+- [x] RED real two-connection race: two start commands at one revision must create one queued execution; identical lost-response replay returns the first result, changed payload conflicts.
 
 ```python
 first = control.command(owner, plan.id, start)
@@ -86,9 +88,9 @@ with pytest.raises(StoreError, match='revision|idempotency'):
     control.command(owner, plan.id, conflicting_start)
 ```
 
-- [ ] Implement plan binding through existing PlanBuilder/OracleRegistry for acceptance and exact captured suite checks for registered-suite. Import host-owned staged workspace/artifact snapshots with provenance checks; reject fabricated or cross-project SubjectRef/project/workflow/task/attempt combinations.
-- [ ] Implement CAS revision/events/idempotency in one transaction; draft does not execute. Limits are explicit/cumulative across attempts; max3 user attempts, diagnostic reruns included in tool spending. Cancel changes durable state, never signals a client PID.
-- [ ] Verify foreign scope, unsupported trust, stale profile, missing subjects, changed budget/key, completed rerun retaining old failure/evidence, cancelled plan requiring explicit new intent; commit after passing checks.
+- [x] Implement plan binding through existing PlanBuilder/OracleRegistry for acceptance and exact captured suite checks for registered-suite. Import host-owned staged workspace/artifact snapshots with provenance checks; reject fabricated or cross-project SubjectRef/project/workflow/task/attempt combinations.
+- [x] Implement CAS revision/events/idempotency in one transaction; draft does not execute. Limits are explicit/cumulative across attempts; max3 user attempts, diagnostic reruns included in tool spending. Cancel changes durable state, never signals a client PID.
+- [x] Verify foreign scope, unsupported trust, stale profile, missing subjects, changed budget/key, completed rerun retaining old failure/evidence, cancelled plan requiring explicit new intent; commit after passing checks.
 
 ### Task3: Real registered execution and shared Host lifecycle
 
@@ -96,7 +98,7 @@ with pytest.raises(StoreError, match='revision|idempotency'):
 
 **Interfaces:** `VerificationEngine.verify_plan(plan, roots, *, should_stop)` supports both declared scopes; `VerificationExecutor(store, execution_id, fence).run()`, `.recover()`; Coordinator uses tagged `('verification', id)` jobs in its existing stage_pool4, not a second executor.
 
-- [ ] RED actual subprocess suite: start a frozen subject, record exact ProcessRef before spawn, cancel while sleeping, require stopped group and cancelled evidence. A source edit invalidates current approval, never changes captured inputs.
+- [x] RED actual subprocess suite: start a frozen subject, record exact ProcessRef before spawn, cancel while sleeping, require stopped group and cancelled evidence. A source edit invalidates current approval, never changes captured inputs.
 
 ```python
 control.command(owner, plan.id, cancel)
@@ -106,9 +108,21 @@ for ref in process_refs:
 assert source.read_bytes() == before
 ```
 
-- [ ] Execute outside SQL using invocation_executor/on_prepare/on_admit; check host session/fence/budget at GO, debit each invocation, heartbeat10s/lease30s, bound timeout by remaining deadline. Recheck immutable inputs and source/environment identity before current verdict projection.
-- [ ] Integrate selection signature, shared capacity counting including uncertain groups, Host.recover/drain/_manual_busy, scope discovery after root loss and typed recovery fingerprint. Keep reservations/unknown spending until exact settlement. A late acknowledgement may record cost/receipt, never publish a new current success.
-- [ ] Verify pass/fail/empty/skipped/xfail/malformed/flaky/timeout, diagnostic reruns and user reruns, crash/restart, draining, stale owner and concurrent workflow/standalone capacity. Commit passing native lifecycle increment.
+- [x] Execute outside SQL using invocation_executor/on_prepare/on_admit; check host session/fence/budget at GO, debit each invocation, heartbeat10s/lease30s, bound timeout by remaining deadline. Recheck immutable inputs and source/environment identity before current verdict projection.
+- [x] Integrate selection signature, shared capacity counting including uncertain groups, Host.recover/drain/_manual_busy, scope discovery after root loss and typed recovery fingerprint. Keep reservations/unknown spending until exact settlement. A late acknowledgement may record cost/receipt, never publish a new current success.
+- [x] Verify pass/fail/empty/skipped/xfail/malformed/flaky/timeout, diagnostic reruns and user reruns, crash/restart, draining, stale owner and concurrent workflow/standalone capacity. Commit passing native lifecycle increment.
+
+- [x] Reproduce the four pending review findings with real processes/Store commands: substituted events FIFO/link must fail promptly without writing another file; transient ownership loss must remain terminal for that execution; transient Stop must latch across diagnostic reruns and incomplete evidence must never support current pass; clock rollback before initial queue time must deny claim and user rerun without extra spending. Implement minimal fixes and run only these tests plus directly affected verification cases.
+
+Historical native checkpoint before API/UI:164 exact IDs passed296.36s/264 unchanged
+source/test files, Ruff34/mypy13/diff check pass. Prior432passed537.47s predates
+the last scoped-expiry/atomic-drain correction; prior390passed504.84s predates
+the final bounded receipt/ancestor-recovery corrections. Actual guardian crash,
+FIFO fallback/admission, restored parent identity and project-admission/drain
+interleavings have retained failing reproductions and passing focused checks.
+All checkpoint processes were terminal. Current interface/package validation is
+recorded below; aggregate delivery remains open. Historical checkpoint:
+`/private/tmp/flycode-registered-lifecycle-checkpoint/status.json`.
 
 ### Task4: Protected API, CLI and safe artifacts
 
@@ -116,7 +130,7 @@ assert source.read_bytes() == before
 
 **Interfaces:** exact TST13 routes; CLI `verify --plan-id ID`, `verify --evidence-id ID --reproduce`; separate trusted registration subcommands for subjects/profiles. All commands consume Task2 contracts. API never accepts filesystem paths/argv/URLs.
 
-- [ ] RED token/origin/scope/CAS/key and traversal/artifact confusion tests; actual CLI process registers and starts, exits while shared Host keeps running.
+- [x] RED token/origin/scope/CAS/key and traversal/artifact confusion tests; actual CLI process registers and starts, exits while shared Host keeps running.
 
 ```python
 assert client.get('/api/verification/plans/' + plan.id).status_code == 403
@@ -124,8 +138,8 @@ response = authenticated_client.post('/api/verification/plans', json=body_with_r
 assert response.status_code == 422
 ```
 
-- [ ] Implement protected GET as well as mutation routes; server scope derives physical allowed folders. Separate minimal prior-grant cancel after folder loss; it grants no reads/restart. SSE supplies ordered cursor/sequence and bounded reconnect. Artifact ID resolves pinned regular file/hash, safe MIME/attachment, no executable HTML/private manifest paths.
-- [ ] CLI preflight requires original resource versions/limits for reproduction, creates a fresh execution retaining all outcomes; preserves legacy --repo. Test removed evidence, changed environment/permissions, interrupted output and safe error messages; commit.
+- [x] Implement protected GET as well as mutation routes; server scope derives physical allowed folders. Separate minimal prior-grant cancel after folder loss; it grants no reads/restart. SSE supplies ordered cursor/sequence and bounded reconnect. Artifact ID resolves pinned regular file/hash, safe MIME/attachment, no executable HTML/private manifest paths.
+- [x] CLI preflight requires original resource versions/limits for reproduction, creates a fresh execution retaining all outcomes; preserves legacy --repo. Test removed evidence, changed environment/permissions, interrupted output and safe error messages; commit.
 
 ### Task5: Verification screen in both interfaces
 
@@ -133,30 +147,30 @@ assert response.status_code == 422
 
 **Interfaces:** Task4 projections only; model/execution controls stay independent; existing project/group/chat behavior preserved.
 
-- [ ] Browser RED: create plan from subject/profile choices without raw paths; start, see actual check counts/cases/budget, cancel and rerun, view safe artifact. Reload/reconnect must not create duplicate executions.
-- [ ] Render required/optional, baseline→target→regression→integration, exact snapshot revision/currentness, failed/skipped/flaky/infra classifications and blockers. Percent is completed required checks only; no ETA. Show recorded/live model origin explicitly and budget/reserve truthfully.
+- [x] Browser RED: create plan from subject/profile choices without raw paths; start, see actual check counts/cases/budget, cancel and rerun, view safe artifact. Reload/reconnect must not create duplicate executions.
+- [x] Render required/optional, baseline→target→regression→integration, exact snapshot revision/currentness, failed/skipped/flaky/infra classifications and blockers. Percent is completed required checks only; no ETA. Show recorded/live model origin explicitly and budget/reserve truthfully.
 
 ```javascript
 await page.getByRole('button', {name: 'Остановить проверку'}).click();
 await expect(page.getByText('Отменена', {exact: true})).toBeVisible();
 ```
 
-- [ ] Verify keyboard/focus, dark-theme selected text contrast, desktop/390/320 Stop and failure reason without horizontal scroll; before/after screenshots; legacy project/projectless chats and model settings; commit.
+- [x] Verify keyboard/focus, dark-theme selected text contrast, desktop/390/320 Stop and failure reason without horizontal scroll; before/after screenshots; legacy project/projectless chats and model settings; commit.
 
 ### Task6: Frozen validation, evidence and publication
 
 **Files:** docs/Plan.md, docs/handoff.md, README.md/README.en.md; bounded validation report and this plan.
 
-- [ ] Freeze source/test/config bytes before full pytest; use isolated artifact root. Retain every failed run; never label a repeat as a clean first attempt.
-- [ ] Run relevant Ruff/mypy, full pytest exact case IDs, opt-in real graph, actual English LM smoke with request/cost/STOP receipts, wheel build/extract and CLI/API/browser acceptance. Source stays unchanged during frozen measurements.
-- [ ] Fresh reviewer checks whole patch against specs; correct with new RED/verification if needed. Recheck tracked bytes/evidence hashes and remote/public identity before commit/push.
-- [ ] Update RU/EN README and honest phase status. TST13 complete only after all routes/CLI/UI/lifecycle scenarios above pass; aggregate Tasks5–8 and §§90–99 stay open until their own acceptance is proven.
+- [x] Freeze the directly affected source/test bytes before targeted measurements, using an isolated artifact root. Retain failed runs and report the exact source boundary of each later delta. The user excluded a full repository run in this continuation.
+- [x] Run feature-only verification tests, relevant Ruff/mypy, wheel build/extract and actual CLI/API/browser acceptance. No full pytest, graph or live-model run is claimed; these results do not establish research admission.
+- [x] Independent review checks the owned patch against specs; findings have retained REDs and passing corrections. Source/evidence hashes and public remote checked; publication includes only this continuation’s files.
+- [x] Update RU/EN README, acceptance status and handoff for the checked registered-pytest control surface. Aggregate Tasks5–8 and §§90–99 remain open until their own acceptance is proven.
 
 ## Self-review
 
 Coverage: TST13 interfaces→Tasks2/4/5; immutable evidence/freshness→Tasks1/2/3/4;
 TST05 lifecycle/recovery→Task3; TST08 all reruns→Tasks2/3; TST11 artifacts/reproduce→Task4;
-TST12 budgets/capacity→Tasks2/3; compatibility/identity→Tasks3/5/6. Unsupported non-pytest/hostile profiles block explicitly rather than inventing support. Existing workflow review/integration verification remains on its common budget and is projected by the same UI without copying task state.
+TST12 budgets/capacity→Tasks2/3; compatibility/identity→Tasks3/5/6. Unsupported non-pytest/hostile profiles block explicitly rather than inventing support. Imported workflow subjects use the common workflow budget. Automatic projection of existing pipeline review/integration results remains aggregate Task8; this screen lists registered verification plans without copying task state.
 Review Focus1→Tasks1/3/4,2→Task1,3→Task2,4→Task3,5→Tasks4/5.
 Native execution and aggregate scope remain unchanged; each unchecked task is required work.
 
@@ -169,3 +183,17 @@ control tasks.31 new cases; focused68; full1236 exact IDs/1228pass/8expectedskip
 FlyWire5 and Ruff13/scoped mypy4 pass. All failure/setup observations are retained.
 [Evidence](../../validation/2026-10-18-verification-catalogue.md).
 Tasks2–6 remain mandatory; this checkpoint does not complete TST13 or the goal.
+
+
+## Control/UI checkpoint —2026-10-18
+
+Tasks2–5 implement the supported registered-pytest control surface. Focused118,
+final API/CLI18, trusted staged CLI4 and extracted-wheel18 cases pass; these
+counts overlap. Final wheel169 equal package files/README and its browser
+2plans/6real pytest executions pass, with classic/Desktop/projects/projectless
+compatibility. Ruff53/scoped mypy24 and JS syntax pass. Final53-input boundary
+unchanged. See the [current report](../../validation/2026-10-18-verification-control.md)
+for exact boundaries and retained failures. User-directed feature-only testing
+supersedes this plan’s former full-suite/live/graph gate for this continuation.
+Automatic pipeline result projection, aggregate Tasks5–8, other runner profiles
+and neural/scientific admission remain open. The brain agent’s files are excluded.

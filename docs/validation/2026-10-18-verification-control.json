@@ -1,0 +1,73 @@
+{
+  "date": "2026-10-18",
+  "parent_commit": "8886b21909a98b8cd0b1a9397c8ddd32fc1c182f",
+  "scope": "registered verification control, CLI/API/UI; aggregate plan incomplete",
+  "final_browser": {
+    "passed": true,
+    "case": "verification",
+    "plans": 2,
+    "executions": 6,
+    "model_calls": 0,
+    "owner_bytes_preserved": true
+  },
+  "source_boundary": {
+    "checked_files": 53,
+    "changed": []
+  },
+  "source_manifest_sha256": "c04d8737a6e5c05abec87b1a2d679a76df2d41bc3a3784892a60b653e0688484",
+  "package_manifest_sha256": "47e3b3e9a30e18ccce38c691f26dd4fad8d10e5a0b64a387760905e0ae11bf90",
+  "wheel": {
+    "sha256": "477f523a7558373182e766824ab6e2d6b21c363c274dc37974655beabeb4d14a",
+    "package_files_equal": 169,
+    "readme_utf8_equal": true
+  },
+  "package_delta_since_18_wheel_cases": [
+    "flycode/web/static/verification.js"
+  ],
+  "static": {
+    "ruff_python_files": 53,
+    "mypy_source_files": 24,
+    "js_syntax": true
+  },
+  "archive": {
+    "path": "~/.cache/flycode/validation/flycode-verification-control-f2x386l_",
+    "files": 152,
+    "bytes": 6307138,
+    "manifest_sha256": "45d529cbfbc1f041e5b1d77cd3ea14f8b74cf7f68b14efc465a5cb9c2f8e2d7f"
+  },
+  "full_suite_run": false,
+  "real_model_run": false,
+  "real_graph_run": false,
+  "brain_changes": false,
+  "aggregate_tasks_5_to_8_complete": false,
+  "measurements": [
+    {
+      "name": "targeted",
+      "cases": 118,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "interface-delta",
+      "cases": 18,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "staged-cli",
+      "cases": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "wheel-feature",
+      "cases": 18,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ]
+}

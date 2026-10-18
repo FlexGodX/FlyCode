@@ -335,8 +335,8 @@ def test_stop_between_planned_attempts_never_returns_passed(tmp_path, monkeypatc
     stopped = Event()
     actual_runner = engine.run_pytest
 
-    def stop_after_actual_run(*args):
-        result = actual_runner(*args)
+    def stop_after_actual_run(*args, **kwargs):
+        result = actual_runner(*args, **kwargs)
         stopped.set()
         return result
 

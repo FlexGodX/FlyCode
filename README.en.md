@@ -781,15 +781,50 @@ A trusted Python host can separately approve an `AcceptanceContract` and oracle
 bytes, build baseline/target/regression/integration subjects with `PlanBuilder`,
 and call `VerificationEngine.verify_plan`. Its `acceptance-contract` verdict maps
 exact criteria/check/case IDs; newer owner approval invalidates previous results.
-The standalone CLI retains `registered-suite` scope. See the
+The `verify --repo` command retains `registered-suite` scope; registered plans
+retain their own scope. See the
 [verification specification](docs/specs/testing-module.md).
 
 The internal `VerificationRegistry` stores server-owned subjects and profiles in
-the shared SQLite database (schema20), with captured bytes in a pinned private
+the shared SQLite database (schema21), with captured bytes in a pinned private
 directory. Registration runs no subject code or model. Acceptance profiles use
 independent oracle bytes; their current approval is selected atomically with
-profile publication. Shared start/cancel/rerun commands, CLI/API and the TST-13
-screen remain under development; this catalogue alone does not complete Phase25.
+profile publication. The internal `VerificationControl` registers immutable plans
+and handles start/cancel/rerun with revisions, command idempotency and cumulative
+shared budgets. `Host` executes them in the same four-slot pool as agent tasks;
+after a crash it reconciles exact process ownership before releasing capacity
+and unused reservations. Earlier failures and spending remain recorded, and
+changed inputs invalidate current results.
+
+The **Verification** screen (`/verification`) is linked from both classic and
+Desktop interfaces. It creates plans from saved subjects/profiles and exposes
+start, Stop, reruns, criteria, individual test history, spending/reservations and
+reports. Editing files after a pass marks the result as requiring reverification.
+API reads require the session token and current folder access; losing the folder
+retains only previously granted cancellation authority. Report downloads use
+server IDs and checked hashes; the event stream supports cursor recovery.
+
+A trusted local operator first registers subjects and profiles in the same
+database as the UI. A profile JSON file can contain
+`{"title":"Pytest","checks":[{"id":"tests","timeout":120}]}`:
+
+```bash
+flycode verification register-subject --project /path/to/project
+flycode verification register-profile --project /path/to/project --input profile.json
+flycode verification list --project /path/to/project
+flycode verification show PLAN_ID --project /path/to/project
+flycode verify --plan-id PLAN_ID --project /path/to/project --expected-revision REVISION --key start-plan
+flycode verify --evidence-id EVIDENCE_ID --reproduce --project /path/to/project --expected-revision REVISION --key reproduce-plan
+```
+
+Replace IDs and `REVISION` with response values; retry the same command with its
+original key. `verification create --input plan.json` accepts registered IDs and
+an explicit budget. `register-subject` also imports `--workspace-attempt`,
+`--artifact --stage baseline|target`, or `--integration --checked-task --stage`;
+the host derives copied paths and provenance from validated records.
+Registration and plan creation execute nothing. CLI start attaches the shared
+service and survives client exit. Reproduction requires unchanged evidence,
+profile, snapshot and environment; cumulative spending/deadlines never reset.
 
 Live LM Studio single/dual smoke passed: single used 3 Qwen requests without a
 scorer; dual used 3 Qwen + 3 Jev. Both repaired the fixture and separately passed
@@ -799,7 +834,7 @@ The standalone command covers the registered suite rather than automatically
 proving every user acceptance criterion. Process copies
 are for trusted code and do not restrict host/network access. `--trust untrusted`
 blocks execution until a supported sandbox exists. Docker/HTTP/browser profiles,
-external black-box oracles, verification UI and the team completion gate remain in the
+external black-box oracles and remaining team completion acceptance remain in the
 [delivery plan](docs/superpowers/plans/2026-10-16-specification-delivery.md).
 
 ```bash

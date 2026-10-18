@@ -60,7 +60,7 @@ def create_app(workspace: Path | None = None, data_dir: Path | None = None,
         if ((origin and urlparse(origin).netloc != request.url.netloc)
                 or request.headers.get("sec-fetch-site") == "cross-site"):
             return JSONResponse({"detail": "Foreign origin rejected"}, status_code=403)
-        if (request.method not in {"GET", "HEAD"} or request.url.path.startswith(("/api/tasks", "/api/agents"))) and not secrets.compare_digest(
+        if (request.method not in {"GET", "HEAD"} or request.url.path.startswith(("/api/tasks", "/api/agents", "/api/verification"))) and not secrets.compare_digest(
             request.headers.get("x-flycode-token", ""), token,
         ):
             return JSONResponse({"detail": "Missing session token; reload FlyCode"}, status_code=403)
@@ -209,6 +209,10 @@ def create_app(workspace: Path | None = None, data_dir: Path | None = None,
     @app.get("/tasks")
     def tasks() -> FileResponse:
         return FileResponse(STATIC / "tasks.html")
+
+    @app.get('/verification')
+    def verification() -> FileResponse:
+        return FileResponse(STATIC / 'verification.html')
 
     @app.get("/desktop")
     def desktop() -> HTMLResponse:

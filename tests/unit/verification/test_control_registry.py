@@ -223,7 +223,8 @@ def test_atomic_schema20_failure_preserves_schema19_and_existing_records(registe
     store, _, project, _, _ = registered
     tables = ('canonical_projects', 'project_grants', 'commands', 'events')
     before = {table: [tuple(row) for row in store.db.execute('SELECT * FROM ' + table)] for table in tables}
-    for name in ('verification_profile_heads', 'verification_profiles', 'verification_subjects', 'verification_storage'):
+    for name in ('verification_events', 'verification_reservations', 'verification_executions', 'verification_plans',
+            'verification_profile_heads', 'verification_profiles', 'verification_subjects', 'verification_storage'):
         store.db.execute('DROP TABLE ' + name)
     store.db.execute('PRAGMA user_version=19')
     connect = sqlite3.connect
@@ -243,7 +244,7 @@ def test_atomic_schema20_failure_preserves_schema19_and_existing_records(registe
     assert {table: [tuple(row) for row in store.db.execute('SELECT * FROM ' + table)] for table in tables} == before
     reopened = Store(store.path)
     try:
-        assert reopened.db.execute('PRAGMA user_version').fetchone()[0] == 20
+        assert reopened.db.execute('PRAGMA user_version').fetchone()[0] == 21
         assert Projects(reopened).get(project.id) == project
     finally:
         reopened.close()

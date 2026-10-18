@@ -144,7 +144,7 @@ for a fresh session live in `docs/handoff.md`.
 - Run locally: `PYTHONPATH=src python -m flycode.cli run --fixture toy_arithmetic_bug --task "fix it" --brain functional`
 - List brains: `PYTHONPATH=src python -m flycode.cli brains`
 
-Prefer single-file or single-test runs during iteration. Full suites are for the final verification pass.
+After changing a feature, run only tests directly covering that feature. Do not run the full suite after each feature; reserve broader validation for an explicitly requested final verification pass.
 
 **Layout**
 
@@ -206,6 +206,9 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Write captured subject/oracle bytes through an owned directory descriptor; recheck saved staged identities after final reads before publication.
 - Decode wheel METADATA as UTF-8 text before parsing its unlabelled README body; the byte email parser replaces non-ASCII characters.
 - Import modules that evaluate subprocess.Popen type annotations before replacing Popen with a test wrapper.
+- Use bounded regular-file reads without following links for custody/launch records, including exception fallbacks and supervisor admission.
+- Fingerprint every physical identity checked by a recovery guard, including all persisted SourceRoot ancestors.
+- Read Host drain's full project scope inside its revocation transaction; scoped maintenance must skip newly added foreign projects.
 
 ## 12. How this file was built
 

@@ -1,5 +1,32 @@
 # FlyCode handoff brief
 
+## Shared verification control — validated,2026-10-18
+
+Schema21 adds executable registered plans, CAS/idempotent commands, cumulative
+budgets and fenced real pytest execution to the same Coordinator pool4. Recovery
+retains unknown outcomes until exact custody settles; Stop and ownership loss
+remain latched. Protected API/CLI/SSE/artifacts/reproduction and `/verification`
+are implemented, with links from classic/Desktop/Tasks and native scoped imports.
+
+Focused composition118passed/102.04s; final API/CLI delta18passed/17.94s;
+trusted staged CLI4passed/16.11s; extracted-wheel API/CLI18passed/17.90s.
+Final package169 exact files/UTF-8 README; packaged browser2plans/6real pytest
+executions with pass/fail/Stop/rerun/currentness and owner preservation passes.
+Desktop, non-Git projects and independent projectless chats pass. Ruff53/scoped
+mypy24/JS syntax/diff checks pass. Counts overlap; exact measurement boundaries,
+failures, source/package hashes and limitations are in the
+[report](validation/2026-10-18-verification-control.md). No full repository suite,
+real LM, graph or training was run in this continuation, per feature-only scope.
+
+Next finish aggregate Tasks5–8: child-wait/DAG/replan execution, automatic common
+review/integration/result projections and remaining interface fields, followed by
+separate neural orchestration admission/measurement. The brain agent owns the
+biological controller/data/training; its uncommitted §105/specs are excluded from
+this publication. Registered-plan UI does not automatically import legacy pipeline
+results. Docker/HTTP/browser profiles and hostile sandbox remain unsupported.
+Overall goal and research §§90–99 remain open. The296-run English benchmark's
+trained-Qwen transfer remains negative; no defaults or topology changed.
+
 ## Verification catalogue — validated,2026-10-18
 
 Schema20 adds trusted immutable subjects/profiles and atomic approval heads to the

@@ -8,6 +8,7 @@
   const classic = find('.interface-switch[href="/desktop"]');
   classic.href = "/";
   classic.firstChild.textContent = "Классический интерфейс";
+  find('.interface-switch[href="/verification"]').href = "/verification?interface=desktop";
   find(".brand").href = "/desktop";
   find(".version").textContent = "DESKTOP";
   find("#search").placeholder = "Поиск чатов";

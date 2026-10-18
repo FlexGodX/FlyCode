@@ -127,7 +127,16 @@ def _build_parser() -> argparse.ArgumentParser:
     ui.add_argument("--data-dir", default=None, help="Directory for local run history")
 
     verify = sub.add_parser('verify', help='Verify captured project bytes using the registered local pytest profile')
-    verify.add_argument('--repo', required=True)
+    verification_input = verify.add_mutually_exclusive_group(required=True)
+    verification_input.add_argument('--repo')
+    verification_input.add_argument('--plan-id')
+    verification_input.add_argument('--evidence-id')
+    verify.add_argument('--reproduce', action='store_true')
+    verify.add_argument('--project', help='Explicit project folder for a registered plan')
+    verify.add_argument('--database', help='Canonical state database')
+    verify.add_argument('--expected-revision', type=_positive_int)
+    verify.add_argument('--key', help='Stable command idempotency key')
+    verify.add_argument('--operation', choices=['start', 'cancel', 'rerun'], default='start')
     verify.add_argument('--output', default=str(Path.home() / '.cache/flycode/verification'))
     verify.add_argument('--timeout', type=_positive_float, default=120.)
     verify.add_argument('--reruns', type=int, choices=[0, 1, 2], default=0)
@@ -136,6 +145,10 @@ def _build_parser() -> argparse.ArgumentParser:
     from .tracker.cli import configure_parser
 
     configure_parser(sub)
+
+    from .verification.cli import configure_parser as configure_verification_parser
+
+    configure_verification_parser(sub)
 
     connectome = sub.add_parser("connectome", help="Prepare or inspect a verified FlyWire graph")
     commands = connectome.add_subparsers(dest="connectome_command", required=True)
@@ -311,6 +324,11 @@ def main(argv: list[str] | None = None) -> int:
         from .verification.cli import verify_command
 
         return verify_command(args)
+
+    if args.command == 'verification':
+        from .verification.cli import catalogue_command
+
+        return catalogue_command(args)
 
     if args.command == 'tasks':
         from .tracker.cli import tasks_command

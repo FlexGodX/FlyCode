@@ -3062,3 +3062,17 @@ Focused68, wheel62/162 package files/README/CLI, FlyWire5 и Ruff13/scoped mypy4
 остаются следующим обязательным этапом; фаза25/TST13 и Tasks5–8 не закрыты.
 [Отчёт каталога](validation/2026-10-18-verification-catalogue.md),
 [полный план управления](superpowers/plans/2026-10-18-verification-control.md).
+
+
+Срез2026-10-18, управление verification (schema21): executable plans,
+CAS/idempotent start/cancel/rerun, накопительные бюджеты, реальные pytest процессы
+в общем Coordinator pool4, recovery и устойчивый Stop. Защищённые API/CLI/SSE,
+выдача отчётов, воспроизведение и экран `/verification` доступны из classic и
+Desktop. Focused118, delta18, staged CLI4, extracted-wheel18 проходят; числа
+пересекаются. Final wheel169 exact files/README и packaged browser2plans/6runs,
+Desktop/projects/projectless compatibility, Ruff53/scoped mypy24 проверены.
+Полный suite, graph и live-model в этом срезе не запускались по указанию
+пользователя о проверках только изменённой функции. Общие Tasks5–8, автоматическое
+представление pipeline review/integration, нейронный допуск и §§90–99 остаются
+открытыми; параллельный мозг не включён в эту поставку.
+[Отчёт управления](validation/2026-10-18-verification-control.md).

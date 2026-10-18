@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 import shutil
 import stat
 from collections.abc import Callable
@@ -18,7 +19,13 @@ from ..domain.verification import (
     VerificationPlan,
     VerificationVerdict,
 )
-from .evidence import artifact_hashes, atomic_json, sanitize_outputs
+from .evidence import (
+    _regular,
+    artifact_hashes,
+    atomic_json,
+    metadata_matches,
+    sanitize_outputs,
+)
 from .plan import STAGE_ORDER
 from .snapshot import capture, digest, input_files
 from .verdict import evaluate_contract
@@ -34,7 +41,7 @@ def input_identity(root: Path) -> tuple[dict[str, str], dict[str, int]]:
 
 
 def verify_plan(engine: 'VerificationEngine', plan: VerificationPlan, roots: dict[str, Path],
-                should_stop: Callable[[], bool]) -> VerificationVerdict:
+                should_stop: Callable[[], bool], *, captured: bool = False) -> VerificationVerdict:
     plan = VerificationPlan.model_validate(plan.model_dump())
     engine.oracles.validate(plan)
     assert plan.acceptance is not None and plan.approval_hash is not None
@@ -43,30 +50,46 @@ def verify_plan(engine: 'VerificationEngine', plan: VerificationPlan, roots: dic
     for stage, root in roots.items():
         if engine.data_dir.is_relative_to(root.resolve()):
             raise ValueError('Evidence must be outside every subject')
-        if capture(root, ref=plan.subjects[stage].ref).subject_hash != plan.subjects[stage].subject_hash:
+        snapshot = plan.subjects[stage]
+        provenance = snapshot if captured else None
+        if capture(root, ref=snapshot.ref, provenance=provenance).subject_hash != snapshot.subject_hash:
             raise ValueError(f'{stage} subject bytes or environment changed')
     evidence_id = uuid4().hex
     directory = engine.data_dir / evidence_id
     directory.mkdir()
     sequence = 0
+    journal = directory / 'events.jsonl'
+    atomic_json(journal, '')
+    journal_info = journal.lstat()
 
     def event(state: str, check_id: str | None = None, attempt_id: str | None = None):
-        nonlocal sequence
+        nonlocal sequence, journal_info
         sequence += 1
         payload = {'id': sequence, 'state': state, 'check_id': check_id, 'attempt_id': attempt_id,
                    'timestamp': datetime.now(timezone.utc).isoformat()}
-        with (directory / 'events.jsonl').open('a', encoding='utf-8') as stream:
-            stream.write(json.dumps(payload) + '\n')
+        fields = ('st_dev', 'st_ino', 'st_mode', 'st_nlink', 'st_size', 'st_mtime_ns')
+        with _regular(journal, writable=True) as stream:
+            if any(getattr(journal_info, field) != getattr(os.fstat(stream.fileno()), field) for field in fields):
+                raise ValueError('Verification journal changed')
+            stream.seek(0, os.SEEK_END)
+            stream.write((json.dumps(payload) + '\n').encode('utf-8'))
+            stream.flush()
+            journal_info = os.fstat(stream.fileno())
+            if any(getattr(journal_info, field) != getattr(journal.lstat(), field) for field in fields):
+                raise ValueError('Verification journal changed')
 
     event('preparing')
     atomic_json(directory / 'plan.json', plan.model_dump_json())
     atomic_json(directory / 'snapshot.json', plan.subjects['integration'].model_dump_json())
     atomic_json(directory / 'oracle.json', engine.oracles.read(plan.approval_hash).model_dump_json())
+    metadata = {'plan.json': plan.model_dump_json(), 'snapshot.json': plan.subjects['integration'].model_dump_json(),
+        'oracle.json': engine.oracles.read(plan.approval_hash).model_dump_json()}
     oracle = directory / 'oracle'
     oracle.mkdir()
     engine.oracles.overlay(plan.approval_hash, oracle)
     for stage, root in roots.items():
-        snapshot = capture(root, directory / 'subjects' / stage, ref=plan.subjects[stage].ref)
+        provenance = plan.subjects[stage] if captured else None
+        snapshot = capture(root, directory / 'subjects' / stage, ref=plan.subjects[stage].ref, provenance=provenance)
         if snapshot.subject_hash != plan.subjects[stage].subject_hash:
             raise ValueError('Subject changed during preparation')
     attempts: list[CheckAttempt] = []
@@ -104,7 +127,7 @@ def verify_plan(engine: 'VerificationEngine', plan: VerificationPlan, roots: dic
                     from .engine import run_pytest
 
                     attempt = engine._invoke(check, number, partial(run_pytest,
-                        sandbox, output, check.timeout, number, should_stop, targets=check.targets,
+                        sandbox, output, timeout=check.timeout, number=number, should_stop=should_stop, targets=check.targets,
                         on_state=partial(event, check_id=check.id, attempt_id=attempt_id)))
                     attempt = attempt.model_copy(update={'id': attempt_id, 'check_id': check.id, 'plan_id': plan.id,
                         'subject_hash': check.subject_hash, 'cases': [case.model_copy(update={
@@ -112,9 +135,10 @@ def verify_plan(engine: 'VerificationEngine', plan: VerificationPlan, roots: dic
                     attempts.append(attempt)
                     try:
                         invalidated |= input_identity(sandbox) != expected
+                        redacted |= sanitize_outputs(output)
+                        invalidated |= not metadata_matches(directory, metadata)
                     except (OSError, ValueError):
                         invalidated = True
-                    redacted |= sanitize_outputs(output)
                     event(attempt.state, check.id, attempt_id)
                 finally:
                     shutil.rmtree(sandbox)

@@ -203,6 +203,9 @@ class Host:
     @staticmethod
     def _manual_busy(store):
         return (store.db.execute("SELECT 1 FROM attempts WHERE state IN ('assigned','running','stopping','reconciling')").fetchone()
+            or store.db.execute("SELECT 1 FROM verification_executions WHERE state IN "
+                "('preparing','running','evaluating','cancelling','reconciling')").fetchone()
+            or store.db.execute('SELECT 1 FROM verification_reservations WHERE uncertain=1').fetchone()
             or store.db.execute("SELECT 1 FROM model_calls WHERE attempt_id IS NOT NULL AND state IN ('running','uncertain')").fetchone()
             or store.db.execute("SELECT 1 FROM tool_calls WHERE state IN ('running','uncertain')").fetchone()
             or store.db.execute("SELECT 1 FROM integrations WHERE state IN ('preparing','verifying','applying','reconciling')").fetchone()
@@ -251,17 +254,24 @@ class Host:
         self.check()
         return Store(self.database, catalogue=catalogue, clock=clock, host=self)
 
+    def _scope(self, store):
+        projects = frozenset(row[0] for row in store.db.execute('SELECT project_id FROM workflows '
+            'UNION SELECT project_id FROM verification_plans'))
+        return AccessScope(actor_id='managed-host:' + self.session.id, project_ids=projects, role='runtime')
+
     def recover(self):
+        from ..verification.control import VerificationControl
+
         store = self.connect()
         try:
             self.validate_sql(store)
             if self.session.phase == 'ready':
                 return
-            projects = frozenset(row[0] for row in store.db.execute('SELECT DISTINCT project_id FROM workflows'))
-            scope = AccessScope(actor_id='managed-host:' + self.session.id, project_ids=projects, role='runtime')
+            scope = self._scope(store)
             store.recover(scope)
             with store.transaction():
                 self.validate_sql(store)
+                VerificationControl(store)._revoke_all(scope, 'host_restart')
                 self.session = changed(self.session, phase='ready', heartbeat_at=time.time())
                 store.db.execute('UPDATE host_sessions SET data=? WHERE id=1', (self.session.model_dump_json(),))
         finally:
@@ -275,17 +285,19 @@ class Host:
             context.__exit__(None, None, None)
 
     def drain(self):
+        from ..verification.control import VerificationControl
+
         if self.closed or self.session.phase in {'draining', 'stopped'}:
             return
         try:
             store = self.connect()
             try:
-                projects = frozenset(row[0] for row in store.db.execute('SELECT DISTINCT project_id FROM workflows'))
-                scope = AccessScope(actor_id='managed-host:' + self.session.id, project_ids=projects, role='runtime')
                 # Revocation and session closure share one writer transaction:
                 # an admitted attempt is either observed here or denied afterwards.
                 with store.transaction():
                     self.validate_sql(store)
+                    scope = self._scope(store)
+                    VerificationControl(store)._revoke_all(scope, 'host_close')
                     for workflow in store.workflows(scope):
                         for attempt in store.attempts(scope, workflow.id):
                             if attempt.state in {'assigned', 'running', 'stopping'}:

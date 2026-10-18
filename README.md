@@ -791,15 +791,49 @@ skipped/xfail, flaky, timeout и неполное evidence не дают усп�
 собрать `PlanBuilder` для baseline/target/regression/integration и вызвать
 `VerificationEngine.verify_plan`. Такой verdict имеет scope `acceptance-contract`,
 покрытие точных критериев и case IDs; новый owner contract отзывает старое одобрение.
-Standalone CLI сохраняет scope `registered-suite`. Подробности — в
+Команда `verify --repo` сохраняет scope `registered-suite`; зарегистрированные
+планы сохраняют собственный scope. Подробности — в
 [спецификации проверок](docs/specs/testing-module.md).
 
 Внутренний `VerificationRegistry` сохраняет server-owned снимки и профили в
-общей SQLite-базе (schema20), а копии байтов — в закреплённой приватной папке.
+общей SQLite-базе (schema21), а копии байтов — в закреплённой приватной папке.
 Регистрация не запускает проверяемый код или модель. Профили приёмки используют
 отдельные oracle bytes; их действующая версия выбирается атомарно с записью
-профиля. Общие команды запуска/отмены/повтора, CLI/API и экран проверки по TST-13
-ещё разрабатываются; этот каталог сам по себе фазу25 не закрывает.
+профиля. Внутренний `VerificationControl` регистрирует неизменяемые планы и
+обрабатывает запуск/отмену/повтор с ревизией, ключом повтора команды и общим
+накопительным бюджетом. `Host` исполняет их в том же пуле из четырёх мест,
+что и задачи агентов; после сбоя повторно сверяет точные процессы перед
+освобождением места и остатка резерва. Старые падения и расход сохраняются,
+изменённые входы отзывают актуальность результата.
+
+Экран **«Проверки»** (`/verification`) доступен из классического и Desktop-интерфейсов:
+создание плана по сохранённым снимкам/профилям, запуск, Stop, повторы, критерии,
+история отдельных тестов, расход/резерв и отчёты. Изменение файлов после pass
+показывает «Нужна повторная проверка». Чтение API требует session token и текущий
+доступ к папке; после её потери сохраняется только ранее выданное право отмены.
+Артефакты выдаются по ID с проверкой хеша, поток событий поддерживает восстановление.
+
+Доверенный оператор сначала регистрирует снимок и профиль в той же базе,
+которую использует UI. Профиль — JSON, например
+`{"title":"Pytest","checks":[{"id":"tests","timeout":120}]}`:
+
+```bash
+flycode verification register-subject --project /path/to/project
+flycode verification register-profile --project /path/to/project --input profile.json
+flycode verification list --project /path/to/project
+flycode verification show PLAN_ID --project /path/to/project
+flycode verify --plan-id PLAN_ID --project /path/to/project --expected-revision REVISION --key start-plan
+flycode verify --evidence-id EVIDENCE_ID --reproduce --project /path/to/project --expected-revision REVISION --key reproduce-plan
+```
+
+Замените IDs и `REVISION` значениями из ответов; повтор той же команды использует
+тот же ключ. `verification create --input plan.json` принимает сохранённые IDs и
+явный бюджет. `register-subject` также импортирует `--workspace-attempt`,
+`--artifact --stage baseline|target` или `--integration --checked-task --stage`:
+пути копий и происхождение берутся из проверенных записей хоста.
+Регистрация и сохранение плана ничего не исполняют. Запуск из CLI подключает общую
+службу и переживает выход клиента. Воспроизведение требует неизменного evidence,
+профиля, снимка и среды; расход и исходный срок не сбрасываются.
 
 Live single/dual smoke на LM Studio прошли: single использовал 3 запроса Qwen
 без оценщика, dual — 3 Qwen + 3 Jev. Оба исправили fixture и отдельно прошли
@@ -809,7 +843,7 @@ Standalone CLI проверяет зарегистрированный набо�
 а не автоматически все критерии пользовательской задачи. Процессная копия
 предназначена для доверенного кода и не ограничивает доступ к сети/хосту.
 `--trust untrusted` блокирует запуск до появления поддерживаемой песочницы.
-Профили Docker/HTTP/browser, внешние black-box oracle, UI проверок и командный
+Профили Docker/HTTP/browser, внешние black-box oracle и оставшаяся приёмка командного
 completion gate остаются в [плане поставки](docs/superpowers/plans/2026-10-16-specification-delivery.md).
 
 ```bash

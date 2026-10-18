@@ -76,6 +76,86 @@ def test_real_baseline_negative_target_regression_and_integration(tmp_path):
     assert all('lease' not in attempt for attempt in attempts)
 
 
+@pytest.mark.parametrize('replacement', ['fifo', 'symlink', 'hardlink', 'regular'])
+def test_acceptance_event_substitution_rejects_promptly_without_touching_other_files(tmp_path, replacement):
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    import flycode
+    from flycode.verification.plan import PlanBuilder
+
+    engine, plan, roots = prepared(tmp_path)
+    marker, victim = tmp_path / 'oracle-ran', tmp_path / 'untouched-file'
+    victim.write_text('owner bytes\n')
+    operation = {
+        'fifo': 'os.mkfifo(events)',
+        'symlink': f'events.symlink_to({str(victim)!r})',
+        'hardlink': f'os.link({str(victim)!r}, events)',
+        'regular': "events.write_text('replaced journal\\n')",
+    }[replacement]
+    (tmp_path / 'trusted-oracle' / 'test_oracle.py').write_text(
+        'import os\nfrom pathlib import Path\n'
+        'def test_existing():\n'
+        "    events = Path(os.environ['FLYCODE_CASE_REPORT']).parent.parent / 'events.jsonl'\n"
+        '    events.unlink()\n'
+        f'    {operation}\n'
+        f'    Path({str(marker)!r}).touch()\n'
+        'def test_behavior(): assert True\n')
+    approval = engine.oracles.approve(plan.acceptance, plan.checks, tmp_path / 'trusted-oracle')
+    plan = PlanBuilder().build(plan.subjects['integration'], plan.acceptance, plan.checks,
+        subjects=plan.subjects, approval_hash=approval)
+    saved = tmp_path / 'registered-plan.json'
+    saved.write_text(plan.model_dump_json())
+    script = (
+        'from pathlib import Path\n'
+        'from flycode.domain.verification import VerificationPlan\n'
+        'from flycode.verification.engine import VerificationEngine\n'
+        f'engine = VerificationEngine(Path({str(engine.data_dir)!r}))\n'
+        f'plan = VerificationPlan.model_validate_json(Path({str(saved)!r}).read_text())\n'
+        f'roots = {{stage: Path(path) for stage, path in { {stage: str(root) for stage, root in roots.items()}!r}.items()}}\n'
+        'try:\n'
+        '    verdict = engine.verify_plan(plan, roots)\n'
+        'except (OSError, ValueError):\n'
+        "    print('rejected')\n"
+        'else:\n'
+        "    assert verdict.status == 'invalidated'\n"
+        "    print('rejected')\n")
+    environment = {**os.environ, 'PYTHONPATH': str(Path(flycode.__file__).parent.parent)}
+    try:
+        child = subprocess.run([sys.executable, '-c', script], env=environment, check=False,
+            capture_output=True, text=True, timeout=8)
+    except subprocess.TimeoutExpired:
+        assert marker.exists(), 'Oracle never reached the substitution'
+        pytest.fail('Event publication blocked after the real pytest group stopped')
+    assert marker.exists() and child.returncode == 0, child.stderr
+    assert 'rejected' in child.stdout
+    assert victim.read_text() == 'owner bytes\n'
+
+
+def test_acceptance_remembers_transient_stop_after_a_real_check(tmp_path):
+    engine, plan, roots = prepared(tmp_path)
+    ready, stopped_once = False, False
+
+    def execute(check, number, invocation):
+        nonlocal ready
+        result = invocation()
+        ready = True
+        return result
+
+    def should_stop():
+        nonlocal stopped_once
+        if ready and not stopped_once:
+            stopped_once = True
+            return True
+        return False
+
+    engine.invocation_executor = execute
+    result = engine.verify_plan(plan, roots, should_stop=should_stop)
+    assert stopped_once and result.status == 'cancelled'
+
+
 @pytest.mark.parametrize(('name', 'contents'), [
     ('setup.py', '# External archive helper, not part of any subject.\n'),
     ('pyproject.toml', '[tool.pytest.ini_options]\naddopts = "-k no_registered_test"\n'),

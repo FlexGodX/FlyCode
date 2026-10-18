@@ -90,7 +90,7 @@ class Store:
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=FULL')
         version = self.db.execute('PRAGMA user_version').fetchone()[0]
-        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20):
+        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21):
             self.db.close()
             raise StoreError('schema_version', str(version))
         self.db.executescript('''
@@ -290,6 +290,32 @@ class Store:
                         version INTEGER NOT NULL CHECK(version>=1), contract_hash TEXT NOT NULL,
                         approval_hash TEXT NOT NULL, PRIMARY KEY(project_id,contract_id))''')
                     self.db.execute('PRAGMA user_version=20')
+            except BaseException:
+                self.db.close()
+                raise
+        if version < 21:
+            try:
+                with self.transaction():
+                    self.db.execute('''CREATE TABLE IF NOT EXISTS verification_plans (
+                        id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES canonical_projects(id),
+                        workflow_id TEXT REFERENCES workflows(id), data TEXT NOT NULL)''')
+                    self.db.execute('''CREATE TABLE IF NOT EXISTS verification_executions (
+                        id TEXT PRIMARY KEY, plan_id TEXT NOT NULL REFERENCES verification_plans(id),
+                        number INTEGER NOT NULL CHECK(number BETWEEN 1 AND 3), state TEXT NOT NULL,
+                        data TEXT NOT NULL, UNIQUE(plan_id,number))''')
+                    self.db.execute('''CREATE UNIQUE INDEX IF NOT EXISTS verification_active_execution
+                        ON verification_executions(plan_id)
+                        WHERE state IN ('queued','preparing','running','evaluating','cancelling','reconciling')''')
+                    self.db.execute('''CREATE TABLE IF NOT EXISTS verification_reservations (
+                        execution_id TEXT PRIMARY KEY REFERENCES verification_executions(id),
+                        workflow_id TEXT REFERENCES workflows(id),
+                        tool_reserved INTEGER NOT NULL CHECK(tool_reserved>=0),
+                        tool_spent INTEGER NOT NULL CHECK(tool_spent>=0),
+                        uncertain INTEGER NOT NULL CHECK(uncertain IN (0,1)))''')
+                    self.db.execute('''CREATE TABLE IF NOT EXISTS verification_events (
+                        sequence INTEGER PRIMARY KEY AUTOINCREMENT, project_id TEXT NOT NULL REFERENCES canonical_projects(id),
+                        plan_id TEXT NOT NULL REFERENCES verification_plans(id), data TEXT NOT NULL)''')
+                    self.db.execute('PRAGMA user_version=21')
             except BaseException:
                 self.db.close()
                 raise
@@ -814,8 +840,11 @@ class Store:
             raise StoreError('incomplete', 'Workflow has no approved budget')
         row = self.db.execute('''SELECT COALESCE(SUM(model_reserved),0) AS mr, COALESCE(SUM(tool_reserved),0) AS tr,
             COALESCE(SUM(model_spent),0) AS ms, COALESCE(SUM(tool_spent),0) AS ts,
-            COALESCE(MAX(uncertain),0) AS uncertain FROM reservations JOIN attempts ON attempts.id=attempt_id
-            WHERE workflow_id=?''', (workflow_id,)).fetchone()
+            COALESCE(MAX(uncertain),0) AS uncertain FROM (
+                SELECT model_reserved,tool_reserved,model_spent,tool_spent,uncertain
+                    FROM reservations JOIN attempts ON attempts.id=attempt_id WHERE workflow_id=?
+                UNION ALL SELECT 0,tool_reserved,0,tool_spent,uncertain
+                    FROM verification_reservations WHERE workflow_id=?)''', (workflow_id, workflow_id)).fetchone()
         limits = workflow.budget
         return BudgetLedger(limit=BudgetAmount(model_calls=limits.max_model_calls, tool_calls=limits.max_tool_calls),
             spent=BudgetAmount(model_calls=row['ms'], tool_calls=row['ts']),
@@ -888,6 +917,16 @@ class Store:
         row = self.db.execute('SELECT state FROM canonical_projects WHERE id=?', (project_id,)).fetchone()
         return row is not None and row['state'] != 'active'
 
+    def _active_execution_count(self, workflow_id=None):
+        agents = "SELECT count(*) FROM attempts WHERE state IN ('assigned','running','stopping','reconciling')"
+        checks = ("SELECT count(*) FROM verification_executions e JOIN verification_plans p ON p.id=e.plan_id "
+            "WHERE e.state IN ('preparing','running','evaluating','cancelling','reconciling')")
+        parameters = () if workflow_id is None else (workflow_id,)
+        if workflow_id is not None:
+            agents += ' AND workflow_id=?'
+            checks += ' AND p.workflow_id=?'
+        return self.db.execute(agents, parameters).fetchone()[0] + self.db.execute(checks, parameters).fetchone()[0]
+
     def _eligibility(self, scope, workflow, task, instance, profile, reserve, tasks, attempts, ledger):
         reasons = []
         if self._project_revoked(task.project_id):
@@ -927,7 +966,7 @@ class Store:
         limits = workflow.budget
         if limits is None or task.budget is None:
             return [*reasons, 'incomplete']
-        if len(active) >= limits.max_instances:
+        if self._active_execution_count() >= 4 or self._active_execution_count(workflow.id) >= limits.max_instances:
             reasons.append('instance_limit')
         previous = [attempt for attempt in attempts if attempt.task_id == task.id]
         if len(previous) >= limits.max_attempts:

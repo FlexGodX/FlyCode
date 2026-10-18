@@ -40,6 +40,7 @@ from ..tracker.projection import (
 )
 from ..tracker.service import TrackerService
 from .projects import project_options
+from .verification import verification_router
 
 
 class CoordinatorAttachmentRequest(QueueModel):
@@ -282,4 +283,5 @@ def task_router(manager) -> APIRouter:
         with access() as (_, tracker, scope):
             return tracker.comment(scope, identity, body)
 
+    router.include_router(verification_router(access, actor))
     return router

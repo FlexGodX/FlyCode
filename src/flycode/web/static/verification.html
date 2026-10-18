@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Проверки · FlyCode</title>
+  <link rel="stylesheet" href="/static/styles.css" /><link rel="stylesheet" href="/static/tasks.css" /><link rel="stylesheet" href="/static/verification.css" />
+  <script src="/static/verification.js" defer></script>
+</head>
+<body class="tasks-ui verification-ui">
+  <div class="tasks-shell">
+    <aside class="tasks-nav" aria-label="Навигация">
+      <a class="tasks-brand" href="/">FlyCode <small>LOCAL</small></a>
+      <nav><a id="verificationChats" href="/">Чаты</a><a href="/tasks">Задачи</a><a href="/verification" aria-current="page">Проверки</a><a href="/desktop">Desktop-интерфейс</a></nav>
+      <p>Сохранённые результаты связаны с проверенной версией файлов.</p>
+    </aside>
+    <main class="tasks-main">
+      <header class="tasks-header"><div><p class="eyebrow">РАБОЧЕЕ ПРОСТРАНСТВО</p><h1>Проверки</h1><p id="connection" role="status">Подключаемся…</p></div><button class="primary" id="newPlan" disabled>Новый план</button></header>
+      <div class="coordinator-controls"><p id="coordinatorStatus" role="status">Проверяем службу…</p><button id="attachCoordinator" disabled>Подключить выполнение</button></div>
+      <p class="verification-hint">Сохранение плана не запускает проверку. Результаты и расход всех повторов остаются в истории.</p>
+      <p id="notice" class="task-notice" role="alert" hidden></p>
+      <section id="verificationStops" hidden aria-label="Остановка недоступных проверок"></section>
+      <section id="verificationPlans" aria-live="polite"></section>
+    </main>
+  </div>
+  <dialog id="planDialog" aria-labelledby="planTitle">
+    <form id="planForm">
+      <header class="dialog-header"><h2 id="planTitle">Новый план проверки</h2><button type="button" data-close="planDialog" aria-label="Закрыть создание плана">×</button></header>
+      <label>Проект<select id="planProject" required></select></label>
+      <label>Набор проверок<select id="planProfile" required></select></label>
+      <div id="planSubjects"></div>
+      <div class="verification-budget"><label>Лимит запусков проверок<input id="planTools" type="number" min="1" max="120" value="120" required /></label><label>Лимит попыток<input id="planAttempts" type="number" min="1" max="3" value="3" required /></label><label>Общее время, минут<input id="planMinutes" type="number" min="1" max="30" value="15" required /></label></div>
+      <p class="verification-hint">Повторы используют оставшийся бюджет и первоначальный срок. Доступны только сохранённые снимки и одобренные наборы проверок.</p>
+      <p id="planError" role="alert"></p><footer><button class="primary" type="submit">Сохранить план</button></footer>
+    </form>
+  </dialog>
+  <dialog id="verificationDetail" aria-labelledby="verificationTitle">
+    <header class="dialog-header"><h2 id="verificationTitle"></h2><button data-close="verificationDetail" aria-label="Закрыть проверку">×</button></header>
+    <div id="verificationActions" class="verification-actions"></div>
+    <p id="verificationError" role="alert"></p>
+    <div id="verificationResult"></div>
+    <pre id="reportPreview" tabindex="0" hidden aria-label="Текст отчёта"></pre>
+  </dialog>
+</body>
+</html>

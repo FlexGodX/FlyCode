@@ -112,7 +112,7 @@ def write_files(directory_fd: int, files: dict[str, bytes], modes: dict[str, int
 
 
 def capture(root: Path, destination: Path | None = None, *, ref: SubjectRef | None = None,
-            destination_fd: int | None = None) -> SubjectSnapshot:
+            destination_fd: int | None = None, provenance: SubjectSnapshot | None = None) -> SubjectSnapshot:
     root = root.resolve(strict=True)
     if destination is not None and destination.resolve().is_relative_to(root):
         raise ValueError('Snapshot storage must be outside the source project')
@@ -156,6 +156,15 @@ def capture(root: Path, destination: Path | None = None, *, ref: SubjectRef | No
     hashes = {name: hashlib.sha256(data).hexdigest() for name, data in sorted(files.items())}
     modes = {name: stat.S_IMODE((root / name).stat().st_mode) for name in files}
     environment = environment_identity()
+    if provenance is not None:
+        if (hashes != provenance.files or modes != provenance.modes
+                or digest(environment) != digest(provenance.environment)):
+            raise ValueError('Registered snapshot bytes, modes or environment changed')
+        # Private copies intentionally omit .git. Preserve the already verified
+        # origin's base/inventory and recompute the hash with the host-owned ref.
+        base, inventory, excluded = provenance.base, provenance.inventory, provenance.excluded
+        if ref is None:
+            ref = provenance.ref
     identity = {'files': hashes, 'modes': modes, 'base': base, 'environment': environment}
     if ref is not None:
         identity['ref'] = ref.model_dump()

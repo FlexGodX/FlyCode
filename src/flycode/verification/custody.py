@@ -65,16 +65,19 @@ def stopped(ref: ProcessRef):
     """Hold exclusive custody while reconciling; a PID never authorizes signals."""
     import fcntl
 
-    descriptor = os.open(Path(ref.directory) / 'process.lock', os.O_RDONLY | os.O_NOFOLLOW)
+    from .evidence import read_regular
+
+    path = Path(ref.directory) / 'process.lock'
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     try:
         _identity(descriptor, ref)
         fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        path = Path(ref.directory) / 'process.json'
-        if path.is_symlink():
-            raise ValueError('Process receipt link is unsupported')
-        receipt = ProcessReceipt.model_validate_json(path.read_text())
+        receipt = ProcessReceipt.model_validate_json(read_regular(Path(ref.directory) / 'process.json', limit=64 * 1024))
         if receipt.ref != ref or receipt.state != 'stopped' or not receipt.stop_confirmed:
             raise ValueError('Process group stop remains unconfirmed')
+        info = path.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or (info.st_dev, info.st_ino) != (ref.device, ref.inode):
+            raise ValueError('Process ownership object changed')
         yield receipt
     finally:
         os.close(descriptor)
@@ -198,9 +201,10 @@ def run(argv, sandbox, environment, stdout, stderr, output, timeout, should_stop
 
 
 def supervise(launch, channel, descriptor, stdout, stderr):
+    from .evidence import read_regular
     from .runner import OUTPUT_LIMIT, REPORT_LIMIT, _terminate
 
-    config = json.loads(Path(launch).read_text())
+    config = json.loads(read_regular(Path(launch), limit=REPORT_LIMIT))
     ref = ProcessRef.model_validate(config['ref'])
     request = config['request']
     _identity(descriptor, ref)
@@ -218,7 +222,7 @@ def supervise(launch, channel, descriptor, stdout, stderr):
             return
         if command != {'go': ref.id}:
             raise ValueError('Process start was not admitted')
-        current = ProcessReceipt.model_validate_json((Path(ref.directory) / 'process.json').read_text())
+        current = ProcessReceipt.model_validate_json(read_regular(Path(ref.directory) / 'process.json', limit=64 * 1024))
         if current.ref != ref or current.state != 'admitted':
             raise ValueError('Durable process admission is missing')
         for fd in forwarded:

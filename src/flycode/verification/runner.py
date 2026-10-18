@@ -148,6 +148,7 @@ def run_pytest(sandbox: Path, output: Path, timeout: float, number: int,
                on_state: Callable[[str], None] = lambda state: None,
                on_admit: Callable = lambda ref: None,
                on_prepare: Callable | None = None) -> CheckAttempt:
+    from .evidence import read_regular
     from .plan import validate_target
 
     for target in targets:
@@ -212,7 +213,7 @@ def run_pytest(sandbox: Path, output: Path, timeout: float, number: int,
             if process_ref is not None:
                 stop_confirmed = False
                 try:
-                    receipt = ProcessReceipt.model_validate_json((output / 'process.json').read_text())
+                    receipt = ProcessReceipt.model_validate_json(read_regular(output / 'process.json', limit=64 * 1024))
                     if receipt.ref == process_ref:
                         process_started, process_reason = receipt.started, receipt.reason
                     with stopped(process_ref) as receipt:

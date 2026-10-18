@@ -255,7 +255,7 @@ def test_schema17_failure_rolls_back_without_losing_host_calls(admitted, monkeyp
         connection.close()
     store = Store(database)
     try:
-        assert store.db.execute('PRAGMA user_version').fetchone()[0] == 20
+        assert store.db.execute('PRAGMA user_version').fetchone()[0] == 21
         assert [tuple(row) for row in store.db.execute('SELECT * FROM model_calls')] == before
     finally:
         store.close()

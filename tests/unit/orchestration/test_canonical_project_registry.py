@@ -30,7 +30,7 @@ def projects(store):
     return Projects(store)
 
 
-def queued(store, project_id, *, key='queue'):
+def queued(store, project_id, *, key='queue', budget=None):
     # Seed protocol metadata only. No probe, model request or worker is run.
     catalogue = ModelCatalogue('http://127.0.0.1:1/v1')
     catalogue.entries['test-model'] = ModelDescriptor(model_ref='test-model', model_id='test-model',
@@ -45,7 +45,7 @@ def queued(store, project_id, *, key='queue'):
     instance = store.register_instance(host, profile.id)
     contract = AcceptanceContract(id='inspect', version=1, criteria=[AcceptanceCriterion(id='read',
         check_ids=['regression'], expected_case_ids=['tests/test_read.py::test_read'])])
-    workflow = store.create_workflow(owner, WorkflowDraft(project_id=project_id, budget=WorkflowBudget(),
+    workflow = store.create_workflow(owner, WorkflowDraft(project_id=project_id, budget=budget or WorkflowBudget(),
         task=TaskDraft(title='Inspect local files', objective='Inspect the approved local folder.', acceptance=contract,
             permissions=permission, budget=BudgetAmount(tool_calls=4))), key=key)
     task = store.task(owner, workflow.root_task_id)
@@ -182,7 +182,7 @@ def test_schema16_failure_preserves_schema15_arbitrary_ids_and_history(tmp_path,
         connection.close()
     reopened = Store(path)
     try:
-        assert reopened.db.execute('PRAGMA user_version').fetchone()[0] == 20
+        assert reopened.db.execute('PRAGMA user_version').fetchone()[0] == 21
         assert reopened.workflow(owner, workflow.id).project_id == '.'
         assert reopened.db.execute('SELECT COUNT(*) FROM canonical_projects').fetchone()[0] == 0
     finally:
