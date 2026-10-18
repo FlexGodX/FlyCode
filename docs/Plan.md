@@ -3115,3 +3115,18 @@ correction deltas3/2/1/1/5/6, wheel6 и final scope-corrected wheel2 прохо�
 нейронный допуск и остальные Tasks5–8 не закрыты. Только feature tests;
 параллельный мозг/CLI/MaleCNS исключён из поставки.
 [Отчёт композиции](validation/2026-10-18-dependent-composition.md).
+
+Срез2026-10-18, ограниченный DAG (Task3): version3 `Pipelines.approve_dag`
+допускает ациклические зависимости между тремя заранее одобренными writer/reviewer
+парами. Диспетчер автоматически завершает точные проверенные outputs и закрепляет
+новые привязки зависимых задач; маршрут A→B→join делает7 process attempts без
+ручных назначений. Registered project, race/outbox restart, failed prerequisite,
+независимый прогресс, пауза во всех claim routes, изменения source/criteria/evidence
+и общий исчерпанный бюджет проверены. Final25, v1/v2 compatibility6, Store limits/
+expired-fence3 и extracted-wheel7 проходят; counts пересекаются. Package171/
+UTF-8 README/CLI/Ruff4/scoped mypy3 и280 неизменных inputs проверены.
+Произвольная иерархия сверх трёх пар, child-wait/retry/replan, общие result views
+и оставшаяся aggregate/research приёмка открыты. Пауза блокирует новые назначения
+потомков; каскад остановки уже работавших потомков здесь не реализован.
+Full/live-model/graph/UI/training не запускались; параллельный мозг исключён.
+[Отчёт ограниченного DAG](validation/2026-10-18-dependency-recipe.md).

@@ -1,0 +1,135 @@
+{
+  "status": "validated_bounded_checkpoint",
+  "aggregate_complete": false,
+  "task3_general_hierarchy_complete": false,
+  "parent_commit": "1fc3557789e75b386984da2b8c53348894558c0d",
+  "scope": "Version3 owner-approved DAG among up to three sibling writer/reviewer pairs, automatic exact completions/materialization, one final integration; no durable parent wait or automatic replan",
+  "source_boundary": {
+    "root": "/private/tmp/flycode-dag-compatibility-source-3v0yg9ee",
+    "base": "1fc3557789e75b386984da2b8c53348894558c0d",
+    "owned": [
+      "src/flycode/domain/pipeline.py",
+      "src/flycode/orchestration/pipeline.py",
+      "src/flycode/orchestration/store.py",
+      "tests/unit/orchestration/test_dependency_recipe.py"
+    ],
+    "sha256": {
+      "src/flycode/domain/pipeline.py": "2c75e2ea8b4888b42b153896fadd59dad915c39884bfbbf8a14324815f2754b5",
+      "src/flycode/orchestration/pipeline.py": "937ae4493e7e95272c8b40b0eeeeb2a9dd2f8dbf4b4008b2b21958e312d75069",
+      "src/flycode/orchestration/store.py": "3c23c041f07519e83877751b1539a09e13731b7f6bd19258fb2eb79f0d2e42f8",
+      "tests/unit/orchestration/test_dependency_recipe.py": "14c68e754ece86b19dc23c49a10b8c7e8ee232ffb61099165316baafbad6f0d6"
+    }
+  },
+  "packaging_inputs": {
+    "files": 280,
+    "unchanged": true,
+    "manifest_sha256": "b3a5b0517d63324d337f791e634efd83573d1ea68da6188ba1d275233a130b74",
+    "boundary": "after native runs, before build and extracted package run; README updated after native runs"
+  },
+  "archive": {
+    "path": "~/.cache/flycode/validation/flycode-dag-6i6jq3_1",
+    "files": 17023,
+    "bytes": 205640316,
+    "manifest_sha256": "457f662c9752635dcee89291b13ffff4dafb05838fa0028ed50945e5b17ed9d4",
+    "skipped_special_or_links": 48
+  },
+  "measurements": [
+    {
+      "name": "initial-positive",
+      "passed": 1,
+      "seconds": 46.92,
+      "log": "flycode-dag-first-green.log",
+      "overlapping": true,
+      "boundary": "before root/pause corrections"
+    },
+    {
+      "name": "root-branch-pause-correction",
+      "passed": 2,
+      "seconds": 2.83,
+      "log": "flycode-dag-review-green.log",
+      "overlapping": true,
+      "boundary": "before common claim gate"
+    },
+    {
+      "name": "authority-race-outbox-preflight",
+      "passed": 17,
+      "seconds": 34.19,
+      "log": "flycode-dag-stage-check.log",
+      "overlapping": true,
+      "boundary": "before common claim gate"
+    },
+    {
+      "name": "common-admission-and-registered",
+      "passed": 4,
+      "seconds": 100.96,
+      "log": "flycode-dag-common-admission.log",
+      "overlapping": true,
+      "boundary": "final runtime, test unused-local cleanup followed"
+    },
+    {
+      "name": "final-feature",
+      "passed": 25,
+      "seconds": 156.97,
+      "log": "flycode-dag-final-feature.log",
+      "overlapping": true,
+      "boundary": "final source and test"
+    },
+    {
+      "name": "v1-v2-compatibility",
+      "passed": 6,
+      "seconds": 61.51,
+      "log": "flycode-dag-compatibility.log",
+      "overlapping": true,
+      "boundary": "final source and test"
+    },
+    {
+      "name": "store-limits-and-expired-fence",
+      "passed": 3,
+      "seconds": 1.62,
+      "log": "flycode-dag-store-boundary.log",
+      "overlapping": true,
+      "boundary": "final source and test"
+    },
+    {
+      "name": "extracted-wheel",
+      "passed": 7,
+      "seconds": 69.81,
+      "log": "flycode-dag-delivery-20261018/wheel.log",
+      "overlapping": true,
+      "boundary": "final source and updated README"
+    }
+  ],
+  "wheel": {
+    "wheel_sha256": "25eed86b5d501b6ac5826cb66f43668976d40422b5c220082998025c7e1c0e4a",
+    "files_equal": 171,
+    "readme_utf8_equal": true
+  },
+  "static": {
+    "ruff_files": 4,
+    "scoped_mypy_source_files": 3,
+    "cli_help": true
+  },
+  "failures_retained": [
+    "initial stale fixture revision setup",
+    "actual missing approve_dag feature RED",
+    "oracle exception expectation",
+    "actual root enqueue and global branch pause REDs",
+    "registered replay test rebuilt revisions rather than replaying identical request",
+    "actual explicit and automatic claim bypass REDs",
+    "unused test local Ruff findings"
+  ],
+  "independent_review": "Scoped read-only review reproduced root/pause/claim findings; final review found no remaining finding, with no independent test execution claimed",
+  "limits": [
+    "up to three sibling writer/reviewer pairs, eight tasks including aggregate root/integrator",
+    "pause blocks new descendant admissions; no active descendant cancellation cascade",
+    "legacy v1/v2 authority unchanged",
+    "original schema22 and worker protocol preserved; parallel schema23/24 and controller operations excluded",
+    "automatic retry/replan, arbitrary hierarchy and common result views remain open"
+  ],
+  "full_suite": false,
+  "live_model": false,
+  "real_graph": false,
+  "browser": false,
+  "training": false,
+  "brain_changes": false
+}

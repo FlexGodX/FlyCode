@@ -1023,6 +1023,12 @@ class Store:
         if any(item.parent_id == task.id and required_task(item) for item in tasks):
             reasons.append('aggregate_parent')
         by_id = {item.id: item for item in tasks}
+        pipeline = self.db.execute('SELECT data FROM pipelines WHERE workflow_id=?', (workflow.id,)).fetchone()
+        if pipeline is not None:
+            from .pipeline import Pipelines
+
+            if Pipelines._task_blocked(Pipelines._recipe(pipeline['data']), by_id, task.id):
+                reasons.append('pipeline_branch_paused')
         if any(by_id[identity].state != 'succeeded' or not required_task(by_id[identity]) for identity in task.dependencies):
             reasons.append('dependency')
         elif task.dependencies:

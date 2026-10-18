@@ -37,8 +37,8 @@ class PipelineBranch(QueueModel):
     worker_binding_hash: str
 
 
-class TeamPipelineRecipe(QueueModel):
-    version: Literal[2] = 2
+class _MultiPipelineRecipe(QueueModel):
+    version: int
     id: str
     owner_id: str
     project_id: str
@@ -56,3 +56,11 @@ class TeamPipelineRecipe(QueueModel):
     reruns: int = Field(default=0, ge=0, le=2)
     approval_sequence: int
     created_at: float
+
+
+class TeamPipelineRecipe(_MultiPipelineRecipe):
+    version: Literal[2] = 2
+
+
+class DependencyPipelineRecipe(_MultiPipelineRecipe):
+    version: Literal[3] = 3

@@ -4,6 +4,17 @@
 
 **Goal:** Реализовать изменения §§100–103 с проверяемыми результатами, общей очередью задач и явным отделением исследовательских допусков.
 
+Current bounded DAG increment (2026-10-18): [version3 recipes](2026-10-18-dependent-execution.md)
+automatically complete exact checked predecessors and bind dependent revisions
+from one owner approval, within the existing three-pair sibling layout. Real
+seven-attempt A→B→join and registered-project routes, race/outbox recovery,
+failed prerequisite, branch pause across canonical claims and cumulative budget
+pass. Final25, compatibility6, Store boundaries3 and extracted-wheel7 pass;
+counts overlap. [Report](../../validation/2026-10-18-dependency-recipe.md).
+Arbitrary hierarchies beyond three pairs, child wait/retry/replan, common result
+views and aggregate/research acceptance remain open. No full/live-model/graph/UI
+rerun; parallel brain changes are excluded.
+
 Current dependency increment (2026-10-18): [Task2](2026-10-18-dependent-execution.md)
 pins exact completed predecessors, composes private inputs and verifies one final
 original-to-combined delta. Conflict continuation, registered imports and both

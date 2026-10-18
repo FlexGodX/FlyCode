@@ -65,9 +65,16 @@ assert source.read_bytes() == original
 
 **Interfaces:** additive version3 recipe pins the owner-approved task DAG, roles, profiles, criteria, budgets and original source. Runtime may materialize only exact completed predecessor inputs and a new corresponding bound task revision, with durable receipts. V1/v2 gain no implicit new authority.
 
-- [ ] RED real subprocess A→B→join with no manual claims or owner commands between stages, truthful states and current final result; validate the whole DAG before enqueue.
-- [ ] Implement event-driven completion/materialization using task-completion and composition contracts. Pin future bindings/semantic revisions in receipts and atomically recheck dependencies and budget before claim.
+- [x] RED real subprocess A→B→join with no manual claims or owner commands between stages, truthful states and current final result; validate the whole DAG before enqueue. Checked within the existing three-pair sibling layout.
+- [x] Implement event-driven completion/materialization using task-completion and composition contracts. Pin future bindings/semantic revisions in receipts and atomically recheck dependencies and budget before claim.
 - [ ] Cover independent progress during a blocked branch, race/restart/lost reply, failed prerequisite, pause, late worker, changed criteria/source, max tasks/depth and exhausted budget. Commit after actual verified completion.
+
+The version3 checkpoint covers independent progress, two-connection races,
+failed outbox/restart, failed prerequisites, branch/root pause, all canonical
+claim routes, changed source/criteria/evidence and exact cumulative budget.
+Existing Store graph-limit/expired-fence checks also pass. Arbitrary task
+hierarchies beyond the current three-pair sibling layout remain open; do not
+interpret this bounded checkpoint as completion of that broader acceptance.
 
 ### Task4: Durable child wait and bounded retry/replan
 
@@ -122,3 +129,18 @@ Next Task3: preapproved general dependency recipes must advance through completi
 receipts automatically, with no manual claims or owner commands between stages.
 Internal composition does not grant that authority to existing v1/v2 recipes.
 Task4 waits/retry/replan, Task5 common projections and aggregate acceptance stay open.
+
+## Task3 bounded checkpoint, 2026-10-18
+
+Version3 executes three preapproved writer/reviewer pairs with acyclic writer
+edges and one final integrator. Exact completions and future semantic bindings
+advance automatically; v1/v2 retain their previous contracts. Final25 native,
+compatibility6, Store limits/expired-fence3 and extracted-wheel7 pass. Ruff4,
+scoped mypy3, package171/UTF-8 README/CLI and280 unchanged inputs pass. Counts
+are overlapping; all failures and boundaries are in the
+[report](../../validation/2026-10-18-dependency-recipe.md).
+
+This publishes the bounded working route, not full general hierarchy acceptance.
+Complete the remaining Task3 hierarchy scope, Task4 durable suspension/retry/
+replan and Task5 common result projections before closing this subplan. The
+aggregate goal and neural/research acceptance remain separate and active.

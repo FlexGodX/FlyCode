@@ -1,5 +1,32 @@
 # FlyCode handoff brief
 
+## Bounded dependency recipe — validated,2026-10-18
+
+Version3 `Pipelines.approve_dag` accepts acyclic writer dependencies within the
+existing three-pair sibling layout. One inert owner approval pins the whole
+contract; the dispatcher completes exact reviewed authors and materializes new
+corresponding bound revisions with immutable prerequisite receipts. The actual
+A→B→join route uses seven process attempts and three author completions, without
+manual claims/commands. Registered non-Git projects use the same checked route.
+Owner source/dirty bytes remain unchanged until current final integration.
+
+Final25 feature cases pass156.97s; v1/v2 compatibility6 pass61.51s; Store graph/
+expired-fence boundaries3 pass1.62s; extracted-wheel7 pass69.81s. Counts overlap.
+Package171/UTF-8 README/CLI, Ruff4/scoped mypy3 and280 unchanged inputs pass.
+Race/outbox recovery, failed prerequisites, independent progress, source/criteria/
+evidence changes, exact cumulative budget and pause across all claim paths are
+checked. Review found root-enqueue, branch-pause and manual-claim defects; actual
+REDs and corrected GREENs remain in the [report](validation/2026-10-18-dependency-recipe.md).
+
+The broader Task3 hierarchy acceptance remains open beyond three pairs. Task4
+needs durable parent suspension/continuation and bounded retry/replan; Task5
+needs common result views. Pause gates new descendant admissions; no active
+already-running descendant cancellation cascade is claimed. V1/v2 authority and
+original worker/schema22 contracts are preserved. Parallel brain/MaleCNS/CLI
+changes are excluded. Only feature tests ran; no full suite/live model/graph/UI/
+training or neural admission is claimed. Overall goal remains active.
+Earlier checkpoints retain their original source boundaries.
+
 ## Prerequisite composition — validated,2026-10-18
 
 Task2 pins predecessor receipts at admission and composes their exact checked
