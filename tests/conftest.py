@@ -16,7 +16,7 @@ def isolated_state_database(tmp_path, monkeypatch):
 @pytest.fixture
 def model_server():
     state = SimpleNamespace(requests=[], get_requests=[], models=["reasoner", "decider"], contexts=None,
-                            native_available=True, instance_ids={})
+                            native_available=True, instance_ids={}, remaining_ttl_seconds=None)
     state.respond = lambda request: completion("[]")
 
     class Handler(BaseHTTPRequestHandler):
@@ -31,7 +31,9 @@ def model_server():
                     capacity = 8192 if state.contexts is None else state.contexts.get(name)
                     body['models'].append({'key': name, 'type': 'llm', 'max_context_length': 262144,
                         'loaded_instances': [{'id': state.instance_ids.get(name, name),
-                                              'config': {'context_length': capacity}}] if capacity else []})
+                                              'config': {'context_length': capacity},
+                                              **({'remaining_ttl_seconds': state.remaining_ttl_seconds}
+                                                 if state.remaining_ttl_seconds is not None else {})}] if capacity else []})
                 self.reply(body)
                 return
             body = {"object": "list", "data": [

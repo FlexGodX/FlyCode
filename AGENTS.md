@@ -15,7 +15,7 @@ These rules override everything else in this file when in conflict:
 Goal: understand the problem and the codebase before producing a diff.
 
 - State your plan in one or two sentences before editing. For anything non-trivial, produce a numbered list of steps with a verification check for each.
-- Discover exact paths with `rg --files` before any content search/read; never put guessed filenames in a read/search call.
+- Complete `rg --files` discovery and read its output before constructing content searches/reads; never use guessed filenames, even in the same tool call as discovery.
 - Read the files you will touch. Read the files that call the files you will touch. Claude Code: use subagents for exploration so the main context stays clean.
 - Read helper signatures, object attributes, required Pydantic fields and ownership checks before calling project APIs or constructing their models; validate `model_copy` update keys against the model definition. Read actual SQLite table names before querying audit data.
 - Match existing patterns in the codebase. If the project uses pattern X, use pattern X, even if you'd do it differently in a greenfield repo.
@@ -178,10 +178,10 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Treat Hermes in this project’s plan as FlyCode itself: the host for connected agents orchestrated by the fly controller. Do not request a separate Hermes repository.
 - Verify helper reuse through observable delegation; passing numeric examples alone does not establish that an existing helper was used.
 - Use FlyCode’s implemented tools first for benchmarks, training and verification; retain their failure evidence before using external fallback tools.
-- Use `.venv/bin/python` for local Python commands; do not assume `python` is on PATH. A denied HTTP/process test setup is not a feature RED.
+- Use `.venv/bin/python` for local Python commands and preserve that virtualenv path (or `sys.executable`) for children; resolving its symlink reaches the base interpreter. A denied HTTP/process test setup is not a feature RED.
 - Set an isolated `FLYCODE_ARTIFACT_ROOT` for web/full-suite verification unless testing catalogue discovery; the user cache can contain entire archived test trees.
 - Read model-call attempt ownership from the SQL column because HostModelCall JSON has owner_id/owner_kind instead.
-- Before reusing a measurement harness, read startup assertions/report variables and check launcher counts against the registered collection; execute its non-launching preamble before spawning tests.
+- Before reusing a measurement harness, read startup assertions/report variables, assert the required loaded instance/context and check launcher counts against the registered collection; execute its non-launching preamble before spawning tests.
 - Reap an owned process throughout group-absence polling; it may become waitable after the initial permission error.
 - Test custody blocking with a held ownership lock or an explicit owned Popen handle; never SIGSTOP a PID inferred only from `os.getppid()`.
 - In negative input-path tests, use a known present non-conflicting entry from `PatchArtifact.target.files`; do not assume every fixture includes README.
@@ -200,9 +200,10 @@ When the user corrects your approach, append a one-line rule here before ending 
 - When compacting model context, preserve pinned artifact observations, workspace file reads and tool failure diagnostics; dropping known file text or an edit error can make a real model repeat invalid edits.
 - Derive child-process PYTHONPATH from the imported package location; pytest's pythonpath setting does not populate the PYTHONPATH environment variable.
 - Publish terminal run status only after source settlement and successful history persistence under the manager lock.
-- Check prerequisite exit codes before archive/publication mutations; do not continue a dependent tool sequence after an assertion fails.
+- Inspect each prerequisite tool result before dependent checks, edits or publication; a failed preparation must not launch its measurement.
 - When validating file stability across a read, compare identity/permissions/size/mtime; access time can change during an ordinary read.
 - Establish the reaper before spawning a detached child; a failed Thread.start must not leave a started child without its cleanup owner.
+- Import modules that evaluate subprocess.Popen type annotations before replacing Popen with a test wrapper.
 
 ## 12. How this file was built
 

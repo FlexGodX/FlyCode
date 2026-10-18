@@ -259,3 +259,43 @@ def test_schema17_failure_rolls_back_without_losing_host_calls(admitted, monkeyp
         assert [tuple(row) for row in store.db.execute('SELECT * FROM model_calls')] == before
     finally:
         store.close()
+
+
+@pytest.mark.parametrize('initial_ttl', [None, 1800])
+def test_idle_countdown_preserves_exact_admission_and_profile(tmp_path, model_server, initial_ttl):
+    from flycode.domain.orchestration import (
+        AccessScope,
+        AgentProfileDraft,
+        ExecutionPermission,
+    )
+    from flycode.orchestration.projects import Projects
+
+    model_server.remaining_ttl_seconds = initial_ttl
+    database = tmp_path / 'catalogue.sqlite'
+    model_server.respond = lambda request: model_server.completion(json.dumps({'candidates': [
+        {'tool': 'read_file', 'arguments': {'path': 'sample.py'}}]}))
+    catalogue = ModelCatalogue(model_server.url, database=database)
+    ready = catalogue.probe(catalogue.discover()[0].model_ref, 'primary')
+    source = tmp_path / 'source'
+    source.mkdir()
+    store = Store(database, catalogue=catalogue)
+    try:
+        project = Projects(store).register(source, actor_id='owner')
+        scope = AccessScope(actor_id='owner', project_ids=frozenset({project.id}), role='owner')
+        profile = store.register_profile(scope, AgentProfileDraft(role='developer', model_ref=ready.model_ref,
+            instructions='Inspect the assigned project.', project_ids=(project.id,),
+            permissions=ExecutionPermission(), context_limit=8192))
+        assert profile.available and store._binding_current(profile)
+        for countdown in (1799, None, 20):
+            model_server.remaining_ttl_seconds = countdown
+            assert catalogue.refresh_runtime(ready.model_ref) == ready
+            restored = ModelCatalogue(model_server.url, database=database)
+            assert restored.resolve(ready.model_ref, 'primary', ready.capability_version) == ready
+            assert store._binding_current(store._profile(profile.id))
+        model_server.contexts = {ready.model_id: 4096}
+        changed = catalogue.refresh_runtime(ready.model_ref)
+        assert changed.context_limit == 4096 and changed.revision > ready.revision and not changed.roles
+        assert not store._binding_current(profile)
+    finally:
+        store.close()
+    assert len(model_server.requests) == 1

@@ -111,6 +111,17 @@ bytes and zero unknown/reserve. Stop response40.3–53.3ms;
 Canonical CLI/shared verification/neural admission remain open; Tasks5–8 and
 §§90–99 are not closed. [Report](../../validation/2026-10-18-coordinator-controls.md).
 
+Validated canonical CLI continuation (2026-10-18): shared Store drafts/cards/
+commands/comments/events/agents, explicit service status/attach and historical
+Stop. Native process lifetime, review/integration Stop and scope/replay checks
+pass. Final1205 exact IDs/1197pass/8expectedskip/0fail/error,
+1355.334s;wheel264/CLI12/graph5 and Ruff6/mypy3 pass.
+Actual English Qwen pipeline99.433s/3model/34tools with4 matched provider
+receipts preserves owner bytes and zero unknown/reserve. A real countdown-induced
+revocation and deep-input failure have retained REDs and bounded corrections.
+Common verification access, remaining Tasks5–8, neural admission and §§90–99 stay
+open. [Report](../../validation/2026-10-18-canonical-cli.md).
+
 **Architecture:** Существующий одиночный runtime сохраняется как совместимый исполнитель. Новые задачи и попытки имеют единое транзакционное хранилище; tracker — его представление. Независимая проверка связывает verdict с фактическими байтами результата, а диспетчер резервирует ресурсы до вызова исполнителя.
 
 **Tech Stack:** Python >=3.10, Pydantic v2, SQLite, pytest, FastAPI, существующие HTML/CSS/JS, LM Studio.

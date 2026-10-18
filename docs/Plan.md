@@ -3042,3 +3042,12 @@ bytes and zero unknown/reserve. Stop response40.3–53.3ms;
 49 actual custody receipts and597 evidence hashes are checked.
 Canonical CLI/shared verification/neural admission remain open; Tasks5–8 and
 §§90–99 are not closed. [Report](validation/2026-10-18-coordinator-controls.md).
+
+
+Срез2026-10-18: публичный `flycode tasks` использует общий Store для черновиков,
+команд, комментариев, событий, агентов, подключения службы и Stop после утраты
+папки. Проверены native CLI/web, ограничения доступа и затрат; transient idle
+countdown исключён из model fingerprint, реальные config changes отзывают допуск.
+Итоги final full/wheel/graph/actual-model:
+[проверенный CLI](validation/2026-10-18-canonical-cli.md). Общие verification
+plans/start/cancel/rerun/artifacts и оставшиеся Tasks5–8 не закрыты.

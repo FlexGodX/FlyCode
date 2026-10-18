@@ -1,0 +1,376 @@
+{
+  "version": "canonical-cli-validation-v1",
+  "goal_complete": false,
+  "parent_commit": "c641ac9480ecec1465a196fe5bdfa38d4c3215ba",
+  "source_manifest": "2838b84f5c53075060f82dc1301eb1b35baeffee7c287c47aebb1e4e4109b599",
+  "runtime_implementation": "997bfd0421cfd880e039c4845971c9d47ea0035fed8c49fdb7e558f45850e66b",
+  "full": {
+    "implementation_sha256": "2838b84f5c53075060f82dc1301eb1b35baeffee7c287c47aebb1e4e4109b599",
+    "groups": {
+      "non-orchestration": {
+        "returncode": 0,
+        "observed_wait_seconds": 340.5193731659965,
+        "pytest_seconds": 340.008
+      },
+      "orchestration-1": {
+        "returncode": 0,
+        "observed_wait_seconds": 1041.8481833749975,
+        "pytest_seconds": 1040.163
+      },
+      "orchestration-2": {
+        "returncode": 0,
+        "observed_wait_seconds": 1041.8464827499993,
+        "pytest_seconds": 992.94
+      },
+      "web": {
+        "returncode": 0,
+        "observed_wait_seconds": 136.26023524999619,
+        "pytest_seconds": 135.986,
+        "junit": "web-default.xml",
+        "log": "web-default.log"
+      }
+    },
+    "registered_cases": 1205,
+    "observed_cases": 1205,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 8,
+    "seconds": 1355.3342356669891,
+    "frozen_files_unchanged": 265,
+    "passed": true,
+    "measurement": "Composed unchanged non-web phases plus final default-order web phase; earlier whole-suite outcome remains failed, retained separately",
+    "prior_full_result": "full-first-result.json",
+    "prior_failed_cases": 2,
+    "clean_first_attempt": false,
+    "root_cause_of_prior_timeouts_established": false
+  },
+  "package": {
+    "passed": true,
+    "wheel_sha256": "824dd024b7cd6dfd1627e6456836f58c6f4770a65cee43602e95d40261102926",
+    "exact_distribution_files": 160,
+    "readme_matches": true,
+    "wheel_cases": 264,
+    "wheel_seconds": 374.1658101660141,
+    "cli": [
+      {
+        "arguments": [
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "brains"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "run",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "ui",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "verify",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "train",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "benchmark",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "connectome",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "shadow-analysis",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "validate-rollout",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "tasks",
+          "--help"
+        ],
+        "returncode": 0
+      },
+      {
+        "arguments": [
+          "tasks",
+          "service",
+          "--help"
+        ],
+        "returncode": 0
+      }
+    ]
+  },
+  "browser": {
+    "passed": true,
+    "package_root": "/private/tmp/flycode-canonical-cli-final-ymmum9cr/extracted",
+    "cases": [
+      {
+        "interface": "classic",
+        "returncode": 0
+      },
+      {
+        "interface": "desktop",
+        "returncode": 0
+      }
+    ]
+  },
+  "static": {
+    "passed": true,
+    "checks": [
+      {
+        "args": [
+          ".venv/bin/ruff",
+          "check",
+          "src/flycode/cli.py",
+          "src/flycode/tracker/cli.py",
+          "src/flycode/llm/catalogue.py",
+          "tests/conftest.py",
+          "tests/unit/orchestration/test_tracker_cli.py",
+          "tests/unit/orchestration/test_durable_model_catalogue.py"
+        ],
+        "returncode": 0
+      },
+      {
+        "args": [
+          ".venv/bin/mypy",
+          "src/flycode/cli.py",
+          "src/flycode/tracker/cli.py",
+          "src/flycode/llm/catalogue.py",
+          "--follow-imports=silent"
+        ],
+        "returncode": 0
+      },
+      {
+        "args": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "returncode": 0
+      }
+    ]
+  },
+  "real_model": {
+    "passed": true,
+    "english_request": "Set the answer variable in src/example.py to exactly 1. Preserve all tests, README and user files. Run the tests to verify your change.",
+    "elapsed_seconds": 99.43332350000856,
+    "budget": {
+      "limit": {
+        "model_calls": 60,
+        "tool_calls": 120
+      },
+      "spent": {
+        "model_calls": 3,
+        "tool_calls": 34
+      },
+      "reserved": {
+        "model_calls": 0,
+        "tool_calls": 0
+      },
+      "free": {
+        "model_calls": 57,
+        "tool_calls": 86
+      },
+      "uncertain": false
+    },
+    "manual_claims": 0,
+    "owner_commands_after_approval": 0,
+    "owner_dirty_bytes_preserved": true,
+    "source_unchanged": true,
+    "trained_checkpoint": false,
+    "scientific_promotion": false
+  },
+  "provider": {
+    "passed": true,
+    "http_generation_requests": 4,
+    "explicit_probes": 1,
+    "workflow_generation_requests": 3,
+    "matched": [
+      {
+        "call_id": "9feaadc01d3a438e80663d1cefe0bcb6",
+        "prediction_id": "chatcmpl-agai7p4qgzk93tcbp0unj",
+        "attempt_id": null,
+        "model": "qwen/qwen3.5-9b",
+        "provider_started_at": 1792318275.0,
+        "provider_ended_at": 1792318282.0,
+        "usage": {
+          "prompt_tokens": 673,
+          "completion_tokens": 74,
+          "total_tokens": 747
+        },
+        "status": "completed"
+      },
+      {
+        "call_id": "a3752309c39c4d0a8059c76f41c824be",
+        "prediction_id": "chatcmpl-02de1cooeew16k381q12nqe",
+        "attempt_id": "59163c45761e42a086d1798b538fc7dd",
+        "model": "qwen/qwen3.5-9b",
+        "provider_started_at": 1792318284.0,
+        "provider_ended_at": 1792318309.0,
+        "usage": {
+          "prompt_tokens": 1043,
+          "completion_tokens": 314,
+          "total_tokens": 1357
+        },
+        "status": "completed"
+      },
+      {
+        "call_id": "d7d9227aeb4a4a6ea9d44a3cafda8000",
+        "prediction_id": "chatcmpl-gkg0xen4xygylazulz4tzl",
+        "attempt_id": "59163c45761e42a086d1798b538fc7dd",
+        "model": "qwen/qwen3.5-9b",
+        "provider_started_at": 1792318310.0,
+        "provider_ended_at": 1792318332.0,
+        "usage": {
+          "prompt_tokens": 1156,
+          "completion_tokens": 306,
+          "total_tokens": 1462
+        },
+        "status": "completed"
+      },
+      {
+        "call_id": "a505ab022eea4aa392984fb30554d920",
+        "prediction_id": "chatcmpl-1ovcaad7e3ehwabofahhe8m",
+        "attempt_id": "59163c45761e42a086d1798b538fc7dd",
+        "model": "qwen/qwen3.5-9b",
+        "provider_started_at": 1792318332.0,
+        "provider_ended_at": 1792318353.0,
+        "usage": {
+          "prompt_tokens": 1261,
+          "completion_tokens": 308,
+          "total_tokens": 1569
+        },
+        "status": "completed"
+      }
+    ],
+    "provider_excerpt_sha256": "1d195a6ee8fd7ffb54be5e05d35f893af5122eac228739f25cdd1a250977cc71",
+    "all_requests_english": true,
+    "fallback": false,
+    "automatic_retry": false
+  },
+  "live_audit": {
+    "checks": 1722,
+    "input_hashes": 660,
+    "exact_stopped_receipts": 29,
+    "verification_artifact_hashes": 371,
+    "failed_pre_repair_tools": [
+      {
+        "id": "70dd405183f44ce5ab454b203281c59a",
+        "tool": "run_tests",
+        "error_class": null,
+        "status": "failed"
+      },
+      {
+        "id": "306f4003707f4126ae7b32ae5b5e01ea",
+        "tool": "run_tests",
+        "error_class": null,
+        "status": "failed"
+      },
+      {
+        "id": "227ec928c88f4ce4b166b314a54ea160",
+        "tool": "run_tests",
+        "error_class": null,
+        "status": "failed"
+      }
+    ]
+  },
+  "retained_outcomes": [
+    {
+      "case": "review-proposed-depth2000",
+      "observed": "Python3.12.13 returns sanitized invalid_fields/exit2; not a defect reproducer"
+    },
+    {
+      "case": "actual-depth10000",
+      "observed": "20001 bytes cause RecursionError/traceback/exit1 before correction; no DB created"
+    },
+    {
+      "case": "test-wrapper-module-order",
+      "observed": "Popen annotation import failed in positive service test; fixed test import order; not a feature RED"
+    },
+    {
+      "case": "initial-live-unloaded",
+      "observed": "No loaded model/capacity; zero probe/workflow inference; retained failure"
+    },
+    {
+      "case": "explicit-installed-model-load-key",
+      "observed": "lms rejected variant key; exact installed model path succeeded; no download/fallback"
+    },
+    {
+      "case": "live-with-idle-countdown",
+      "observed": "Probe completed; countdown invalidated fingerprint before worker model call; observation limit612.8075s, controlled shutdown0 and owner cancellation; workflow cost0model/1tool preserved"
+    },
+    {
+      "case": "isolated-preparation-path",
+      "observed": "Relative .venv path absent in isolated copy; unchanged negative run3failed/39passed retained as green.log, not claimed passing"
+    },
+    {
+      "case": "corrected-isolated-checks",
+      "observed": "42 passed24.42s; later test import formatting only; final full covers final bytes"
+    },
+    {
+      "case": "lint-import-order",
+      "observed": "One new test import-format error; corrected before final freeze; final Ruff6/mypy3 pass"
+    },
+    {
+      "case": "first-corrected-full-web",
+      "observed": "Full1205:1195pass/8skip/2failure; two15s completion-observation timeouts. Root cause unresolved; no source/deadline change."
+    },
+    {
+      "case": "web-app-definition-order",
+      "observed": "19pass42.52s on unchanged source"
+    },
+    {
+      "case": "web-app-sorted-launcher-setup",
+      "observed": "Resolving venv interpreter symlink reached base Python without pytest; no tests executed"
+    },
+    {
+      "case": "web-app-sorted-order",
+      "observed": "19pass42.46s on unchanged source"
+    }
+  ],
+  "archive_target": "/Users/Administrator/.cache/flycode/validation/flycode-canonical-cli-ymmum9cr",
+  "open_requirements": [
+    "Unresolved two initial web15s observation timeouts; both diagnostic orders and final web repeated on unchanged source",
+    "Common server-owned verification plans/start/cancel/rerun/events/artifacts across API/CLI/UI",
+    "Remaining aggregate Tasks5\u20138 acceptance",
+    "Orchestration encoder/shadow/replay/admission and measured interventions",
+    "Unproven scientific criteria \u00a7\u00a790\u201399; negative trained-controller real-model transfer"
+  ]
+}

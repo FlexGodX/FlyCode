@@ -1,5 +1,35 @@
 # FlyCode handoff brief
 
+## Canonical Tasks CLI — validated,2026-10-18
+
+Source manifest `2838b84f5c53075060f82dc1301eb1b35baeffee7c287c47aebb1e4e4109b599`, runtime
+`997bfd0421cfd880e039c4845971c9d47ea0035fed8c49fdb7e558f45850e66b`; parent PUBLIC `c641ac9480ecec1465a196fe5bdfa38d4c3215ba`.
+Final full1205 exact IDs/1197pass/8expectedskip/0fail/error,
+1355.334s against265 unchanged files. Wheel264/
+160 exact package files/README,CLI12,FlyWire5 and Ruff6/mypy3 pass.
+Packaged classic/Desktop project/projectless compatibility passes. Actual English
+Qwen pipeline99.433s/3model/34tools matches4 provider receipts;
+29 stopped custody receipts and371 evidence hashes verified.
+
+`flycode tasks` now shares canonical drafts/cards/commands/comments/events/agents,
+explicit service attach/status and minimal prior-grant Stop with web. Native
+CLI exit preserves Host. Fresh explicit folders, fixed trusted local actor,
+revision/key scope and missing/replaced-root privacy are checked. Deep JSON
+returns a bounded sanitized error. Native idle countdown no longer revokes model
+configuration; old TTL-bound admissions need another explicit probe. The failed
+pre-correction pipeline and setup outcomes are retained.
+[Report](validation/2026-10-18-canonical-cli.md),
+[plan](superpowers/plans/2026-10-18-canonical-cli.md).
+
+Two initial web15s observation timeouts remain under investigation;19-case
+app diagnostics pass in both orders, and the final web phase uses normal
+collection order. All failures stay retained; this is no clean first attempt.
+
+Next: shared server-owned verification plans/start/cancel/rerun/status/events/
+artifacts across API/CLI/UI, then remaining Tasks5–8 and neural admission.
+Overall goal stays active; §§90–99 and negative trained transfer remain open.
+Earlier entries below describe historical increments.
+
 Authoritative roadmap: `docs/Plan.md` (§1–104). Operating rules: `AGENTS.md`.
 
 ## Tasks coordinator controls — validated,2026-10-18

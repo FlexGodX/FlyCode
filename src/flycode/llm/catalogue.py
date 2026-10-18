@@ -146,7 +146,8 @@ class ModelCatalogue:
             entry.reason = 'Runtime model metadata unavailable; no inference sent'
         entry.loaded_instance_id = instance['id'] if instance else None
         entry.context_limit = instance['config']['context_length'] if instance else None
-        entry.load_fingerprint = hashlib.sha256(json.dumps(instance, sort_keys=True).encode()).hexdigest() if instance else None
+        configuration = {key: value for key, value in instance.items() if key != 'remaining_ttl_seconds'} if instance else None
+        entry.load_fingerprint = hashlib.sha256(json.dumps(configuration, sort_keys=True).encode()).hexdigest() if configuration else None
         if previous != (entry.loaded_instance_id, entry.context_limit, entry.load_fingerprint):
             entry.revision += 1
         if previous[2] is not None and previous[2] != entry.load_fingerprint:

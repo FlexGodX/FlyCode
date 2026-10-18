@@ -133,6 +133,9 @@ is visible to other application instances; stale updates are rejected. Invalid
 evidence refuses eligibility. Internal `ModelCatalogue(..., database=PATH)` uses
 the same mechanism; omitting `database` retains the existing in-memory catalogue.
 The runtime checks current loaded configuration before actual inference.
+The model idle countdown does not change its configuration. Older admissions
+whose fingerprints included this timer need another explicit probe; instance
+or configuration changes still revoke admission.
 
 Legacy chats and the integrator share source-folder admission: equal/nested
 folders and symlink aliases exclude a second executor, while independent folders
@@ -180,6 +183,23 @@ previously granted Stop authority. The screen retains these controls after folde
 loss, page reload and application restart, while hiding content and resume.
 A lost reply retries the identical command; a revision conflict requires another
 explicit action.
+
+The same queue is available without the web process through `flycode tasks`:
+`register`, `create`, `list`, `show`, `command`, `comment`, `events` and `agents`
+use an explicit current `--project PATH`, including non-Git folders.
+`create --input FILE --key KEY` reads TaskDraft JSON; a new root may also specify
+`--workflow-budget FILE`, while a child uses `--workflow ID`.
+`command --input FILE` reads a complete TaskCommand with its revision and replay
+key. Results and operational errors are JSON; rejected operations exit2 without
+echoing input contents. Invalid CLI syntax displays usage. The CLI shares `FLYCODE_STATE_DATABASE`; an explicit path
+uses `flycode tasks --database FILE ...`. `tasks service status` only checks the
+service; `tasks service attach` explicitly connects it. Neither drafts nor
+attachment approve execution. `tasks stops` and
+`tasks stop ID --operation pause|cancel --expected-revision N --key KEY` retain
+limited prior Stop authority after folder loss; reads and resume still need
+fresh access. This is a trusted same-OS-user CLI. Common verification-plan access
+remains open.
+
 The process publishes a private local endpoint. An internal client checks physical
 database identity, session generation and an authenticated response to a fresh
 challenge. Client disconnect preserves the Host; slow requests have a bounded

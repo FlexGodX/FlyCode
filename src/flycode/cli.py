@@ -133,6 +133,10 @@ def _build_parser() -> argparse.ArgumentParser:
     verify.add_argument('--reruns', type=int, choices=[0, 1, 2], default=0)
     verify.add_argument('--trust', choices=['trusted-local-process', 'untrusted'], default='trusted-local-process')
 
+    from .tracker.cli import configure_parser
+
+    configure_parser(sub)
+
     connectome = sub.add_parser("connectome", help="Prepare or inspect a verified FlyWire graph")
     commands = connectome.add_subparsers(dest="connectome_command", required=True)
     download = commands.add_parser("download")
@@ -307,6 +311,11 @@ def main(argv: list[str] | None = None) -> int:
         from .verification.cli import verify_command
 
         return verify_command(args)
+
+    if args.command == 'tasks':
+        from .tracker.cli import tasks_command
+
+        return tasks_command(args)
 
     if args.command == "benchmark":
         from .research.benchmark import BenchmarkConfig, run_benchmark
