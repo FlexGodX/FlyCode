@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-18",
+  "parent_commit": "83b226da25a6f0081e0ce3403774503e188914ce",
+  "scope": "independent sibling pairs with exact reviews and one joint integration; arbitrary DAG/child-wait still open",
+  "measurements": [
+    {
+      "name": "targeted",
+      "cases": 42,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "wheel",
+      "cases": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "source_files_unchanged": 12,
+  "source_manifest_sha256": "d74ea7f9dcef3935eaa20f4af9c0420acfe081c781ec9e760050a905caab7d65",
+  "package_manifest_sha256": "399d256e5965c81671fc52f91277cab7429a16c55e2a22a01fc76273d5f2f30f",
+  "wheel": {
+    "sha256": "c91daccc1b4ebb6934f1f975e2aa5df1f18cff2c659226c473a095e35a1a6128",
+    "files_equal": 169,
+    "readme_utf8_equal": true
+  },
+  "static": {
+    "ruff_files": 3,
+    "mypy_source_files": 2
+  },
+  "archive": {
+    "path": "~/.cache/flycode/validation/flycode-team-pipeline-1nvl6lv2",
+    "files": 4213,
+    "bytes": 50409896,
+    "manifest_sha256": "23c162865f8557a443ec186ed336c5182cfe40bdd15c033154cb23ab1b43c9cd"
+  },
+  "real_model_run": false,
+  "real_graph_run": false,
+  "full_suite_run": false,
+  "brain_changes": false,
+  "aggregate_complete": false
+}

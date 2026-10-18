@@ -101,9 +101,9 @@ The internal team queue foundation uses shared Pydantic contracts and one SQLite
 database for tasks, instances, attempts, budgets and events. Assignment and
 reservation commit atomically; command replay does not charge twice, and restart
 retains unconfirmed ownership until reconciliation. Tracker reads the same store.
-The internal runtime now executes attempts in separate processes; CLI/API and
-screen integration remain unfinished. The current interface
-still runs one task at a time. See the checked
+CLI/API and the Tasks screen share commands, events and service attachment;
+the runtime executes attempts in separate processes. Executable team routes
+still require approval through the trusted Python host. See the checked
 [delivery plan](docs/superpowers/plans/2026-10-16-specification-delivery.md).
 The internal `Dispatcher` automatically selects a task/instance pair using global
 priority and the remaining budget. The owner first approves the exact folder and
@@ -112,8 +112,12 @@ shared database. The dispatcher executes independent exact-artifact review and
 integration through registered checks. The owner can approve a bounded route in
 advance: one writer, one reviewer and one integrator under an aggregate root.
 The canonical queue then advances stages without manual claims. Changed criteria,
-oracle, permissions or budgets block the old authority. General multi-writer
-recipes, automatic replanning and child waiting remain unfinished.
+oracle, permissions or budgets block the old authority. `Pipelines.approve_team`
+adds a versioned route for up to three independent writer/reviewer pairs and one
+joint integrator. Every pair pins exact starting bytes and authority; integration
+waits for all approved reviews and verifies the combined result. The original
+route remains supported. Arbitrary cross-writer dependencies, automatic
+replanning and child waiting still require a separate protocol.
 An explicit primary compatibility probe requests
 one structured candidate; ordinary generation keeps its existing count and limits.
 The model transport adapter acquires an endpoint slot and charges the request

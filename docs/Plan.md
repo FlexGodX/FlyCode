@@ -3076,3 +3076,15 @@ Desktop/projects/projectless compatibility, Ruff53/scoped mypy24 провере�
 представление pipeline review/integration, нейронный допуск и §§90–99 остаются
 открытыми; параллельный мозг не включён в эту поставку.
 [Отчёт управления](validation/2026-10-18-verification-control.md).
+
+
+Срез2026-10-18, независимая команда: version2 `Pipelines.approve_team` допускает
+до трёх независимых sibling writer/reviewer пар и одного общего интегратора.
+Проверенный маршрут из двух пар делает5 реальных process attempts/3 receipts;
+совместный результат становится current только после всех review и проверок.
+42 v1/v2 cases и6 extracted-wheel проходят,12 файлов неизменны, package169/
+README/CLI/Ruff3/mypy2 проверены. Падение review, конфликт и скрытая регрессия
+объединения сохраняют исходные файлы. Зависимости по-прежнему требуют succeeded;
+произвольный DAG/child-wait/retry/replan и оставшиеся Tasks5–8 не закрыты.
+Проверялись только затронутые функции; модели — HTTP fixtures, не live admission.
+[Отчёт команды](validation/2026-10-18-team-pipeline.md).

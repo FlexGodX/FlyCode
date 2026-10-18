@@ -1,5 +1,30 @@
 # FlyCode handoff brief
 
+## Independent team recipe — validated,2026-10-18
++
++`Pipelines.approve_team` adds version2 owner authority for up to three independent
++sibling writer/reviewer pairs and one joint integrator, preserving v1 requests and
++receipts. Every source/binding/profile/approval is pinned; a ready branch review
++does not wait for another writer's publication. All outputs/reviews are required
++for joint integration. No database migration or new queue is added.
++
++Final42 v1/v2 cases pass103.44s, including21 new cases. Six extracted-wheel native
++cases pass52.63s;12 source/test/README inputs remain unchanged.169 package files/
++README equal, CLI help and Ruff3/scoped mypy2/diff check pass. Actual five-attempt
++HTTP-fixture/process completion, two-connection materialization and failed-review/
++combined-regression/conflict barriers preserve owner bytes. These fixture model
++responses are not live-model evidence or concurrent throughput measurements.
++[Report](validation/2026-10-18-team-pipeline.md),
++[plan](superpowers/plans/2026-10-18-team-pipeline.md).
++
++Next: general artifact-phase prerequisites/child-wait and bounded retry/replan,
++automatic common pipeline review/result projection and remaining Task8 fields.
++Ordinary dependencies still require succeeded; awaiting_review is not completion.
++Brain/data/training belong to the parallel agent; its §105/specs stay excluded.
++No full suite, graph, live model or training was run. Aggregate Tasks5–8 and
++research §§90–99 remain open. Earlier control evidence below belongs to its own
++source boundary; it is not relabelled as a full rerun on this recipe increment.
++
 ## Shared verification control — validated,2026-10-18
 
 Schema21 adds executable registered plans, CAS/idempotent commands, cumulative

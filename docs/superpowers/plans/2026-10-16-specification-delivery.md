@@ -4,6 +4,14 @@
 
 **Goal:** Реализовать изменения §§100–103 с проверяемыми результатами, общей очередью задач и явным отделением исследовательских допусков.
 
+Current independent-team increment (2026-10-18): [version2 recipes](2026-10-18-team-pipeline.md)
+execute multiple independent writer/reviewer pairs and one joint integrator from
+one inert owner approval, preserving v1. Final42 native v1/v2 and6 extracted-wheel
+checks pass, including real failed-review/combined-regression/conflict barriers.
+Only feature-related tests were run. [Report](../../validation/2026-10-18-team-pipeline.md).
+Arbitrary artifact-phase prerequisites, child-wait/retry/replan and remaining
+common review/result UI remain open; awaiting_review is never treated as succeeded.
+
 Current verified increment (2026-10-18): [shared verification control](2026-10-18-verification-control.md)
 adds registered plans/start/cancel/rerun, real shared-pool execution/recovery,
 protected API/CLI/SSE/artifacts/reproduction and `/verification` in both interfaces.
