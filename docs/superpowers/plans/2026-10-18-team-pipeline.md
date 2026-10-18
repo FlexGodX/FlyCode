@@ -76,12 +76,12 @@ ORC03 lifecycle→Task2; ORC05 eligibility→Tasks1/2; ORC08 bounded shared reso
 
 
 ## Checked checkpoint
-+
-+Final42 native v1/v2 cases and6 extracted-wheel cases pass;12 inputs unchanged,
-+169 package files/README equal, Ruff3/scoped mypy2 and CLI help pass. The first
-+missing-feature RED and the replay-helper correction remain retained. Independent
-+review found no concrete defect; branch independence, two-connection uniqueness,
-+pause/rollback, failed review, combined regression and conflict have real native
-+coverage. [Report](../../validation/2026-10-18-team-pipeline.md).
-+This closes the independent-pair increment only; general DAG/child-wait/retry/
-+replan, remaining common UI and neural/research acceptance stay open.
+
+Final42 native v1/v2 cases and6 extracted-wheel cases pass;12 inputs unchanged,
+169 package files/README equal, Ruff3/scoped mypy2 and CLI help pass. The first
+missing-feature RED and the replay-helper correction remain retained. Independent
+review found no concrete defect; branch independence, two-connection uniqueness,
+pause/rollback, failed review, combined regression and conflict have real native
+coverage. [Report](../../validation/2026-10-18-team-pipeline.md).
+This closes the independent-pair increment only; general DAG/child-wait/retry/
+replan, remaining common UI and neural/research acceptance stay open.

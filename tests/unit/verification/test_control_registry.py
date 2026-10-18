@@ -244,7 +244,7 @@ def test_atomic_schema20_failure_preserves_schema19_and_existing_records(registe
     assert {table: [tuple(row) for row in store.db.execute('SELECT * FROM ' + table)] for table in tables} == before
     reopened = Store(store.path)
     try:
-        assert reopened.db.execute('PRAGMA user_version').fetchone()[0] == 21
+        assert reopened.db.execute('PRAGMA user_version').fetchone()[0] == 22
         assert Projects(reopened).get(project.id) == project
     finally:
         reopened.close()

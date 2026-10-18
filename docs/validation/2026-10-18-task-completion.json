@@ -1,0 +1,108 @@
+{
+  "status": "validated",
+  "aggregate_complete": false,
+  "source_manifest_sha256": "1233ad16560f02fd53f39d032378d0c35f915b93183ffa10122b659811cc6111",
+  "source_files_unchanged": 184,
+  "archive": {
+    "path": "~/.cache/flycode/validation/flycode-task-completion-tqcak40m",
+    "files": 7288,
+    "bytes": 44689175,
+    "manifest_sha256": "ff7fc5b56df78308b4b0cc28386b393a149b2a243baac8b6c9153227dee6eefe"
+  },
+  "measurements": [
+    {
+      "name": "corrected",
+      "cases": 16,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 225.606
+    },
+    {
+      "name": "cancel-delta",
+      "cases": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 50.445
+    },
+    {
+      "name": "crash-delta",
+      "cases": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 20.103
+    },
+    {
+      "name": "actual-stop",
+      "cases": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 5.259
+    },
+    {
+      "name": "scope",
+      "cases": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 11.072
+    },
+    {
+      "name": "wheel",
+      "cases": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 85.169
+    },
+    {
+      "name": "wheel-corrected",
+      "cases": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 123.15
+    },
+    {
+      "name": "wheel-recovery-final",
+      "cases": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 26.411
+    }
+  ],
+  "wheel": {
+    "sha256": "5adf4b976c30631c27431d817bc95081df7135e10568da8b5f4ebf0b6c6c46ef",
+    "files_equal": 170,
+    "readme_utf8_equal": true
+  },
+  "compatibility_initial": {
+    "cases": 230,
+    "passed": 226,
+    "failed": 4,
+    "seconds": 1277.46,
+    "all_four_reverified": true
+  },
+  "native_initial": {
+    "passed": 40,
+    "seconds": 166.62
+  },
+  "migrations": {
+    "passed": 8,
+    "seconds": 2.41
+  },
+  "static": {
+    "ruff_files": 19,
+    "mypy_source_files": 7
+  },
+  "live_model": false,
+  "real_graph": false,
+  "full_suite": false,
+  "brain_changes": false,
+  "parent_commit": "be877face23ebf43d42c94eb46e1bddd15a49579",
+  "scope": "checked task-completion gate; dependent checkout composition, general DAG and child waits remain open"
+}

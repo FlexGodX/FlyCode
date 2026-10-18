@@ -328,7 +328,7 @@ def test_schema21_failure_keeps_catalogue_and_prior_command_history(inputs, monk
     assert {name: [tuple(row) for row in store.db.execute('SELECT * FROM ' + name)] for name in before} == before
     reopened = Store(store.path, clock=store.clock)
     try:
-        assert reopened.db.execute('PRAGMA user_version').fetchone()[0] == 21
+        assert reopened.db.execute('PRAGMA user_version').fetchone()[0] == 22
         assert reopened.db.execute('SELECT id FROM verification_subjects').fetchone()[0] == subject.id
         assert reopened.db.execute('SELECT id FROM verification_profiles').fetchone()[0] == profile.id
     finally:

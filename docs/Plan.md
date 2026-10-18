@@ -3088,3 +3088,18 @@ README/CLI/Ruff3/mypy2 проверены. Падение review, конфлик
 произвольный DAG/child-wait/retry/replan и оставшиеся Tasks5–8 не закрыты.
 Проверялись только затронутые функции; модели — HTTP fixtures, не live admission.
 [Отчёт команды](validation/2026-10-18-team-pipeline.md).
+
+
+Срез2026-10-18, завершение отдельной задачи (schema22): неизменяемый receipt
+подтверждает остановленного автора, точный независимый review, критерии и evidence.
+Задача становится succeeded без применения файлов и завершения workflow;
+изменения/отмена отзывают зависимые назначения, сохраняя расход до остановки.
+Native40, migrations8, final24 overlapping correction cases и final wheel10
+проверены; package170/README RU/EN/CLI/Ruff19/mypy7 совпадают с изолированной копией.
+Первый compatibility run226pass/4fail сохранён: legacy reopen исправлен, cancel
+проверяет отзыв fence, два harness используют точный импорт. Все четыре повторно
+проверены точечно; повтор всего230 не заявляется. Task2 имеет реальный RED копии
+зависимого writer: нужны композиция входов и последовательная интеграция.
+Общий DAG/child-wait/replan/UI результатов и Tasks5–8 остаются открытыми.
+Параллельный мозг/CLI/MaleCNS не входят в поставку; full/live-model/graph не запускались.
+[Отчёт завершения задачи](validation/2026-10-18-task-completion.md).

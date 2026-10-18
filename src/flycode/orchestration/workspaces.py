@@ -9,7 +9,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from ..domain.orchestration import WorkspaceRecord
-from ..verification.evidence import atomic_json
+from ..verification.evidence import atomic_json, read_regular
 from ..verification.snapshot import capture, input_files
 from .store import Store, StoreError
 
@@ -60,9 +60,8 @@ class Workspaces:
                     or not baseline.is_dir() or not repository.is_dir()):
                 raise ValueError('Invalid workspace directories')
             expected = record.model_dump_json().encode()
-            with manifest.open('rb') as stream:
-                if stream.read(len(expected) + 1) != expected:
-                    raise ValueError('Workspace manifest changed')
+            if read_regular(manifest, limit=len(expected)) != expected:
+                raise ValueError('Workspace manifest changed')
             files, excluded = input_files(baseline)
             hashes = {name: hashlib.sha256(data).hexdigest() for name, data in files.items()}
             modes = {name: stat.S_IMODE((baseline / name).stat().st_mode) for name in files}

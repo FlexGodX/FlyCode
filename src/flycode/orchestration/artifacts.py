@@ -11,7 +11,7 @@ from ..domain.results import FileChange, FileVersion, PatchArtifact
 from ..domain.verification import SubjectRef
 from ..tools.filesystem import ToolResult
 from ..verification.acceptance import input_identity
-from ..verification.evidence import atomic_json
+from ..verification.evidence import atomic_json, read_regular
 from ..verification.snapshot import capture, input_files
 from .inputs import Inputs
 from .store import Store, StoreError, changed, covers
@@ -153,11 +153,11 @@ class Artifacts:
             for name in ('manifest.json', 'baseline', 'target', 'run-result.json'):
                 if (directory / name).is_symlink():
                     raise ValueError('Artifact link is unsupported')
-            raw = (directory / 'manifest.json').read_bytes()
+            raw = read_regular(directory / 'manifest.json')
             if hashlib.sha256(raw).hexdigest() != record.patch_hash or json.loads(raw) != record.model_dump(
                     mode='json', exclude={'patch_hash'}):
                 raise ValueError('Artifact manifest changed')
-            if hashlib.sha256((directory / 'run-result.json').read_bytes()).hexdigest() != record.result_hash:
+            if hashlib.sha256(read_regular(directory / 'run-result.json')).hexdigest() != record.result_hash:
                 raise ValueError('Worker result changed')
             for name, snapshot in (('baseline', record.baseline), ('target', record.target)):
                 _, excluded = input_files(directory / name)

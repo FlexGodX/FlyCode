@@ -1067,7 +1067,11 @@ def test_reverification_preserves_owner_stop_of_historical_child(owned, model_se
         store.command(owner, child.id, TaskCommand(operation=operation, expected_revision=current.revision, idempotency_key='stop-child'))
 
     if operation == 'cancel':
+        before_stop = store.budget(owner, workflow.id)
         stop_child()
+        assert store.task(owner, integrator.task_id).fence > integrator.fence
+        assert store._attempt(integrator.id).state == 'stopping'
+        assert store.budget(owner, workflow.id) == before_stop
     else:
         verify = service._verify
 
@@ -1078,7 +1082,7 @@ def test_reverification_preserves_owner_stop_of_historical_child(owned, model_se
             return record
         monkeypatch.setattr(service, '_verify', verify_then_pause)
     historical = store._attempt(author.id)
-    with pytest.raises(StoreError, match='completion_blocked'):
+    with pytest.raises(StoreError, match='fence' if operation == 'cancel' else 'completion_blocked'):
         service.run(host, integrator.id, integrator.fence, (artifact.id,), (review.id,),
             approval_hashes={root.id: approval, child.id: approval, integrator.task_id: approval}, previous_result_id=result.id)
     assert store.task(owner, child.id).state != 'succeeded'
@@ -1480,6 +1484,7 @@ def test_actual_integrator_crash_requires_stopped_checks_and_effect_reconciliati
     import subprocess
     import sys
     import time
+    from pathlib import Path
 
     from flycode.orchestration.artifacts import Artifacts
     from flycode.orchestration.integration import Integration
@@ -1535,7 +1540,8 @@ service.run(AccessScope.model_validate(config['scope']),config['attempt'],config
     group = None
     with (source / 'src/example.py').open('r+b') as original, (tmp_path / 'coordinator.log').open('wb') as log:
         try:
-            coordinator = subprocess.Popen([sys.executable, str(script), str(config)], start_new_session=True, stdout=log, stderr=log)
+            coordinator = subprocess.Popen([sys.executable, str(script), str(config)], start_new_session=True, stdout=log, stderr=log,
+                env={**os.environ, 'PYTHONPATH': str(Path(sys.modules[Integration.__module__].__file__).resolve().parents[2])})
             deadline = time.monotonic() + 20
             while not ready.exists():
                 assert coordinator.poll() is None, (tmp_path / 'coordinator.log').read_text()

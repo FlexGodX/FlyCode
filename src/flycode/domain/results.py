@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import Field, field_validator
 
 from .orchestration import ExecutionPermission, QueueModel
+from .source import SourceRoot
 from .verification import SubjectSnapshot, VerificationVerdict
 
 
@@ -71,6 +72,35 @@ class ReviewRecord(QueueModel):
     reruns: int = Field(default=0, ge=0, le=2)
     status: Literal['approved', 'changes_requested', 'inconclusive']
     verdict: VerificationVerdict
+    created_at: float
+
+
+class CompletionInput(QueueModel):
+    id: str
+    sha256: str = Field(pattern=r'^[0-9a-f]{64}$')
+
+
+class TaskCompletion(QueueModel):
+    version: Literal[1] = 1
+    id: str
+    project_id: str
+    workflow_id: str
+    task_id: str
+    semantic_revision: int
+    contract_hash: str
+    attempt_id: str
+    fence: int
+    artifact_id: str
+    artifact_hash: str
+    review_id: str
+    review_hash: str
+    reviewer_task_id: str
+    reviewer_semantic_revision: int
+    reviewer_contract_hash: str
+    prerequisites: dict[str, CompletionInput]
+    runtime_root: SourceRoot
+    source_root: SourceRoot
+    source_hash: str
     created_at: float
 
 

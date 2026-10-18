@@ -41,7 +41,7 @@ from ..domain.orchestration import (
     WorkItem,
     stage_binding,
 )
-from ..domain.results import IntegrationRecord
+from ..domain.results import IntegrationRecord, PatchArtifact
 from .scheduler import ordered
 
 ACTIVE = ('assigned', 'running', 'stopping', 'reconciling')
@@ -90,7 +90,7 @@ class Store:
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=FULL')
         version = self.db.execute('PRAGMA user_version').fetchone()[0]
-        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21):
+        if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22):
             self.db.close()
             raise StoreError('schema_version', str(version))
         self.db.executescript('''
@@ -319,6 +319,16 @@ class Store:
             except BaseException:
                 self.db.close()
                 raise
+        if version < 22:
+            try:
+                with self.transaction():
+                    self.db.execute('''CREATE TABLE IF NOT EXISTS task_completions (
+                        id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id),
+                        attempt_id TEXT NOT NULL UNIQUE REFERENCES attempts(id), data TEXT NOT NULL)''')
+                    self.db.execute('PRAGMA user_version=22')
+            except BaseException:
+                self.db.close()
+                raise
         if host is not None:
             try:
                 host.bind_path(self.path)
@@ -511,7 +521,54 @@ class Store:
                     results.append(self._invalidate_result(scope, record.id, 'result_location_missing', expected=record))
             else:
                 results.append(Integration(self, Path(record.runtime_root)).refresh(scope, record.id))
+        from ..domain.results import TaskCompletion
+        from .completions import Completions
+
+        for row in self.db.execute("SELECT c.data FROM task_completions c JOIN tasks t ON c.task_id=t.id WHERE t.state='succeeded'").fetchall():
+            record = TaskCompletion.model_validate_json(row['data'])
+            if record.project_id not in scope.project_ids or (workflow_id is not None and record.workflow_id != workflow_id):
+                continue
+            task = self.task(scope, record.task_id)
+            if task.completion_id == record.id and task.result_id is None:
+                Completions(self, record.runtime_root.path).refresh(scope, record.id)
         return results
+
+    def _invalidate_task_completions(self, scope, task, reason):
+        from ..domain.results import TaskCompletion
+        from .completions import Completions
+
+        for row in self.db.execute('SELECT data FROM task_completions').fetchall():
+            record = TaskCompletion.model_validate_json(row['data'])
+            if record.workflow_id == task.workflow_id and task.id in {record.task_id, record.reviewer_task_id, *record.prerequisites}:
+                Completions(self, record.runtime_root.path).invalidate(scope, record.id, reason)
+
+    def _invalidate_dependencies(self, scope, task, reason, *, include_task=False, completion_id=None):
+        if not self.db.in_transaction:
+            raise RuntimeError('Dependency invalidation must be atomic')
+        workflow = self.workflow(scope, task.workflow_id)
+        tasks = self.tasks(scope, workflow.id)
+        artifacts = [PatchArtifact.model_validate_json(row['data']) for row in self.db.execute(
+            "SELECT data FROM artifacts WHERE json_extract(data,'$.workflow_id')=?", (workflow.id,))]
+        affected = {task.id}
+        while True:
+            inputs = {item.id for item in artifacts if item.task_id in affected}
+            following = {item.id for item in tasks if set(item.dependencies) & affected or set(item.input_artifacts) & inputs}
+            if following <= affected:
+                break
+            affected |= following
+        invalidated = []
+        for item in tasks:
+            if (item.id not in affected or (item.id == task.id and not include_task)
+                    or item.state in {'cancelled', 'failed'} or (item.state == 'blocked'
+                        and item.blocked_reason in {'completion_invalidated', 'result_invalidated', 'historical_result'})):
+                continue
+            item = changed(self._stop(item, outcome='failed'), state='blocked', blocked_reason='completion_invalidated',
+                revision=item.revision + 1, updated_at=self.clock())
+            self._save_task(item)
+            self._event(scope, workflow, 'task_completion_invalidated', task=item, completion_id=completion_id,
+                prerequisite_task_id=task.id, reason=reason)
+            invalidated.append(item.id)
+        return tuple(invalidated)
 
     def attempts(self, scope, workflow_id):
         self.workflow(scope, workflow_id)
@@ -651,6 +708,8 @@ class Store:
             raise StoreError('state', 'Only completed or stopped work can be reopened')
         if any(item.current_attempt_id for item in self.tasks(scope, workflow.id)):
             raise StoreError('ownership', 'Stop all assignments before reopening their result')
+        self._invalidate_task_completions(scope, task, 'owner_reopened')
+        task = self._task(task.id)
         record = self._load('integrations', task.result_id, IntegrationRecord) if task.result_id else next((
             IntegrationRecord.model_validate_json(row['data']) for row in self.db.execute(
                 "SELECT data FROM integrations WHERE workflow_id=? AND state IN ('completed','invalidated') ORDER BY rowid DESC",
@@ -673,11 +732,13 @@ class Store:
                     self._save_task(old)
                     self._event(scope, workflow, 'review_retired', task=old, integration_id=record.id)
             task, workflow = self._task(task.id), self._workflow(workflow.id)
+        self._invalidate_dependencies(scope, task, 'owner_reopened')
+        task = self._task(task.id)
         if task.id != workflow.root_task_id:
             root = self._task(workflow.root_task_id)
             self._save_task(changed(root, state='planned', result_id=None, blocked_reason=None,
                 semantic_revision=root.semantic_revision + 1, revision=root.revision + 1, updated_at=self.clock()))
-        return (changed(task, state='planned', result_id=None, blocked_reason=None),
+        return (changed(task, state='planned', result_id=None, completion_id=None, blocked_reason=None),
                 changed(workflow, state='draft', active_slot=False, semantic_revision=workflow.semantic_revision + 1))
 
     def command(self, scope, task_id, command: TaskCommand):
@@ -782,6 +843,9 @@ class Store:
                     record = IntegrationRecord.model_validate_json(row['data'])
                     if task.id in record.contracts:
                         self._invalidate_result(scope, record.id, 'contract_changed')
+                self._invalidate_task_completions(scope, self._task(task.id), 'contract_changed')
+                self._invalidate_dependencies(scope, self._task(task.id), 'contract_changed',
+                    include_task=task.kind == 'review' and task.state == 'succeeded' and task.result_id is None)
                 task, workflow = self._task(task.id), self._workflow(workflow.id)
             self._event(scope, workflow, 'task_' + op, task=task, revision=task.revision,
                         semantic_revision=task.semantic_revision, changes=values)

@@ -1,30 +1,55 @@
 # FlyCode handoff brief
 
+## Checked task completions — validated,2026-10-18
+
+Schema22/`Completions.complete` adds independently verified task success before
+workflow integration. Immutable receipts pin stopped author/reviewer, exact
+artifact/evidence and prerequisites; source remains untouched. Changes/reopen/
+cancellation revoke dependent ownership and retain spending until actual stop.
+Current-fence review selection and bounded evidence reads preserve old routes.
+
+Native40, migrations8; final24 overlapping correction/scope cases and final
+wheel10 pass. Earlier compatibility226pass/4fail has one corrected legacy marker
+regression, one stronger cancellation contract and two child-import harness
+failures; all four were individually reverified. A duplicate wheel metadata path
+was also diagnosed, corrected and retained. No clean first-run or complete repeat
+of230 is claimed. Package170/UTF-8 README/CLI, Ruff19/mypy7 pass.184 final inputs
+are unchanged in isolated source; parallel CLI/brain/MaleCNS bytes are excluded.
+[Report](validation/2026-10-18-task-completion.md),
+[plan](superpowers/plans/2026-10-18-dependent-execution.md).
+
+Next Task2 has a genuine RED: claimed B depends on succeeded A, but its actual
+private checkout still receives original0 instead of checked1. Compose pinned
+prerequisites and integrate sequential deltas, then general recipes/child wait/
+replan/common views. The new failing test remains uncommitted for this next step.
+The internal receipt gate does not make this route available yet. No full suite,
+real model/graph, training or UI change was run. Goal/Tasks5–8/§§90–99 remain open.
+
 ## Independent team recipe — validated,2026-10-18
-+
-+`Pipelines.approve_team` adds version2 owner authority for up to three independent
-+sibling writer/reviewer pairs and one joint integrator, preserving v1 requests and
-+receipts. Every source/binding/profile/approval is pinned; a ready branch review
-+does not wait for another writer's publication. All outputs/reviews are required
-+for joint integration. No database migration or new queue is added.
-+
-+Final42 v1/v2 cases pass103.44s, including21 new cases. Six extracted-wheel native
-+cases pass52.63s;12 source/test/README inputs remain unchanged.169 package files/
-+README equal, CLI help and Ruff3/scoped mypy2/diff check pass. Actual five-attempt
-+HTTP-fixture/process completion, two-connection materialization and failed-review/
-+combined-regression/conflict barriers preserve owner bytes. These fixture model
-+responses are not live-model evidence or concurrent throughput measurements.
-+[Report](validation/2026-10-18-team-pipeline.md),
-+[plan](superpowers/plans/2026-10-18-team-pipeline.md).
-+
-+Next: general artifact-phase prerequisites/child-wait and bounded retry/replan,
-+automatic common pipeline review/result projection and remaining Task8 fields.
-+Ordinary dependencies still require succeeded; awaiting_review is not completion.
-+Brain/data/training belong to the parallel agent; its §105/specs stay excluded.
-+No full suite, graph, live model or training was run. Aggregate Tasks5–8 and
-+research §§90–99 remain open. Earlier control evidence below belongs to its own
-+source boundary; it is not relabelled as a full rerun on this recipe increment.
-+
+
+`Pipelines.approve_team` adds version2 owner authority for up to three independent
+sibling writer/reviewer pairs and one joint integrator, preserving v1 requests and
+receipts. Every source/binding/profile/approval is pinned; a ready branch review
+does not wait for another writer's publication. All outputs/reviews are required
+for joint integration. No database migration or new queue is added.
+
+Final42 v1/v2 cases pass103.44s, including21 new cases. Six extracted-wheel native
+cases pass52.63s;12 source/test/README inputs remain unchanged.169 package files/
+README equal, CLI help and Ruff3/scoped mypy2/diff check pass. Actual five-attempt
+HTTP-fixture/process completion, two-connection materialization and failed-review/
+combined-regression/conflict barriers preserve owner bytes. These fixture model
+responses are not live-model evidence or concurrent throughput measurements.
+[Report](validation/2026-10-18-team-pipeline.md),
+[plan](superpowers/plans/2026-10-18-team-pipeline.md).
+
+Next: general artifact-phase prerequisites/child-wait and bounded retry/replan,
+automatic common pipeline review/result projection and remaining Task8 fields.
+Ordinary dependencies still require succeeded; awaiting_review is not completion.
+Brain/data/training belong to the parallel agent; its §105/specs stay excluded.
+No full suite, graph, live model or training was run. Aggregate Tasks5–8 and
+research §§90–99 remain open. Earlier control evidence below belongs to its own
+source boundary; it is not relabelled as a full rerun on this recipe increment.
+
 ## Shared verification control — validated,2026-10-18
 
 Schema21 adds executable registered plans, CAS/idempotent commands, cumulative

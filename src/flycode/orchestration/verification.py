@@ -1,9 +1,11 @@
 """Charge registered verification subprocesses to their canonical review attempt."""
 
+import hashlib
 from pathlib import Path
 
 from ..domain.verification import CheckAttempt, EvidenceManifest, VerificationVerdict
 from ..verification.engine import VerificationEngine
+from ..verification.evidence import read_regular
 from .sources import Sources
 from .store import Store, StoreError, changed
 from .tools import Tools
@@ -13,8 +15,9 @@ def accepted(engine: VerificationEngine, verdict: VerificationVerdict, root: Pat
     if (verdict.scope != 'acceptance-contract' or verdict.status != 'passed' or verdict.required_coverage != 1
             or not engine.current(verdict, root, contract=contract)):
         return False
-    manifest = EvidenceManifest.model_validate_json((engine.data_dir / verdict.evidence_id / 'manifest.json').read_text())
-    return manifest.complete
+    raw = read_regular(engine.data_dir / verdict.evidence_id / 'manifest.json')
+    manifest = EvidenceManifest.model_validate_json(raw)
+    return manifest.complete and hashlib.sha256(raw).hexdigest() == verdict.evidence_hash
 
 
 class CheckExecutor:

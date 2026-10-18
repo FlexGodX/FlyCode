@@ -118,6 +118,11 @@ joint integrator. Every pair pins exact starting bytes and authority; integratio
 waits for all approved reviews and verifies the combined result. The original
 route remains supported. Arbitrary cross-writer dependencies, automatic
 replanning and child waiting still require a separate protocol.
+The internal `Completions.complete` gate finishes one task after independent
+checks of its exact artifact, preserving owner source and the unfinished workflow.
+Schema22 stores its immutable receipt and prerequisite pins; changed criteria,
+evidence or cancellation revoke dependent ownership until confirmed stop.
+Composing dependent writer inputs and executing their general route remain open.
 An explicit primary compatibility probe requests
 one structured candidate; ordinary generation keeps its existing count and limits.
 The model transport adapter acquires an endpoint slot and charges the request

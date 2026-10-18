@@ -139,6 +139,7 @@ class WorkItem(TaskDraft):
     updated_at: float
     queued_at: float | None = None
     result_id: str | None = None
+    completion_id: str | None = None
     blocked_reason: str | None = None
     retired_by_result: str | None = None
 
