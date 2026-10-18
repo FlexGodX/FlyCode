@@ -1,5 +1,28 @@
 # FlyCode handoff brief
 
+## Durable parent wait — validated,2026-10-19
+
+Version4 owner approval now runs a genuine parent preparation, stopped checkpoint,
+mandatory child/review, fenced parent continuation and independent final review/
+integration. The real five-task/six-attempt route spends3 model/36 tools, with
+no reservations or unknowns. Original deadline, parent lifetime2/2, dirty/untracked
+bytes and exact checkpoint/child lineage remain pinned. Partial work is not success.
+
+Final native34 pass158.57s; affected compatibility12 pass
+118.64s; extracted-wheel6 pass89.32s. Ruff12 targets,
+scoped mypy10, package172/UTF-8 README/CLI and304 unchanged inputs pass. Counts
+are overlapping. All REDs, source boundaries, independent-review findings and
+archive metadata are in [the report](validation/2026-10-19-parent-continuation.md).
+The final ownership guard also retains paid late model/tool outcomes after graph
+revocation; it blocks new work without stranding endpoint/tool reservations.
+
+Continue Task4 with bounded retry/replan; its first actual parent-wait checkbox is
+checked, the whole task remains open. Task5 common result/wait views and overall
+neural/research acceptance remain active. No full/live-model/graph/UI/training run;
+parallel brain/schema23–25 changes are preserved and excluded from this commit.
+Development source:`/private/tmp/flycode-parent-paid-outcomes-green-whojmkvm`; delivery:`/private/tmp/flycode-parent-delivery-20261019`.
+Earlier checkpoints below retain their historical boundaries.
+
 ## Nested dependency hierarchy — validated,2026-10-19
 
 Version3 now accepts nested structural aggregate groups under the shared64-task,

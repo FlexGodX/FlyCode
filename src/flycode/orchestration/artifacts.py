@@ -165,6 +165,10 @@ class Artifacts:
                     raise ValueError('Artifact bytes changed')
         except (OSError, ValueError) as error:
             raise StoreError('artifact_integrity', 'The immutable result changed') from error
+        if record.continuation is not None:
+            from .continuations import Continuations
+
+            Continuations(self.store, self.directory.parent).require_artifact(scope, record)
         return record
 
     def publish(self, scope, attempt_id, fence) -> PatchArtifact:
@@ -214,13 +218,18 @@ class Artifacts:
                     if not covers(task.permissions.write_scopes, (name,)) or (after is not None and after.mode & 0o7000):
                         raise StoreError('patch_scope', 'Changed bytes or modes exceed the approved write scope')
                     changes.append(FileChange(path=name, before=before, after=after))
+            from .continuations import Continuations
+
+            continuation = Continuations(store, self.directory.parent)
+            recipe = continuation.recipe(scope, task.id)
+            checkpoint = continuation.checkpoint(scope, recipe, deep=True) if recipe is not None else None
             record = PatchArtifact(id=identity, project_id=task.project_id, workflow_id=workflow.id, task_id=task.id,
                 attempt_id=attempt.id, fence=fence, semantic_revision=attempt.semantic_revision,
                 contract_hash=attempt.contract_hash, workspace_id=workspace.id, result_hash=worker.result_hash,
                 base=workspace.snapshot, baseline=baseline, target=target, changes=tuple(changes), prerequisites=workspace.prerequisites,
-                created_at=store.clock(), patch_hash='')
-            raw = record.model_dump_json(exclude={'patch_hash'})
-            record = changed(record, patch_hash=hashlib.sha256(raw.encode()).hexdigest())
+                created_at=store.clock(), patch_hash='', **({'continuation': checkpoint[0]} if checkpoint is not None else {}))
+            raw = record.model_dump_json(exclude={'patch_hash'}, exclude_unset=True)
+            record = record.model_copy(update={'patch_hash': hashlib.sha256(raw.encode()).hexdigest()})
             atomic_json(directory / 'manifest.json', raw)
             (directory / 'run-result.json').write_bytes(result_bytes)
             composition.stable(scope, attempt, evidence)
@@ -242,7 +251,8 @@ class Artifacts:
                         if store.db.execute(f"SELECT 1 FROM {table} WHERE attempt_id=? AND state IN ('running','uncertain')",
                                             (attempt_id,)).fetchone():
                             raise StoreError('resource_busy')
-                    store.db.execute('INSERT INTO artifacts VALUES (?,?,?)', (identity, attempt_id, record.model_dump_json()))
+                    store.db.execute('INSERT INTO artifacts VALUES (?,?,?)',
+                        (identity, attempt_id, record.model_dump_json(exclude_unset=True)))
                     store._save_attempt(changed(attempt, state='awaiting_review', stop_confirmed=True))
                     store._save_task(changed(task, state='awaiting_review', fence=task.fence + 1, revision=task.revision + 1))
                     instance = store._instance(attempt.instance_id)

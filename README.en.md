@@ -133,9 +133,13 @@ Dependent assignments pin exact predecessor receipts; their private checkout
 composes those checked changes over the original files. Integration combines
 sequential changes and branches, verifies both combined and applied results, and
 preserves owner dirty/untracked files. Conflicts require a separate repair and
-review; reopening requires fresh checks. Resuming a parent after its children,
-automatic retry/replanning and common result views remain
-unimplemented.
+review; reopening requires fresh checks. The internal `Pipelines.approve_parent`
+(version4) lets a parent checkpoint partial work, confirm process stop and release
+its slot while mandatory children execute. After independent child checks, a new
+fenced parent attempt receives exact inputs and retains the original cumulative
+budget and deadline. Its partial bytes and context remain pinned; its own review
+and final integration checks are still required. Automatic retry/replanning and
+common result views remain unimplemented.
 An explicit primary compatibility probe requests
 one structured candidate; ordinary generation keeps its existing count and limits.
 The model transport adapter acquires an endpoint slot and charges the request

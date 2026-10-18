@@ -151,9 +151,13 @@ class Workspaces:
             pins = _input_pins(staging)
             info = staging.stat()
             identity_pin = (info.st_dev, info.st_ino)
+            from .continuations import Continuations
+
+            revision = _checkout(repository)
+            Continuations(store, self.root.parent).restore(scope, attempt, repository)
             record = WorkspaceRecord(id=identity, attempt_id=attempt_id, fence=fence, contract_hash=attempt.contract_hash,
                 source_root=str(source), snapshot=snapshot, input_snapshot=input_snapshot, prerequisites=attempt.prerequisites,
-                checkout_revision=_checkout(repository), created_at=store.clock())
+                checkout_revision=revision, created_at=store.clock())
             atomic_json(staging / 'workspace.json', record.model_dump_json())
             staging.rename(directory)
             self._verify(scope, record, directory)

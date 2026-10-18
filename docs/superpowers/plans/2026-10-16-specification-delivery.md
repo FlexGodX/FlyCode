@@ -4,6 +4,14 @@
 
 **Goal:** Реализовать изменения §§100–103 с проверяемыми результатами, общей очередью задач и явным отделением исследовательских допусков.
 
+Current parent-wait increment (2026-10-19): version4 pins stopped partial work,
+verified mandatory children and a new fenced continuation under original costs/
+deadline. Native34, compatibility12 and extracted-wheel6 pass; Ruff12/mypy10,
+package172/UTF-8 README/CLI and304 unchanged inputs pass. All failures and source
+boundaries are in [the report](../../validation/2026-10-19-parent-continuation.md).
+Bounded retry/replan, common views and aggregate/neural/research acceptance remain
+open. Parallel brain changes are preserved/excluded; no full/live/graph/UI run.
+
 Current hierarchy increment (2026-10-19): [version3 structural groups](2026-10-18-dependent-execution.md)
 extends the writer DAG under the shared64-task/depth3/children8 limits. Actual
 four-author/three-group/nine-attempt completion requires every group's own

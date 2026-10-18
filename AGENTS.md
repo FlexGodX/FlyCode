@@ -209,6 +209,8 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Use bounded regular-file reads without following links for custody/launch records, including exception fallbacks and supervisor admission.
 - Fingerprint every physical identity checked by a recovery guard, including all persisted SourceRoot ancestors.
 - Read Host drain's full project scope inside its revocation transaction; scoped maintenance must skip newly added foreign projects.
+- Read SQLite column definitions before audit queries; workflow state is stored inside `workflows.data`.
+- Before adding optional immutable-record fields, verify retained full-model and omitted-field hashes through their real consumers.
 
 ## 12. How this file was built
 

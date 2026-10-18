@@ -77,7 +77,7 @@ class ReviewBindings:
                 return ReviewBinding.model_validate(saved)
             task, previous = self._can_bind(scope, task_id, expected_revision, expected_binding_id)
             current = self.artifacts._record(scope, artifact_id)
-            if digest(current.model_dump(mode='json')) != digest(artifact.model_dump(mode='json')):
+            if digest(current.model_dump(mode='json', exclude_unset=True)) != digest(artifact.model_dump(mode='json', exclude_unset=True)):
                 raise StoreError('artifact_integrity')
             author = self._pins(scope, task, current)
             workflow = store.workflow(scope, task.workflow_id)
@@ -85,7 +85,7 @@ class ReviewBindings:
                 owner_id=scope.actor_id, revision=previous.revision + 1 if previous else 1, previous_id=previous.id if previous else None,
                 semantic_revision=task.semantic_revision, workflow_semantic_revision=workflow.semantic_revision,
                 contract_hash=task.contract_hash, runtime_root=str(self.root), artifact_id=artifact.id, patch_hash=artifact.patch_hash,
-                artifact_hash=digest(artifact.model_dump(mode='json')), author_attempt_id=author.id, author_fence=author.fence,
+                artifact_hash=digest(artifact.model_dump(mode='json', exclude_unset=True)), author_attempt_id=author.id, author_fence=author.fence,
                 author_instance_id=author.instance_id,
                 author_semantic_revision=store.task(scope, artifact.task_id).semantic_revision,
                 author_contract_hash=store.task(scope, artifact.task_id).contract_hash, approval_hash=approval_hash, reruns=reruns, created_at=store.clock())
@@ -102,7 +102,11 @@ class ReviewBindings:
             raise StoreError('execution_binding_stale')
         artifact = self.artifacts._record(scope, binding.artifact_id)
         author = self._pins(scope, task, artifact)
-        if (digest(artifact.model_dump(mode='json')) != binding.artifact_hash or author.id != binding.author_attempt_id
+        hashes = {digest(artifact.model_dump(mode='json', exclude_unset=True))}
+        if 'continuation' not in artifact.model_fields_set:
+            # Retained bindings used the full pre-continuation model, including default prerequisites.
+            hashes.add(digest(artifact.model_dump(mode='json', exclude={'continuation'})))
+        if (binding.artifact_hash not in hashes or author.id != binding.author_attempt_id
                 or author.instance_id != binding.author_instance_id or author.fence != binding.author_fence
                 or self.store.task(scope, artifact.task_id).semantic_revision != binding.author_semantic_revision
                 or self.store.task(scope, artifact.task_id).contract_hash != binding.author_contract_hash):

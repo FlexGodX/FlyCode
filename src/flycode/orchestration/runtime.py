@@ -120,12 +120,15 @@ class Runtime:
         registered_source(self.store, task.project_id, source)
         Integration(self.store, self.root).begin_resolution(scope, attempt_id, fence, workspace)
         directory = self.workspaces.root / workspace.id
+        from .continuations import Continuations
+
+        task_spec = TaskSpec(id=task.id, task=task.objective, seed=seed, max_steps=attempt.reserved.tool_calls + 1,
+            max_tool_calls=attempt.reserved.tool_calls + 1)
+        task_spec = Continuations(self.store, self.root).configure(scope, attempt, task_spec)
         record = WorkerRecord(id=uuid4().hex, attempt_id=attempt_id, fence=fence, created_at=self.store.clock())
         with self.store.transaction():
             self.store._claim_execution(scope, attempt_id, fence, 'worker')
             self.store.db.execute('INSERT INTO workers VALUES (?,?,?)', (record.id, attempt_id, record.model_dump_json()))
-        task_spec = TaskSpec(id=task.id, task=task.objective, seed=seed, max_steps=attempt.reserved.tool_calls + 1,
-            max_tool_calls=attempt.reserved.tool_calls + 1)
         config = WorkerConfig(database=str(self.store.path.resolve()), repository=str(directory / 'repository'),
             scope=scope, attempt_id=attempt_id, fence=fence, task=task_spec, brain=brain, seed=seed, message_recipients=message_recipients)
         return WorkerHandle(self, scope, record, directory, config)

@@ -233,7 +233,7 @@ class Tools:
                 attempt, task, workflow = store._owned(scope, call.attempt_id, call.fence, running=True)
                 late = authority_lost or store._host_late()
             except StoreError as error:
-                if error.code not in {'fence', 'wall_deadline'}:
+                if error.code not in {'fence', 'wall_deadline', 'pipeline_revoked'}:
                     raise
                 attempt = store._attempt(call.attempt_id)
                 task, workflow = store.task(scope, call.task_id), store.workflow(scope, call.workflow_id)

@@ -100,9 +100,39 @@ extends version3 under those same limits. Resumable parent authority stays in Ta
 
 **Interfaces:** explicit aggregate versus resumable-parent authority; host-owned suspension receipt pins continuation and child IDs/revisions/inputs. Resume creates a new fenced assignment under unchanged cumulative limits. Replanning creates a graph revision and never removes required criteria or expands permission/budget without owner authority.
 
-- [ ] RED actual parent worker suspends, exact group settles and slot is freed; children execute; only succeeded mandatory children allow a new fenced parent attempt. Duplicate wakeup/restart cannot start twice.
+- [x] RED actual parent worker suspends, exact group settles and slot is freed; children execute; only succeeded mandatory children allow a new fenced parent attempt. Duplicate wakeup/restart cannot start twice.
 - [ ] Implement bounded durable waits, continuation/input lineage, dependency failure blockers, timeout/Stop and explicit retry/replan authority. Questions/messages remain addressed data and cannot self-grant rights.
 - [ ] Verify retry/resume retain original spending/deadline, max3 attempts and pool4; no recursive child/question/replan avalanche. Parent and workflow each still require their own verified criteria. Commit checked runtime behavior.
+
+#### Native parent-continuation route
+
+Add owner-only `Pipelines.approve_parent(scope, workflow_id, pairs,
+integrator_id, source=..., expected_revisions=..., approval_hashes=...,
+key=..., preparation_steps=1)`. Its additive version4 includes the root as a
+writer; every other writer is a mandatory technical child. Reviews/integrator
+remain mandatory acceptance stages, not children that must finish before their
+own author's continuation. Version1/2/3 grants keep their existing meaning.
+
+Create `tests/unit/orchestration/test_parent_continuation.py`: actual root reads
+context in one bounded step, exact group stops, child repairs parser0→1 and is
+independently completed, root resumes with those exact inputs and partial bytes,
+edits extra0→4, then independent review and integration verify both goals. Root
+has a lifetime2 model/2 tool budget; preparation consumes1/1, leaving1/1 for a
+new fenced attempt. All state transitions follow one inert owner approval.
+
+Keep typed wait/checkpoint/resume records in `pipeline_receipts`, with atomic
+events and exact original task/binding/child revisions. Use SQL/model-only phase
+checks in all canonical claim paths. Runtime caps preparation from the approved
+recipe; it adds no model tool or worker RPC operation. Artifacts remain immutable
+partial checkpoints until independent criteria actually pass. A publication/outbox
+crash must resume from existing exact receipts without repeating preparation.
+
+Extend actual Runtime/Workspaces/Artifacts/Completions callers only after reading
+them. Restore a parent's partial delta only over compatible composed child input;
+keep the child baseline for its eventual reviewed patch. Pin checkpoint/context
+lineage and block conflicts/tamper. Exercise two stores, restart, Stop/deadline,
+failed child, changed authority/evidence and cumulative limits before publication.
+This route does not by itself close the separate bounded retry/replan acceptance.
 
 ### Task5: Common projections and publication
 
@@ -186,3 +216,25 @@ Task3's structural hierarchy route is checked. Task4 must distinguish a real
 resumable parent from these non-executing groups and preserve a durable partial
 checkpoint across stopped process/slot release and new fenced assignment. Retry/
 replan, Task5 common views and aggregate/neural/research acceptance remain open.
+
+## Task4 parent-wait checkpoint,2026-10-19
+
+Version4 owner approval now runs a genuine parent preparation, stopped checkpoint,
+mandatory child/review, fenced parent continuation and independent final review/
+integration. The real five-task/six-attempt route spends3 model/36 tools, with
+no reservations or unknowns. Original deadline, parent lifetime2/2, dirty/untracked
+bytes and exact checkpoint/child lineage remain pinned. Partial work is not success.
+
+Final native34 pass158.57s; affected compatibility12 pass
+118.64s; extracted-wheel6 pass89.32s. Ruff12 targets,
+scoped mypy10, package172/UTF-8 README/CLI and304 unchanged inputs pass. Counts
+are overlapping. All REDs, source boundaries, independent-review findings and
+archive metadata are in [the report](../../validation/2026-10-19-parent-continuation.md).
+The final ownership guard also retains paid late model/tool outcomes after graph
+revocation; it blocks new work without stranding endpoint/tool reservations.
+
+Continue Task4 with bounded retry/replan; its first actual parent-wait checkbox is
+checked, the whole task remains open. Task5 common result/wait views and overall
+neural/research acceptance remain active. No full/live-model/graph/UI/training run;
+parallel brain/schema23–25 changes are preserved and excluded from this commit.
+Development source:`/private/tmp/flycode-parent-paid-outcomes-green-whojmkvm`; delivery:`/private/tmp/flycode-parent-delivery-20261019`.

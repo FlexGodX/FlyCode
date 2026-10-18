@@ -3146,3 +3146,19 @@ Task4 с отдельным resumable parent/child-wait/retry/replan, общие
 нейронный допуск и оставшаяся aggregate/research приёмка открыты. Full/live-model/
 graph/UI/training не запускались; параллельный мозг/schema23–25 не включены.
 [Отчёт иерархии](validation/2026-10-19-dependency-hierarchy.md).
+
+
+Срез Task4 child-wait,2026-10-19: version4 `approve_parent` закрепляет остановленную
+частичную работу, освобождает слот на время проверенных детей и создаёт новую
+fenced попытку родителя с прежним общим расходом и deadline. Его собственный review
+и общий merged/applied verdict обязательны. Реальный маршрут:5 задач,6 attempts,
+3 model/36 tools, без резервов/unknowns; потеря checkpoint инвалидирует результат.
+Native34/158.57s, compatibility12/118.64s и extracted-wheel6/
+89.32s проходят; Ruff12/scoped mypy10/package172/UTF-8 README/CLI и304
+неизменных входа проверены. Counts overlap. Scope/Host/graph отзываются до новых
+действий; оплаченные поздние outcomes сохраняются для остановки и учёта расхода.
+Все REDs и замечания независимого review сохранены в
+[отчёте](validation/2026-10-19-parent-continuation.md).
+Bounded retry/replan, общие result views и aggregate/neural/research приёмка остаются
+открытыми; full/live-model/graph/UI/training не запускались. Параллельные правки
+мозга/schema23–25 сохранены и исключены из проверенного пакета и коммита.

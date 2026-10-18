@@ -1,0 +1,237 @@
+{
+  "base_commit": "5f10ad105ee40399a67f9f5a611fda2f5d27ce26",
+  "scope": "Bounded version4 parent wait and continuation; retry/replan and common result views remain open.",
+  "source_root": "/private/tmp/flycode-parent-paid-outcomes-green-whojmkvm",
+  "source_manifest_sha256": "14040ddbdb0ea30e9e1c6548634cbaf9ca1642c514a53a24fa6f38ce7ed74e5d",
+  "native": {
+    "tests": 34,
+    "passed": 34,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 158.571
+  },
+  "compatibility": {
+    "tests": 12,
+    "passed": 12,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 118.639
+  },
+  "wheel": {
+    "tests": 6,
+    "passed": 6,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 89.319
+  },
+  "measurements_overlap": true,
+  "package": {
+    "sha256": "d1f2c9cb19b0d881bde4031bc70c18a75845e3626a114b36732c988b75da3067",
+    "files_equal": 172,
+    "readme_utf8_equal": true
+  },
+  "packaging_inputs": 304,
+  "inputs_unchanged": true,
+  "core_route": {
+    "attempts": 6,
+    "model_calls": 3,
+    "tool_calls": 36,
+    "reserved_model_calls": 0,
+    "reserved_tool_calls": 0,
+    "uncertain": false
+  },
+  "evidence_archive": {
+    "root": "/Users/Administrator/.cache/flycode/validation/flycode-parent-91awxyev",
+    "files": 30666,
+    "bytes": 219083358,
+    "manifest_sha256": "5044dc910b8a531017e982e080539effb635aa0d6b5bf59543956b6c69d7ec8f",
+    "skipped_special": []
+  },
+  "measurements": {
+    "flycode-parent-review-compat": {
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 36.666
+    },
+    "flycode-parent-identical-deletion-red": {
+      "tests": 1,
+      "passed": 0,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 11.815
+    },
+    "flycode-parent-paid-outcomes-green": {
+      "tests": 4,
+      "passed": 4,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 4.902
+    },
+    "flycode-parent-child-failure": {
+      "tests": 1,
+      "passed": 0,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 3.732
+    },
+    "flycode-parent-core": {
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 27.008
+    },
+    "flycode-parent-final-compat": {
+      "tests": 9,
+      "passed": 9,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 126.907
+    },
+    "flycode-parent-final34": {
+      "tests": 34,
+      "passed": 34,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 158.571
+    },
+    "flycode-parent-checkpoint-canonical": {
+      "tests": 2,
+      "passed": 2,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 50.348
+    },
+    "flycode-parent-final-boundary-green": {
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 34.693
+    },
+    "flycode-parent-paid-outcomes-red": {
+      "tests": 2,
+      "passed": 0,
+      "failed": 2,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 3.08
+    },
+    "flycode-parent-claim-authority-green": {
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 27.556
+    },
+    "flycode-parent-deadline-green": {
+      "tests": 16,
+      "passed": 16,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 90.018
+    },
+    "flycode-parent-claim-authority-red": {
+      "tests": 4,
+      "passed": 0,
+      "failed": 4,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 2.288
+    },
+    "flycode-parent-boundaries-red": {
+      "tests": 5,
+      "passed": 4,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 12.687
+    },
+    "flycode-parent-child-blocker-green": {
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 3.841
+    },
+    "flycode-parent-checkpoint-green": {
+      "tests": 2,
+      "passed": 0,
+      "failed": 2,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 6.751
+    },
+    "flycode-parent-final-native": {
+      "tests": 28,
+      "passed": 28,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 155.711
+    },
+    "flycode-parent-review-findings-green": {
+      "tests": 7,
+      "passed": 7,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 20.625
+    },
+    "flycode-parent-final-compat12": {
+      "tests": 12,
+      "passed": 12,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 118.639
+    },
+    "flycode-parent-final-boundary-red": {
+      "tests": 4,
+      "passed": 0,
+      "failed": 4,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 8.417
+    },
+    "flycode-parent-deadline-red": {
+      "tests": 9,
+      "passed": 5,
+      "failed": 4,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 24.993
+    },
+    "flycode-parent-review-findings-red": {
+      "tests": 7,
+      "passed": 0,
+      "failed": 7,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 19.608
+    }
+  },
+  "limitations": [
+    "Loopback HTTP fixture; no new live-model, graph, UI, full suite or training run.",
+    "Parallel brain/schema23-25/controller changes excluded from the checked package and commit.",
+    "Automatic retry/replan and common result projections remain open.",
+    "Early core run predates explicit checkpoint lineage; it is not the final acceptance boundary."
+  ]
+}

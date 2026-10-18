@@ -1034,15 +1034,26 @@ class Store:
             reasons.append('profile_permission')
         if not self._binding_current(profile):
             reasons.append('model_unavailable')
-        if any(item.parent_id == task.id and required_task(item) for item in tasks):
-            reasons.append('aggregate_parent')
         by_id = {item.id: item for item in tasks}
         pipeline = self.db.execute('SELECT data FROM pipelines WHERE workflow_id=?', (workflow.id,)).fetchone()
+        parent_authority = False
         if pipeline is not None:
             from .pipeline import Pipelines
 
-            if Pipelines._task_blocked(Pipelines._recipe(pipeline['data']), by_id, task.id):
+            recipe = Pipelines._recipe(pipeline['data'])
+            receipts = {row['stage']: json.loads(row['data']) for row in self.db.execute(
+                'SELECT stage,data FROM pipeline_receipts WHERE pipeline_id=?', (recipe.id,))} if recipe.version == 4 else {}
+            blocked = Pipelines._task_blocked(recipe, by_id, task.id, receipts)
+            if recipe.version == 4:
+                try:
+                    Pipelines.guard_metadata(self, scope, recipe)
+                    parent_authority = task.id == recipe.parent_id and not blocked
+                except StoreError as error:
+                    reasons.append(error.code)
+            if blocked:
                 reasons.append('pipeline_branch_paused')
+        if any(item.parent_id == task.id and required_task(item) for item in tasks) and not parent_authority:
+            reasons.append('aggregate_parent')
         if any(by_id[identity].state != 'succeeded' or not required_task(by_id[identity]) for identity in task.dependencies):
             reasons.append('dependency')
         elif task.dependencies:
@@ -1296,7 +1307,18 @@ class Store:
 
     def _owned(self, scope, attempt_id, fence, *, running=False):
         self._role(scope, ('runtime',))
-        return self._assignment(scope, attempt_id, fence, running=running)
+        owned = self._assignment(scope, attempt_id, fence, running=running)
+        row = self.db.execute('SELECT data FROM pipelines WHERE workflow_id=?', (owned[2].id,)).fetchone()
+        if row is not None:
+            from .pipeline import Pipelines
+
+            try:
+                recipe = Pipelines._recipe(row['data'])
+                if recipe.version == 4:
+                    Pipelines.guard_metadata(self, scope, recipe)
+            except ValueError as error:
+                raise StoreError('pipeline_revoked', getattr(error, 'code', 'pipeline_invalid')) from error
+        return owned
 
     def _assignment(self, scope, attempt_id, fence, *, running=False):
         """Read scoped assignment facts without granting execution authority."""

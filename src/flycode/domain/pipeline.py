@@ -65,3 +65,23 @@ class TeamPipelineRecipe(_MultiPipelineRecipe):
 class DependencyPipelineRecipe(_MultiPipelineRecipe):
     version: Literal[3] = 3
     branches: tuple[PipelineBranch, ...] = Field(min_length=1, max_length=31)
+
+
+class ParentPipelineRecipe(_MultiPipelineRecipe):
+    version: Literal[4] = 4
+    branches: tuple[PipelineBranch, ...] = Field(min_length=2, max_length=31)
+    parent_id: str
+    preparation_steps: int = Field(ge=1, le=59)
+
+
+class ContinuationCheckpoint(QueueModel):
+    id: str
+    pipeline_id: str
+    parent_id: str
+    artifact_id: str
+    artifact_hash: str
+    attempt_id: str
+    fence: int
+    semantic_revision: int
+    contract_hash: str
+    created_at: float

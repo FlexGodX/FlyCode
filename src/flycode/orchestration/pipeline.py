@@ -11,6 +11,7 @@ from ..domain.orchestration import (
 )
 from ..domain.pipeline import (
     DependencyPipelineRecipe,
+    ParentPipelineRecipe,
     PipelineBranch,
     PipelineRecipe,
     TeamPipelineRecipe,
@@ -45,12 +46,12 @@ class Pipelines:
 
     @staticmethod
     def _recipe(raw):
-        model = {2: TeamPipelineRecipe, 3: DependencyPipelineRecipe}.get(json.loads(raw).get('version'), PipelineRecipe)
+        model = {2: TeamPipelineRecipe, 3: DependencyPipelineRecipe, 4: ParentPipelineRecipe}.get(json.loads(raw).get('version'), PipelineRecipe)
         return model.model_validate_json(raw)
 
     @staticmethod
     def _branches(recipe):
-        if isinstance(recipe, (TeamPipelineRecipe, DependencyPipelineRecipe)):
+        if isinstance(recipe, (TeamPipelineRecipe, DependencyPipelineRecipe, ParentPipelineRecipe)):
             return recipe.branches
         return (PipelineBranch(writer_id=recipe.writer_id, reviewer_id=recipe.reviewer_id,
             worker_binding_id=recipe.worker_binding_id, worker_binding_hash=recipe.worker_binding_hash),)
@@ -69,21 +70,34 @@ class Pipelines:
         return self._approve_many(scope, workflow_id, pairs, integrator_id, source=source,
             expected_revisions=expected_revisions, approval_hashes=approval_hashes, key=key, reruns=reruns, dependent=True)
 
+    def approve_parent(self, scope, workflow_id, pairs, integrator_id, *, source,
+                       expected_revisions, approval_hashes, key, preparation_steps=1, reruns=0):
+        return self._approve_many(scope, workflow_id, pairs, integrator_id, source=source,
+            expected_revisions=expected_revisions, approval_hashes=approval_hashes, key=key, reruns=reruns,
+            dependent=True, parent=True, preparation_steps=preparation_steps)
+
     def _approve_many(self, scope, workflow_id, pairs, integrator_id, *, source,
-                      expected_revisions, approval_hashes, key, reruns, dependent=False):
+                      expected_revisions, approval_hashes, key, reruns, dependent=False, parent=False, preparation_steps=1):
         store = self.store
         store._role(scope, ('owner',))
         store.workflow(scope, workflow_id)
-        model = DependencyPipelineRecipe if dependent else TeamPipelineRecipe
-        request = {('dependency_pipeline' if dependent else 'team_pipeline'): workflow_id, 'pairs': pairs, 'integrator': integrator_id,
+        model = ParentPipelineRecipe if parent else DependencyPipelineRecipe if dependent else TeamPipelineRecipe
+        request = {('parent_pipeline' if parent else 'dependency_pipeline' if dependent else 'team_pipeline'): workflow_id, 'pairs': pairs, 'integrator': integrator_id,
             'revisions': expected_revisions, 'approvals': approval_hashes, 'source': str(source),
             'root': str(self.root), 'reruns': reruns}
+        if parent:
+            request['preparation_steps'] = preparation_steps
         with store.transaction():
             found, saved, _ = store._replay(scope, key, request)
             if found:
                 return model.model_validate(saved)
             workflow, tasks, profiles, bindings = self._initial_many(scope, workflow_id, pairs,
-                integrator_id, expected_revisions, dependent=dependent)
+                integrator_id, expected_revisions, dependent=dependent, parent=parent)
+            if parent:
+                root = tasks[workflow.root_task_id]
+                if (type(preparation_steps) is not int or not 1 <= preparation_steps < min(
+                        root.budget.model_calls, root.budget.tool_calls) or root.dependencies):
+                    raise StoreError('parent_budget')
         source = Path(source).resolve(strict=True)
         first = next(iter(bindings.values()))
         if str(source) != first.source_root or capture(source).subject_hash != first.source_hash:
@@ -97,7 +111,7 @@ class Pipelines:
             if found:
                 return model.model_validate(saved)
             if self._initial_many(scope, workflow_id, pairs, integrator_id, expected_revisions,
-                    dependent=dependent) != (workflow, tasks, profiles, bindings):
+                    dependent=dependent, parent=parent) != (workflow, tasks, profiles, bindings):
                 raise StoreError('revision')
             recipe = model(id=uuid4().hex, owner_id=scope.actor_id, project_id=workflow.project_id,
                 workflow_id=workflow.id, workflow_semantic_revision=workflow.semantic_revision, workflow_budget=workflow.budget,
@@ -105,12 +119,13 @@ class Pipelines:
                     worker_binding_hash=record_hash(bindings[writer])) for writer in sorted(pairs)),
                 integrator_id=integrator_id, tasks=tasks, profiles=profiles, source_root=str(source),
                 runtime_root=str(self.root), source_hash=first.source_hash, approval_hashes=approval_hashes,
-                reruns=reruns, approval_sequence=0, created_at=store.clock())
+                reruns=reruns, approval_sequence=0, created_at=store.clock(),
+                **({'parent_id': workflow.root_task_id, 'preparation_steps': preparation_steps} if parent else {}))
             store._event(scope, workflow, 'pipeline_approved', recipe_id=recipe.id)
             recipe = changed(recipe, approval_sequence=store.db.execute('SELECT MAX(sequence) FROM events').fetchone()[0])
             store.db.execute('INSERT INTO pipelines VALUES (?,?,?)', (recipe.id, workflow.id, recipe.model_dump_json()))
             aggregates = set(tasks) - {workflow.root_task_id, integrator_id, *pairs, *pairs.values()}
-            for identity in (workflow.root_task_id, *sorted(aggregates), *sorted(pairs)):
+            for identity in (workflow.root_task_id, *sorted(aggregates), *(sorted(pairs) if not parent else ())):
                 task = tasks[identity]
                 if dependent and identity in pairs and task.dependencies:
                     continue
@@ -174,13 +189,15 @@ class Pipelines:
             integrator_id, revisions)
         return workflow, tasks, profiles, bindings[writer_id]
 
-    def _initial_many(self, scope, workflow_id, pairs, integrator_id, revisions, *, dependent=False):
+    def _initial_many(self, scope, workflow_id, pairs, integrator_id, revisions, *, dependent=False, parent=False):
         store = self.store
         workflow = store.workflow(scope, workflow_id)
         tasks = {item.id: item for item in store.tasks(scope, workflow_id)}
         ids = {workflow.root_task_id, integrator_id, *pairs, *pairs.values()}
         aggregates = self.integration.aggregate_tasks(scope, workflow.id, ids) if dependent else set()
-        if (not 1 <= len(pairs) <= (31 if dependent else 3) or len(ids) != 2 * len(pairs) + 2
+        if (not (2 if parent else 1) <= len(pairs) <= (31 if dependent else 3)
+                or len(ids) != 2 * len(pairs) + (1 if parent else 2)
+                or (parent and workflow.root_task_id not in pairs)
                 or set(tasks) != ids | aggregates or set(revisions) != set(tasks) or workflow.state != 'draft'):
             raise StoreError('pipeline_scope')
         if store.db.execute('SELECT 1 FROM pipelines WHERE workflow_id=?', (workflow_id,)).fetchone():
@@ -197,9 +214,10 @@ class Pipelines:
             store._ready(task, workflow)
             if identity in aggregates:
                 continue
-            if identity == workflow.root_task_id:
+            if identity == workflow.root_task_id and not parent:
                 continue
-            if task.parent_id not in {workflow.root_task_id, *aggregates} or not task.allowed_profile_ids:
+            if ((task.parent_id not in {workflow.root_task_id, *aggregates} and identity != workflow.root_task_id)
+                    or not task.allowed_profile_ids):
                 raise StoreError('pipeline_scope')
             role = 'developer' if identity in pairs else 'reviewer'
             if task.kind != ('implementation' if identity in pairs else 'review'):
@@ -241,11 +259,20 @@ class Pipelines:
         return stage_binding(raw) if 'mode' in json.loads(raw) else WorkerBinding.model_validate_json(raw)
 
     @staticmethod
-    def _task_blocked(recipe, tasks, identity):
+    def _task_blocked(recipe, tasks, identity, receipts=None):
         """A paused V3 branch fences new admissions in its dependent subgraph."""
-        if recipe.version != 3:
+        if recipe.version not in {3, 4}:
             return False
         branches = Pipelines._branches(recipe)
+        if recipe.version == 4:
+            receipts = receipts or {}
+            waiting = 'wait:' + recipe.parent_id in receipts
+            resumed = 'writer:' + recipe.parent_id in receipts
+            parent_review = next(branch.reviewer_id for branch in branches if branch.writer_id == recipe.parent_id)
+            if ((identity == recipe.parent_id and waiting and not resumed)
+                    or (identity != recipe.parent_id and not waiting)
+                    or (identity == parent_review and not resumed)):
+                return True
         def paused_ancestor(identity):
             while identity is not None:
                 if tasks[identity].paused:
@@ -263,7 +290,14 @@ class Pipelines:
             or any(branch.writer_id in blocked and identity in {branch.writer_id, branch.reviewer_id} for branch in branches))
 
     def _guard(self, scope, recipe):
-        store = self.store
+        result = self.guard_metadata(self.store, scope, recipe)
+        if any(not self.store._binding_current(expected) for expected in recipe.profiles.values()):
+            raise StoreError('model_unavailable')
+        return result
+
+    @staticmethod
+    def guard_metadata(store, scope, recipe):
+        """Check delegated graph authority using stored models only."""
         workflow = store.workflow(scope, recipe.workflow_id)
         if (workflow.semantic_revision != recipe.workflow_semantic_revision
                 or workflow.budget != recipe.workflow_budget):
@@ -273,13 +307,14 @@ class Pipelines:
         tasks = {item.id: item for item in store.tasks(scope, workflow.id)}
         if set(tasks) != set(recipe.tasks):
             raise StoreError('pipeline_scope')
-        receipts = self._receipts(recipe)
-        bindings = [self._receipt_binding(value['binding']) for value in receipts.values() if 'binding' in value]
+        receipts = {row['stage']: json.loads(row['data']) for row in store.db.execute(
+            'SELECT stage,data FROM pipeline_receipts WHERE pipeline_id=?', (recipe.id,))}
+        bindings = [Pipelines._receipt_binding(value['binding']) for value in receipts.values() if 'binding' in value]
         by_id = {binding.task_id: binding for binding in bindings}
         for identity, task in tasks.items():
             expected = by_id.get(identity, recipe.tasks[identity])
             if (task.semantic_revision != expected.semantic_revision or task.contract_hash != expected.contract_hash
-                    or (task.paused and (recipe.version != 3 or identity == workflow.root_task_id))
+                    or (task.paused and (recipe.version not in {3, 4} or identity == workflow.root_task_id))
                     or task.archived or not required_task(task)
                     or task.permissions is None or not task.permissions.approved):
                 raise StoreError('pipeline_changed')
@@ -289,9 +324,9 @@ class Pipelines:
                 if row is None or row['id'] != by_id[identity].id:
                     raise StoreError('binding_revision')
         for identity, expected in recipe.profiles.items():
-            if store._profile(identity) != expected or not store._binding_current(expected):
+            if store._profile(identity) != expected:
                 raise StoreError('model_unavailable')
-        for branch in self._branches(recipe):
+        for branch in Pipelines._branches(recipe):
             original = store._load('worker_bindings', branch.worker_binding_id, WorkerBinding)
             binding = by_id.get(branch.writer_id, original)
             row = store.db.execute('SELECT id,data FROM worker_bindings WHERE task_id=? AND current=1', (branch.writer_id,)).fetchone()
@@ -304,14 +339,21 @@ class Pipelines:
                     semantic_revision=recipe.tasks[task.id].semantic_revision + 1, contract_hash=task.contract_hash,
                     owner_id=recipe.owner_id, created_at=binding.created_at)
                 receipt = receipts['writer:' + task.id]
-                if (recipe.version != 3 or binding != expected
+                if recipe.version == 4 and task.id == recipe.parent_id:
+                    from .continuations import Continuations
+
+                    checkpoint = Continuations(store, recipe.runtime_root).checkpoint(scope, recipe)
+                    if (checkpoint is None or receipt.get('checkpoint_id') != checkpoint[0].id
+                            or task.dependencies != Continuations.children(recipe)):
+                        raise StoreError('continuation_changed')
+                if (recipe.version not in {3, 4} or binding != expected
                         or receipt['prerequisites'] != {key: value.model_dump(mode='json')
                             for key, value in store._prerequisites(scope, task).items()}):
                     raise StoreError('pipeline_changed')
             completion = receipts.get('completion:' + branch.writer_id)
             if completion is not None:
-                proof = Completions(store, self.root).metadata(scope, completion['completion_id'])
-                if (recipe.version != 3 or proof.task_id != branch.writer_id or proof.reviewer_task_id != branch.reviewer_id
+                proof = Completions(store, recipe.runtime_root).metadata(scope, completion['completion_id'])
+                if (recipe.version not in {3, 4} or proof.task_id != branch.writer_id or proof.reviewer_task_id != branch.reviewer_id
                         or completion != {'completion_id': proof.id, 'completion_hash': record_hash(proof), 'artifact_id': proof.artifact_id}):
                     raise StoreError('pipeline_changed')
         return workflow, tasks, receipts
@@ -319,7 +361,7 @@ class Pipelines:
     def _artifact(self, scope, recipe, tasks, *, deep, writer_id=None):
         store = self.store
         task = tasks[writer_id or recipe.writer_id]
-        if recipe.version == 3 and task.state == 'succeeded' and task.completion_id is not None:
+        if recipe.version in {3, 4} and task.state == 'succeeded' and task.completion_id is not None:
             service = Completions(store, self.root)
             proof = service.metadata(scope, task.completion_id)
             if deep and not service.current(scope, proof.id):
@@ -329,7 +371,7 @@ class Pipelines:
             author = store._attempt(task.current_attempt_id)
         else:
             raise StoreError('pipeline_wait')
-        completed = recipe.version == 3 and task.state == author.state == 'succeeded' and task.fence == author.fence + 2
+        completed = recipe.version in {3, 4} and task.state == author.state == 'succeeded' and task.fence == author.fence + 2
         awaiting = author.state == 'awaiting_review' and task.fence == author.fence + 1 and task.current_attempt_id == author.id
         if (not (completed or awaiting) or not author.stop_confirmed
                 or author.semantic_revision != task.semantic_revision or author.contract_hash != task.contract_hash):
@@ -351,7 +393,7 @@ class Pipelines:
         store, completions = self.store, Completions(self.store, self.root)
         for branch in self._branches(recipe):
             stage = 'completion:' + branch.writer_id
-            if stage in receipts or self._task_blocked(recipe, tasks, branch.writer_id):
+            if stage in receipts or self._task_blocked(recipe, tasks, branch.writer_id, receipts):
                 continue
             task, reviewer = tasks[branch.writer_id], tasks[branch.reviewer_id]
             if task.completion_id is not None:
@@ -386,7 +428,7 @@ class Pipelines:
         for branch in self._branches(recipe):
             task, stage = tasks[branch.writer_id], 'writer:' + branch.writer_id
             if (stage in receipts or not task.dependencies or task.state != 'planned'
-                    or self._task_blocked(recipe, tasks, task.id)):
+                    or self._task_blocked(recipe, tasks, task.id, receipts)):
                 continue
             if any(tasks[identity].state != 'succeeded' for identity in task.dependencies):
                 continue
@@ -437,11 +479,16 @@ class Pipelines:
                 return ()
             if 'integration' in receipts:
                 return ()
-            if recipe.version == 3 and self._advance_dependencies(scope, recipe, tasks, receipts):
+            if recipe.version == 4:
+                from .continuations import Continuations
+
+                if Continuations(store, self.root).advance(scope, self, recipe, tasks, receipts):
+                    return ()
+            if recipe.version in {3, 4} and self._advance_dependencies(scope, recipe, tasks, receipts):
                 return ()
             branches, outputs = self._branches(recipe), {}
             for branch in branches:
-                if self._task_blocked(recipe, tasks, branch.writer_id):
+                if self._task_blocked(recipe, tasks, branch.writer_id, receipts):
                     continue
                 try:
                     outputs[branch.writer_id] = self._artifact(scope, recipe, tasks, deep=True, writer_id=branch.writer_id)
@@ -493,14 +540,14 @@ class Pipelines:
                     reviews.append(integrated.reviews.get(scope, row[0]['id']))
                 expected = {**tasks, task.id: task}
                 aggregates = integrated.aggregate_tasks(scope, workflow.id,
-                    {workflow.root_task_id, *outputs, task.id}) if recipe.version == 3 else set()
+                    {workflow.root_task_id, *outputs, task.id}) if recipe.version in {3, 4} else set()
                 binding = IntegrationBinding(**common, source_root=recipe.source_root, source_hash=recipe.source_hash,
                     artifact_hashes={artifact.id: artifact.patch_hash for artifact, _, _ in outputs.values()},
                     artifact_records={artifact.id: record_hash(artifact) for artifact, _, _ in outputs.values()},
                     review_ids=tuple(review.id for review in reviews), review_records={review.id: record_hash(review) for review in reviews},
                     author_attempts={writer: author.id for writer, (_, author, _) in outputs.items()},
                     author_completions=Completions(store, self.root).bindings(scope,
-                        {writer: author.id for writer, (_, author, _) in outputs.items()}) if recipe.version == 3 else {},
+                        {writer: author.id for writer, (_, author, _) in outputs.items()}) if recipe.version in {3, 4} else {},
                     contracts={key: item.contract_hash for key, item in expected.items()},
                     semantic_revisions={key: item.semantic_revision for key, item in expected.items()},
                     approval_hashes={key: recipe.approval_hashes[key] for key in (workflow.root_task_id, *outputs, *sorted(aggregates), task.id)})
