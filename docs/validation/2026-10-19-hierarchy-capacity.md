@@ -1,0 +1,25 @@
+# Native capacity in a64-task hierarchy,2026-10-19
+
+Parent:`490658df3cbb0086d616ed25031f6e459c26b099`. No production source changed. This adds a real capacity regression fixture, not whole-phase or whole-goal completion.
+
+The approved version4 parent recipe contains28writer/reviewer pairs (including root),7structural aggregates and one integrator:64tasks. Root has seven groups plus integrator; groups hold55other executable tasks, at most eight children each, depth2. Each task has explicit owner criteria/oracle/profile pins; all28writer bindings are issued after the graph and source are final. A65th otherwise valid task under the seventh group is refused atomically. One original fixture workflow remains dormant; only the measured workflow occupies an active slot. Five eligible developer instances share the active cap4; the original unused developer and independent reviewer make seven registered instances total.
+
+Before workload, --prepare-only confirms64tasks/28pairs/7groups,0attempts/0tools/0workers and1catalogue probe. Loaded/profile context is explicitly16384. After the actual parent checkpoint releases its slot, four different owned workers wait in four real pytest gates. The snapshot and process intervals confirm four simultaneous workers. Two owner replans refuse stop_unconfirmed without changing spend. Only while all slots are held, an idle instance submits an authenticated issued request; a nonfinalizing canonical observation refuses instance_limit and leaves that identity pending. The ordinary Coordinator cannot start an admission while four stage futures are held. Releasing one worker permits its original pending fifth request only after confirmed group exit. This is a bounded held-pool case, not a durable waiting-subscription guarantee for requests issued at arbitrary times.
+
+All gates then finish naturally. The parser writer deliberately produces -1; its independent review rejects it. Four other writer outputs pass independent review. The22dependent writers remain in canonical planned state, ineligible because the required parser completion is absent; no recursive task creation, integration or source application occurs. All11attempts stop;6native workers and18registered pytest groups have confirmed custody receipts. The negative check runs baseline and failing target; dependent regression/integration remain inconclusive without subprocesses. Four positive reviews run four checks each:2+4×4=18. Five failed local gates remain in evidence.
+
+| Measurement | Seconds | Workflow HTTP | Tools | Peak native workers |
+|---|---:|---:|---:|---:|
+| Public source |64.91|11|29|4|
+| Final extracted189-file wheel |62.50|11|29|4|
+| Frozen244-file brain composition |66.35|11|29|4|
+
+Counts are overlapping replicas, not one aggregate workload. Each has one separate catalogue probe, fixed1800s deadline, unchanged source/dirty bytes, reserved0/uncertaintyfalse, no endpoint overlap and no false completion. Frozen workers use heuristic_fsm; this is software coexistence, not configured-neural/scientific admission. No full suite or browser rerun is claimed; only the new relevant native flow and Ruff/parse/package/UTF8 README/extracted CLI checks run. All189 package files match checked source bytes. Wheel SHA256:`360c1d805425cf7ca913712c5ff3e40e344cf327a591d780438e6342f7c16692`.
+
+## Retained failures
+
+The first capacity run reached all64tasks/four slots/fifth admission, then its harness paused the global queue while ordinary pytest tool calls were still live. pipeline_revoked stopped all6worker groups, but three unreported tool outcomes correctly retained uncertainty/reservations and reconciliation. The run fails64.83s; group absence was independently checked without changing those unknown outcomes. The successful harness releases and settles tools naturally, and uses an explicit negative review to block later work. No production guard was weakened.
+
+The second run stopped all11attempts and completed four positive/one negative reviews, but the harness incorrectly expected20pytest processes. Actual18 is required by dependency blocking; the run remains failed68.70s with original runner/database retained. The corrected assertion also requires failed target plus inconclusive dependent checks. Earlier static review corrected a proposed pending-request race after inspecting the Coordinator stage guard, and moved the65th-task candidate to the group with room for another child.
+
+Evidence:`/Users/Administrator/.cache/flycode/validation/flycode-hierarchy-capacity-checked-2bxomgkh`;10486regular files,0linked/special entries omitted. Manifest SHA256:`1ca56d0dd3f056087a43ff436bd8d4823793b3c7e5a5b7028ba97b675666ce0a`. It retains all original failed and checked runners/databases/HTTP requests, process receipts, exact source/tests snapshots, preflights and wheel. Scientific/admission and saturated combined AC-14/full/final goals remain open. Ordinary pipeline developer HTTP is capped at48 by the protected12; native reviewers run registered pytest without LLM. The existing60HTTP/120tool Host-service proof remains a separate measurement.

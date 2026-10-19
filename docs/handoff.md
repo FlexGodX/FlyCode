@@ -1,5 +1,19 @@
 # FlyCode handoff brief
 
+Native64-task capacity,2026-10-19:28pairs/7groups/integrator approved with
+all owner pins and final bindings;65thtask refused. Four actual held agent workers
+block the fifth original issued request until confirmed exit. Two live owner
+replans refuse stop_unconfirmed. Natural gate release and one negative review
+block22dependents;4other reviews pass.11attempts/11workflow HTTP+1probe/29tools,
+6native+18registered pytest groups stopped, source/deadline preserved, reserve0/
+uncertaintyfalse, no endpoint overlap or false completion. Final extracted189
+files pass62.50s; frozen244-file brain composition passes66.35s
+with heuristic_fsm. Ruff/package/UTF8 README/CLI pass; no full/UI rerun. First
+pause/unknown-outcome and20-versus18launch harness failures are retained. This
+is capacity with negative review, not combined question/retry or budget
+saturation/scientific admission. Overall goal and remaining AC-14/final gates open.
+[Report](validation/2026-10-19-hierarchy-capacity.md).
+
 Automatic combined question/retry/replan,2026-10-19: final extracted189-file
 wheel passes96.15s; frozen243-file controller composition passes102.65s.
 Each:7tasks/4instances/12attempts,14workflow HTTP+1probe/61tools,2negative

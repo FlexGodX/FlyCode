@@ -1,0 +1,117 @@
+{
+  "parent": "490658df3cbb0086d616ed25031f6e459c26b099",
+  "production_source_changed": false,
+  "goal_status": "active",
+  "goal_complete": false,
+  "scope": "64task hierarchy/four actual native workers, bounded fifth pull and live replan refusal; one negative independent review blocks22dependent writers; safe incomplete. Not combined question/retry/replan or model/tool saturation.",
+  "runs": [
+    {
+      "kind": "package",
+      "root": "/private/tmp/flycode-ac14-saturated-package-fvudfxdi/native",
+      "seconds": 62.50137062498834,
+      "passed": true,
+      "inputs_unchanged": true,
+      "workflow_http": 11,
+      "catalogue_probe_http": 1,
+      "tools": 29,
+      "attempts": 11,
+      "tasks": 64,
+      "actual_native_workers_at_full_pool": 4,
+      "native_worker_records": 6,
+      "registered_pytest": 18,
+      "custody_groups": 24,
+      "endpoint_overlap": false,
+      "reserved": {
+        "model_calls": 0,
+        "tool_calls": 0
+      },
+      "uncertain": false,
+      "current_completion": false
+    },
+    {
+      "kind": "frozen",
+      "root": "/private/tmp/flycode-ac14-saturated-merged-i8agx5p_/native",
+      "seconds": 66.34724379098043,
+      "passed": true,
+      "inputs_unchanged": true,
+      "workflow_http": 11,
+      "catalogue_probe_http": 1,
+      "tools": 29,
+      "attempts": 11,
+      "tasks": 64,
+      "actual_native_workers_at_full_pool": 4,
+      "native_worker_records": 6,
+      "registered_pytest": 18,
+      "custody_groups": 24,
+      "endpoint_overlap": false,
+      "reserved": {
+        "model_calls": 0,
+        "tool_calls": 0
+      },
+      "uncertain": false,
+      "current_completion": false
+    }
+  ],
+  "source_capacity": {
+    "root": "/private/tmp/flycode-ac14-saturated-capacity-third",
+    "passed": true,
+    "seconds": 64.90604458400048,
+    "models": 11,
+    "probe": 1,
+    "tools": 29,
+    "attempts": 11,
+    "native_workers": 6,
+    "registered_pytest": 18,
+    "peak_native": 4,
+    "tasks": 64,
+    "reserved": 0,
+    "uncertain": false,
+    "inputs_unchanged": true,
+    "postcheck": true
+  },
+  "package": {
+    "root": "/private/tmp/flycode-ac14-saturated-package-fvudfxdi",
+    "source": "/private/tmp/flycode-ac14-saturated-package-fvudfxdi/source",
+    "wheel": "/private/tmp/flycode-ac14-saturated-package-fvudfxdi/wheel/flycode-0.1.0-py3-none-any.whl",
+    "extracted": "/private/tmp/flycode-ac14-saturated-package-fvudfxdi/extracted",
+    "wheel_sha256": "360c1d805425cf7ca913712c5ff3e40e344cf327a591d780438e6342f7c16692",
+    "package_files": 189,
+    "package_byte_parity": true,
+    "utf8_readme_parity": true,
+    "cli_help": true
+  },
+  "frozen_package_files": 244,
+  "helpers": {
+    "tests/browser/saturation_runner.py": "035672328525339a94444a8dfd478a115216282a87361fec78365c9193c64f64",
+    "tests/browser/saturation_scenario.py": "96a1f7c65aa1b18dfaa5a382b3bf998893b5eaf9ee079caccb4d90f1fd6273e9"
+  },
+  "failures": [
+    {
+      "root": "/private/tmp/flycode-ac14-saturated-capacity-first",
+      "seconds": 64.82994033402065,
+      "reason": "harness paused globalqueue while4ordinary run_tests live; pipeline_revoked killed workers;3unknown tool outcomes correctly retained andattempts reconciling; no false pass",
+      "production_source_changed": false
+    },
+    {
+      "root": "/private/tmp/flycode-ac14-saturated-capacity-second",
+      "seconds": 68.69793787499657,
+      "reason": "all11attempts stopped,6workers/18registeredgroups stopped,4positive+1negative reviews; harness expected20groups but negative dependency graph correctly blocked2laterchecks; no production change",
+      "inputs_unchanged": true
+    }
+  ],
+  "archive": {
+    "root": "/Users/Administrator/.cache/flycode/validation/flycode-hierarchy-capacity-checked-2bxomgkh",
+    "files": 10486,
+    "skipped": 0,
+    "manifest_sha256": "1ca56d0dd3f056087a43ff436bd8d4823793b3c7e5a5b7028ba97b675666ce0a"
+  },
+  "science_or_neural_admission": false,
+  "remaining": [
+    "combined native question/retry/ownerreplan at resource boundaries",
+    "scientific/admission matrix and safe interventions",
+    "aggregate/full/final verification"
+  ],
+  "dependent_writer_state": "planned",
+  "dependent_writer_count": 22,
+  "dependency_completion_missing": true
+}

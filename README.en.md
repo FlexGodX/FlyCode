@@ -458,6 +458,11 @@ revision and current integration: 12 attempts, 14 model calls and 61 tool calls.
 This is not a run
 saturated at every AC-14 ceiling; scientific and final acceptance remain open.
 
+A [64-task hierarchy](docs/validation/2026-10-19-hierarchy-capacity.md) checks the
+same four active slots, refusal of task65 and live owner-replan refusal. A negative
+review blocks dependent work, preserves source and prevents false completion.
+This checks capacity rather than full budget consumption.
+
 ## First run without an API key
 
 ```bash

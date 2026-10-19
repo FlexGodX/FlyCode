@@ -56,3 +56,19 @@ Retained combined failures: at8192 configured tokens the retry correctly refused
 
 
 Original public-source combined run passes85.90s:7tasks/12attempts/14workflow HTTP+1probe/61tools, one graph revision/current integration,6native+48registered custody groups stopped; source/tests unchanged. Four failed local gates and all prior failures retained. This does not close saturated combined AC-14. Final exact extracted package passes96.15s; frozen243-file brain composition passes102.65s using heuristic_fsm. Seven scoped frozen cases pass65.46s; all source/test fingerprints unchanged. The80s cleanup cutoff, premature fixed idle observation and incorrect AccessScope.session harness field are retained as failures. Final harness bounds completion at180s, leaves workflow1800s, admits only bounded null Host selection settlement and then checks strict idle/currentness/source. No configured-neural/scientific or saturated combined acceptance is inferred.
+
+## Checked64-task capacity extension
+
+Native64-task capacity,2026-10-19:28pairs/7groups/integrator approved with
+all owner pins and final bindings;65thtask refused. Four actual held agent workers
+block the fifth original issued request until confirmed exit. Two live owner
+replans refuse stop_unconfirmed. Natural gate release and one negative review
+block22dependents;4other reviews pass.11attempts/11workflow HTTP+1probe/29tools,
+6native+18registered pytest groups stopped, source/deadline preserved, reserve0/
+uncertaintyfalse, no endpoint overlap or false completion. Final extracted189
+files pass62.50s; frozen244-file brain composition passes66.35s
+with heuristic_fsm. Ruff/package/UTF8 README/CLI pass; no full/UI rerun. First
+pause/unknown-outcome and20-versus18launch harness failures are retained. This
+is capacity with negative review, not combined question/retry or budget
+saturation/scientific admission. Overall goal and remaining AC-14/final gates open.
+[Report](../../validation/2026-10-19-hierarchy-capacity.md).
