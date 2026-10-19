@@ -1,5 +1,21 @@
 # FlyCode handoff brief
 
+Checked exhausted-retry owner recovery,2026-10-19: real browser approval drives
+two negative attempts/reviews, stable exhaustion, owned graceful Host restart
+(registration retained/session changed/generation2→3), explicit owner replan and
+new prerequisite branch, then third child/fresh review/parent/current integration.
+Failure-event mismatch returns409 without work; identical saved POST succeeds only
+after exact original evidence is restored. Failed author history remains failed.
+Final184-file wheel previous no-policy64.55s and combined126.19s pass;
+frozen merged221 source145.40s passes. Combined7tasks/12attempts/6model/
+55tools +1 probe, original deadline/limits/bytes/failure evidence retained,
+reserve0/uncertaintyfalse; later source edit invalidates. Real terminal-lock
+contention is recovered within5s; a held lock still gives cleanup/inconclusive
+with uncertainty/reserve retained. Ruff5/mypy3/JS1/package/
+CLI checks pass. Counts overlap; RED and old90s observer/cleanup failures are
+retained in [the report](validation/2026-10-19-owner-retry-restart.md). Automatic avalanche/in-flight Stop aggregate and
+full/controller/admission/neural/research/final gates remain open; no biological claim.
+
 Checked automatic owner replan,2026-10-19: actual browser attach starts the
 detached coordinator; no-policy failed independent review reaches a stable stopped
 checkpoint. The dialog now admits failed-child replan and hides it for any paused

@@ -7,14 +7,14 @@ function phase(value){
  const length=read(4).readUInt32BE();assert.ok(length<=8192);return JSON.parse(read(length).toString());
 }
 (async()=>{
- const base=process.env.FLYCODE_UI_URL,id=process.env.FLYCODE_OWNER_TASK,childId=process.env.FLYCODE_CHILD_TASK,out=process.env.FLYCODE_SCREENSHOTS;
+ let base=process.env.FLYCODE_UI_URL;const combined=process.env.FLYCODE_OWNER_COMBINED==="1",id=process.env.FLYCODE_OWNER_TASK,childId=process.env.FLYCODE_CHILD_TASK,out=process.env.FLYCODE_SCREENSHOTS;
  assert.ok(base&&id&&childId&&out);fs.mkdirSync(out,{recursive:true});
  const browser=await chromium.launch({channel:"chrome",headless:true});
  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.setDefaultTimeout(8000);
  page.on("pageerror",error=>errors.push(error.message));
  try{
   await page.goto(base+"/tasks");
-  const token=(await(await page.request.get(base+"/api/bootstrap")).json()).token,headers={"X-FlyCode-Token":token};
+  let token=(await(await page.request.get(base+"/api/bootstrap")).json()).token,headers={"X-FlyCode-Token":token};
   const get=async route=>{const response=await page.request.get(base+route,{headers});assert.ok(response.ok(),await response.text());return response.json();};
   const card=await get("/api/tasks/"+id);
   await page.getByRole("button",{name:"Подключить выполнение",exact:true}).focus();await page.keyboard.press("Enter");
@@ -28,16 +28,32 @@ function phase(value){
   await page.getByRole("button",{name:"Подготовить папку",exact:true}).click();
   await page.getByText("Папка подготовлена. Выполнение ещё не разрешено.",{exact:true}).waitFor();
   await page.locator("#ownerStatus").getByText("План загружен",{exact:true}).waitFor();
+  if(combined){
+   const writers=preview.tasks.filter(task=>task.kind!=="review"&&task.profile_ids.length);
+   const approval=page.locator("#ownerBody form").filter({has:page.getByRole("button",{name:"Разрешить выполнение",exact:true})});
+   const childGroup=approval.locator(":scope > fieldset").nth(writers.findIndex(task=>task.id===childId));
+   await childGroup.getByLabel("Исправление после проверки",{exact:true}).selectOption("1");
+   await childGroup.getByLabel("Вызовов модели на попытку",{exact:true}).fill("1");
+   await childGroup.getByLabel("Инструментов на попытку",{exact:true}).fill("1");
+   await childGroup.getByLabel("Инструментов на проверку",{exact:true}).fill("4");
+  }
   await page.getByLabel("Разрешаю выполнение по этому плану",{exact:true}).check();
   await page.getByRole("button",{name:"Разрешить выполнение",exact:true}).focus();await page.keyboard.press("Enter");
   await page.getByText("План разрешён. Выполнение продолжит служба задач.",{exact:true}).waitFor();
   assert.equal(phase("rejected").stopped,true);
   await page.getByRole("button",{name:"Обновить план",exact:true}).click();
   await page.locator("#ownerStatus").getByText("План загружен",{exact:true}).waitFor();
-  const failed=await get("/api/tasks/"+id);assert.ok(failed.blockers.includes("child_review_failed"));
+  const failed=await get("/api/tasks/"+id);assert.ok(failed.blockers.includes(combined?"child_failed":"child_review_failed"));
   await page.screenshot({path:path.join(out,"rejected-before-replan.png"),fullPage:true});
   await page.getByRole("heading",{name:"Изменение остановленного плана",exact:true}).waitFor({timeout:1500});
-  for(const targetId of [id,childId]){
+  if(combined){
+   await page.goto("about:blank");base=phase("restart").url;
+   token=(await(await page.request.get(base+"/api/bootstrap")).json()).token;headers={"X-FlyCode-Token":token};
+   await page.goto(base+"/tasks");await page.getByRole("button",{name:"Подключить выполнение",exact:true}).focus();await page.keyboard.press("Enter");
+   await page.getByText("Служба задач подключена",{exact:true}).waitFor();assert.equal(phase("reattached").attached,true);
+   await page.getByRole("button",{name:new RegExp(card.task.short_id)}).click();await open();
+  }
+  for(const targetId of combined?[id]:[id,childId]){
    await page.keyboard.press("Escape");await page.keyboard.press("Escape");
    const target=await get("/api/tasks/"+targetId);
    await page.getByRole("button",{name:new RegExp(target.task.short_id)}).click();
@@ -58,6 +74,14 @@ function phase(value){
   const child=preview.tasks.find(task=>task.id===childId),caption=child.title+" "+child.id.slice(0,6);
   await page.getByLabel("Изменить задачу "+caption,{exact:true}).check();
   await page.getByLabel("Результат · "+caption,{exact:true}).fill("Repair the parser under the exact owner-approved criteria.");
+  if(combined){
+   await page.getByRole("button",{name:"Добавить ветвь",exact:true}).click();
+   await page.getByLabel(`Зависимость задачи ${caption} от новой ветви 1`,{exact:true}).check();
+   await page.getByLabel("Название новой ветви",{exact:true}).fill("Additional owner branch");
+   await page.getByLabel("Результат новой ветви",{exact:true}).fill("Set second value to 2 before the verified parser repair.");
+   await page.getByLabel("Шаблон исполнителя",{exact:true}).selectOption(childId);
+   await page.getByLabel("Критерии новой ветви",{exact:true}).selectOption({label:"Explicit additional branch criteria"});
+  }
   await page.getByLabel("Разрешаю изменения плана",{exact:true}).check();
   const apply=page.getByRole("button",{name:"Применить изменения плана",exact:true});
   for(const width of [1440,390,320]){
@@ -65,7 +89,18 @@ function phase(value){
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
    await page.screenshot({path:path.join(out,`rejected-replan-${width}.png`)});
   }
-  await apply.focus();await page.keyboard.press("Enter");
+  if(combined){
+   assert.equal(phase("mask-failure").masked,true);
+   const rejected=page.waitForResponse(response=>new URL(response.url()).pathname==="/api/tasks/owner"&&response.request().method()==="POST");
+   await apply.focus();await page.keyboard.press("Enter");
+   const response=await rejected;assert.equal(response.status(),409);assert.equal((await response.json()).detail.code,"retry_changed");
+   const originalBody=response.request().postDataJSON();
+   await page.getByRole("button",{name:"Повторить сохранённый запрос",exact:true}).waitFor();
+   assert.equal(phase("restore-failure").restored,true);
+   const replay=page.waitForResponse(response=>new URL(response.url()).pathname==="/api/tasks/owner"&&response.request().method()==="POST");
+   await page.getByRole("button",{name:"Повторить сохранённый запрос",exact:true}).click();
+   const accepted=await replay;assert.ok(accepted.ok(),await accepted.text());assert.deepEqual(accepted.request().postDataJSON(),originalBody);
+  }else{await apply.focus();await page.keyboard.press("Enter");}
   await page.getByText("Изменения плана приняты. Расходы и срок сохранены.",{exact:true}).waitFor();
   assert.equal(phase("complete").current,true);
   await page.keyboard.press("Escape");

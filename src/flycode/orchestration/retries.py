@@ -27,6 +27,18 @@ class Retries:
     def checkpoints(receipts):
         return [RetryCheckpoint.model_validate(value) for key, value in receipts.items() if key.startswith('retry:')]
 
+    def _failed_author(self, saved, task, author, review, *, retired):
+        if author.state != 'failed':
+            return False
+        rows = self.store.db.execute("SELECT sequence FROM events WHERE workflow_id=? "
+            "AND json_extract(data,'$.kind')='pipeline_retry_blocked' AND json_extract(data,'$.task_id')=? "
+            "AND json_extract(data,'$.data.review_id')=? AND json_extract(data,'$.data.reason') IN ('retry_exhausted','retry_budget') "
+            "AND sequence>?", (task.workflow_id, task.id, review.id, saved.artifact_sequence)).fetchall()
+        return len(rows) == 1 and (retired or (task.state == 'failed'
+            and task.blocked_reason in {'retry_exhausted', 'retry_budget'} and task.current_attempt_id is None
+            and task.fence == author.fence + 2 and task.semantic_revision == author.semantic_revision
+            and task.contract_hash == author.contract_hash))
+
     def metadata(self, scope, saved, *, retired=True):
         store = self.store
         artifact = store._load('artifacts', saved.artifact_id, PatchArtifact)
@@ -44,7 +56,8 @@ class Retries:
                 or artifact.project_id != task.project_id or artifact.attempt_id != author.id
                 or artifact.fence != saved.author_fence or author.fence != saved.author_fence
                 or author.task_id != task.id or author.workflow_id != task.workflow_id
-                or author.state != ('interrupted' if retired else 'awaiting_review') or not author.stop_confirmed
+                or (author.state != ('interrupted' if retired else 'awaiting_review')
+                    and not self._failed_author(saved, task, author, review, retired=retired)) or not author.stop_confirmed
                 or artifact.semantic_revision != author.semantic_revision or artifact.contract_hash != author.contract_hash
                 or record_hash(artifact) != saved.artifact_hash or review.artifact_id != artifact.id
                 or review.patch_hash != artifact.patch_hash or record_hash(review) != saved.review_hash

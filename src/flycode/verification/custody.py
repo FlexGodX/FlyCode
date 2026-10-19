@@ -107,9 +107,16 @@ class Launch:
             if self.descriptor is not None:
                 os.close(self.descriptor)
                 self.descriptor = None
-        with stopped(self.ref) as receipt:
-            self.receipt = receipt
-            return receipt
+        deadline = time.monotonic() + 5
+        while True:
+            try:
+                with stopped(self.ref) as receipt:
+                    self.receipt = receipt
+                    return receipt
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise
+                time.sleep(.05)
 
 
 def launch(argv, sandbox, environment, stdout, stderr, output, timeout, should_stop, on_state, on_admit,

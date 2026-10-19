@@ -179,7 +179,11 @@ connect button. The execution-plan dialog exposes folder preparation, explicit
 approval, stopped-branch objective/dependency edits and new writer/reviewer pairs
 with registered criteria. Replanning is also available after a rejected independent
 child review once all attempts have stopped. The service continues the confirmed
-plan while retaining earlier rejection evidence and spending. Preview starts no work. Pause and cancel remain
+plan while retaining earlier rejection evidence and spending. After automatic
+retries are exhausted, an owner may explicitly replan when budget and attempt
+capacity remain. The same task continues while earlier failed attempts and
+evidence stay in history; admission requires its exact retained review and
+retry-stop event. Preview starts no work. Pause and cancel remain
 available while loading or sending owner commands. Lost replies and partial
 preparation offer an explicit retry of the saved request/revisions/key, including
 after a page reload. Exact-key retry preserves frozen intent, partial
@@ -863,6 +867,9 @@ flycode verify --repo /path/to/project --output /tmp/flycode-verification
 This captures allowed inputs, runs the registered pytest profile in a separate
 copy and returns a JSON verdict. Only `passed` exits with code0. Empty suites,
 skipped/xfail, flaky results, timeout and incomplete evidence cannot pass.
+After the owned supervisor exits, a briefly busy stop-receipt lock permits up to
+five seconds of fully validated reads. Persistent contention or damaged custody
+proof still prevents a pass.
 `--reruns 1` retains both attempts; a passing retry never erases a failure.
 Evidence includes snapshot/plan, checksum manifest, verdict, JUnit and observed
 cases. Changed bytes, executable modes, environment or runtime invalidate approval.

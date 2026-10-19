@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from pydantic import Field, TypeAdapter
 
-from ..domain.orchestration import WorkerBinding
+from ..domain.orchestration import ReviewBinding, WorkerBinding
 from ..domain.pipeline import (
     BranchAddition,
     GraphInput,
@@ -127,6 +127,25 @@ class Replans:
         for rejection in saved.rejections:
             Retries(self.store, self.root).evidence(scope, rejection, retired=retired)
 
+    def _failed_artifact(self, scope, service, recipe, task, binding):
+        if (not isinstance(binding, ReviewBinding) or task.state != 'failed' or task.current_attempt_id is not None
+                or task.blocked_reason not in {'retry_exhausted', 'retry_budget'}):
+            raise StoreError('replan_state')
+        author = self.store._attempt(binding.author_attempt_id)
+        artifact = service.reviews.artifacts.get(scope, binding.artifact_id)
+        event = self.store.db.execute("SELECT sequence FROM events WHERE workflow_id=? AND json_extract(data,'$.kind')='artifact_published' "
+            "AND json_extract(data,'$.attempt_id')=? AND json_extract(data,'$.data.artifact_id')=?",
+            (recipe.workflow_id, author.id, artifact.id)).fetchone()
+        if (author.state != 'failed' or not author.stop_confirmed or task.fence != author.fence + 2
+                or author.task_id != task.id or author.workflow_id != task.workflow_id
+                or author.semantic_revision != task.semantic_revision or author.contract_hash != task.contract_hash
+                or event is None or event['sequence'] <= recipe.approval_sequence
+                or artifact.attempt_id != author.id or artifact.fence != author.fence or artifact.task_id != task.id
+                or artifact.base.subject_hash != recipe.source_hash or artifact.contract_hash != task.contract_hash
+                or artifact.semantic_revision != task.semantic_revision):
+            raise StoreError('artifact_integrity')
+        return artifact, author, event['sequence']
+
     def approve(self, scope, pipeline_id, *, changes, expected_revision, expected_revisions, key, new_branches=None, profile_pins=None):
         from .continuations import Continuations
         from .pipeline import Pipelines
@@ -172,8 +191,10 @@ class Replans:
                 if (len(previous) >= workflow.budget.max_attempts or not cap.tool_calls
                         or (item.kind != 'review' and not cap.model_calls)):
                     raise StoreError('attempt_limit')
-            if task.current_attempt_id is not None:
-                artifact, author, sequence = service._artifact(scope, recipe, tasks, deep=True, writer_id=task.id)
+            if task.current_attempt_id is not None or (task.state == 'failed' and task.blocked_reason in {'retry_exhausted', 'retry_budget'}):
+                binding = service._receipt_binding(receipts[service._review_stage(recipe, branch)]['binding'])
+                artifact, author, sequence = (service._artifact(scope, recipe, tasks, deep=True, writer_id=task.id)
+                    if task.current_attempt_id is not None else self._failed_artifact(scope, service, recipe, task, binding))
                 if reviewer.state != 'failed':
                     raise StoreError('replan_state')
                 rows = store.db.execute("SELECT id FROM reviews WHERE attempt_id IN (SELECT id FROM attempts WHERE task_id=?) "
@@ -183,7 +204,6 @@ class Replans:
                 review = store._load('reviews', rows[0]['id'], ReviewRecord)
                 if review.artifact_id != artifact.id or review.reviewer_attempt_id not in {attempt.id for attempt in attempts}:
                     raise StoreError('review_changed')
-                binding = service._receipt_binding(receipts[service._review_stage(recipe, branch)]['binding'])
                 rejections.append(RetryCheckpoint(id=uuid4().hex, pipeline_id=recipe.id, task_id=task.id, number=1,
                     artifact_id=artifact.id, artifact_hash=record_hash(artifact), review_id=review.id, review_hash=record_hash(review),
                     author_attempt_id=author.id, author_fence=author.fence, reviewer_attempt_id=review.reviewer_attempt_id,
