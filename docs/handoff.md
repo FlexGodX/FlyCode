@@ -1,5 +1,33 @@
 # FlyCode handoff brief
 
+## Shared result projections — checked,2026-10-19
+
+Tasks show/list, HTTP and board/list/detail/agents now share scoped completion,
+workflow integration, currentness, exact input lineage, review/evidence IDs,
+active child wait, saved retry/reset limits and graph revision. Metadata/cursor
+are one SQL snapshot; physical evidence checks run outside SQL, without caching
+an earlier card's integration pass. Owner revision/evidence loss denies currentness.
+Historical parent checkpoints remain lineage, not an active wait after resume.
+New last_action omits private payloads/heartbeats and includes graph events;
+last_event remains compatible. Planned pipeline stages hide manual enqueue.
+
+Final extracted-wheel13 passes219.11s, existing API/CLI/integration28 passes15.14s,
+Ruff4/scoped mypy3/package176/UTF-8 README/CLI and312 unchanged inputs pass.
+Actual native HTTP/worker/verification route feeds five browser states at1440/
+390/320 with keyboard/pause/confirmed stop; old Tasks browser passes4.38s with
+zero attempt/model/tool effects. Frozen parallel-brain199 source interoperability:
+initial3 pass44.79s, final wait-fix1 passes34.66s. All21 native boundaries, both
+wheel rounds and fixture/build/launcher failures remain in the
+[report](validation/2026-10-19-task-result-projections.md). Counts overlap.
+
+Next: safe result artifact drilldown and public owner approval/replan adapters,
+then combined Task4 retry/replan/new-branch/restart/avalanche/Stop acceptance.
+The core retry policy is owner-approved at recipe admission; generic task retry
+is not a substitute for exact failed-byte retry lineage. Keep aggregate Task5,
+controller/admission/matrix/research and final full verification open. No full/
+live-LM/graph/training or scientific claim. Parallel brain/schema edits remain
+separate; historical checkpoints below retain their measured source boundaries.
+
 ## New owner graph branches — checked,2026-10-19
 
 `Pipelines.replan(..., new_branches=None)` atomically extends the existing graph

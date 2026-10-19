@@ -4,6 +4,19 @@
 
 **Goal:** Реализовать изменения §§100–103 с проверяемыми результатами, общей очередью задач и явным отделением исследовательских допусков.
 
+Current shared-result increment (2026-10-19): task completion versus workflow
+integration/currentness, input/review/evidence/continuation/retry/graph references,
+last action and actual blockers share one Store snapshot across CLI/HTTP/Tasks/
+agents. Physical checks run outside SQL; revision changes and later evidence
+loss deny currentness. Historical resumed-parent waits no longer look active.
+Final extracted-wheel13, compatibility28, actual five-state browser1440/390/320/
+keyboard/Stop, old Tasks browser, Ruff4/scoped mypy3/package176/UTF-8 README/CLI/
+312 unchanged inputs pass. Frozen combined-brain3 plus final delta1 pass;
+[report](../../validation/2026-10-19-task-result-projections.md) retains all21 early
+boundaries and both wheel rounds. Safe result artifact drilldown/public owner
+adapters/combined Task4/controller/neural/research/final acceptance remain open.
+No full/live-LM/graph/training or scientific claim.
+
 Current new-branch graph increment (2026-10-19): explicit owner drafts add pairs
 and resolve request-local dependency references to server IDs in one graph/CAS.
 Original requirements/costs/attempts/deadline survive; integrator funding stays

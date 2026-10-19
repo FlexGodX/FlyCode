@@ -2,7 +2,7 @@
 (() => {
   const $ = selector => document.querySelector(selector);
   const names = {planned:"Черновик",ready:"В очереди",assigned:"Назначена",running:"В работе",awaiting_review:"На проверке",succeeded:"Готово",blocked:"Заблокирована",retry_wait:"Ожидает повтора",failed:"Ошибка",cancelled:"Отменена",stopping:"Остановка…",reconciling:"Подтверждение остановки",idle:"Свободен"};
-  const reasons = {missing_objective:"Нет описания результата",missing_criteria:"Нет критериев",permission:"Нет разрешения",missing_budget:"Нет бюджета",paused:"Приостановлена",root_not_active:"Ожидает запуска цели",dependency:"Ожидает зависимости",stop_unconfirmed:"Остановка ещё не подтверждена",budget_exhausted:"Бюджет исчерпан",wall_deadline:"Время исчерпано"};
+  const reasons = {missing_objective:"Нет описания результата",missing_criteria:"Нет критериев",permission:"Нет разрешения",missing_budget:"Нет бюджета",paused:"Приостановлена",root_not_active:"Ожидает запуска цели",dependency:"Ожидает зависимости",stop_unconfirmed:"Остановка ещё не подтверждена",waiting_children:"Ожидает дочерние задачи",pipeline_branch_paused:"Ожидает другой этап или возобновление ветви",child_failed:"Дочерняя задача не завершена",child_review_failed:"Проверка дочерней задачи не пройдена",completion_invalidated:"Проверка задачи устарела",result_invalidated:"Результат workflow устарел",retry_exhausted:"Лимит повторов исчерпан",retry_budget:"Нет бюджета на повтор",budget_exhausted:"Бюджет исчерпан",wall_deadline:"Время исчерпано"};
   const columns = {drafts:"Черновики",queue:"Очередь",in_progress:"В работе",review:"На проверке",done:"Готово",blocked:"Ожидание",failed:"Ошибки",cancelled:"Отменённые"};
   let token, projects=[], cards=[], agents=[], view="board", selected=null, detail=null;
   const pendingMutations=new Map();
@@ -31,13 +31,24 @@
   const label=value=>names[value]||value;
   const date=value=>value?new Date(value*1000).toLocaleString("ru-RU"):"—";
   function empty(title,description) {const box=node("div",undefined,"task-empty");box.append(node("h2",title),node("p",description));return box;}
+  function resultSummary(card) {
+    const summary=[];
+    if(card.wait)summary.push(card.wait.pending.length?`Ожидает дочерних задач: ${card.wait.pending.length}`:"Дочерние задачи проверены");
+    if(card.completion)summary.push(card.completion.current?"Задача проверена":"Проверка задачи устарела");
+    if(card.integration)summary.push(card.integration.current?"Изменения применены":["invalidated","completed"].includes(card.integration.state)?"Результат workflow устарел":`Интеграция: ${label(card.integration.state)}`);
+    else if(card.completion)summary.push("Интеграция ещё не выполнена");
+    return summary;
+  }
+  const resultClass=card=>`task-result${card.completion&&!card.completion.current||card.integration&&!card.integration.current&&["invalidated","completed"].includes(card.integration.state)?" stale":""}`;
   function taskButton(card) {
     const task=card.task, button=node("button",undefined,"task-card");button.type="button";
     button.append(node("small",task.short_id),node("strong",task.title),node("small",projectName(task.project_id)),node("span",label(task.state)+(task.paused?" · Пауза":""),"task-state"));
     button.append(node("small",`Приоритет ${task.priority}${task.archived?" · Архив":""}`));
     if(card.blockers.length)button.append(node("span",card.blockers.map(value=>reasons[value]||value).join(" · "),"blocker"));
     if(card.attempt)button.append(node("small",`Попытка ${card.attempt.id.slice(0,8)} · ${label(card.attempt.state)}`));
-    if(card.last_event)button.append(node("small",`Последнее действие: ${card.last_event.kind} · ${date(card.last_event.occurred_at)}`));
+    for(const text of resultSummary(card))button.append(node("span",text,resultClass(card)));
+    const action=card.last_action||card.last_event;
+    if(action)button.append(node("small",`Последнее действие: ${action.kind} · ${date(action.occurred_at)}`));
     button.onclick=()=>openTask(task.id).catch(showError);return button;
   }
   function render() {
@@ -54,6 +65,10 @@
           box.append(node("p",`Начало: ${date(attempt.started_at)} · Подтверждение остановки: ${attempt.stop_confirmed?"получено":"не получено"}`));
         }
         if(entry.task) {const button=node("button",`${entry.task.short_id} · ${entry.task.title}`);button.onclick=()=>openTask(entry.task.id).catch(showError);box.append(button);}
+        if(entry.card) {
+          for(const text of resultSummary(entry.card))box.append(node("p",text));
+          if(entry.card.blockers.length)box.append(node("p",entry.card.blockers.map(value=>reasons[value]||value).join(" · "),"blocker"));
+        }
         content.append(box);
       }
       return;
@@ -162,13 +177,27 @@
     if(request!==detailRequest||selected!==id||!$("#taskDetail").open)return;
     $("#historySection").hidden=false;$("#commentForm").hidden=false;
     detail=card;const task=card.task,body=$("#detailBody");$("#detailTitle").textContent=task.title;body.replaceChildren();
+    for(const text of resultSummary(card))body.append(node("p",text,resultClass(card)));
     const dl=node("dl");
-    const values={"Номер":task.short_id,"Проект":projectName(task.project_id),"Состояние":label(task.state)+(task.paused?" · Пауза":""),"Приоритет":task.priority,"Версия":task.revision,"Описание":task.objective||"—","Критерии":task.acceptance?JSON.stringify(task.acceptance,null,2):"Нет критериев","Разрешение":task.permissions?.approved?"Выдано":"Не выдано","Бюджет":task.budget?`${task.budget.model_calls} моделей / ${task.budget.tool_calls} инструментов`:"Не задан","Блокировки":card.blockers.map(value=>reasons[value]||value).join(" · ")||"—","Результат":task.result_id||"Не опубликован"};
+    const values={"Номер":task.short_id,"Проект":projectName(task.project_id),"Состояние":label(task.state)+(task.paused?" · Пауза":""),"Приоритет":task.priority,"Версия":task.revision,"Описание":task.objective||"—","Критерии":task.acceptance?JSON.stringify(task.acceptance,null,2):"Нет критериев","Разрешение":task.permissions?.approved?"Выдано":"Не выдано","Бюджет":task.budget?`${task.budget.model_calls} моделей / ${task.budget.tool_calls} инструментов`:"Не задан","Блокировки":card.blockers.map(value=>reasons[value]||value).join(" · ")||"—"};
     if(card.attempt)Object.assign(values,{"Попытка":`${card.attempt.id} · ${label(card.attempt.state)}`,"Исполнитель":card.attempt.instance_id,"Модель":card.attempt.profile_snapshot.model_id||card.attempt.profile_snapshot.model_ref,"Расход":`${card.attempt.spent.model_calls} моделей / ${card.attempt.spent.tool_calls} инструментов`,"Остановка":card.attempt.stop_confirmed?"Подтверждена":"Не подтверждена"});
     for(const [key,value] of Object.entries(values))dl.append(node("dt",key),node("dd",String(value)));body.append(dl);
+    const lineage=card.lineage;
+    if(lineage&&(lineage.artifact_id||lineage.pipeline_id||card.completion||card.integration)) {
+      const evidence=node("details"),values=[];evidence.append(node("summary","Данные проверки"));
+      if(card.completion)values.push(`Завершение задачи: ${card.completion.id}`);
+      if(card.integration)values.push(`Интеграция: ${card.integration.id}`);
+      if(card.review)values.push(`Независимая проверка: ${card.review.status}`,`Evidence: ${card.review.evidence_id}`);
+      if(lineage.artifact_id)values.push(`Артефакт: ${lineage.artifact_id}`);
+      if(lineage.pipeline_id)values.push(`Граф: ${lineage.pipeline_id} · версия ${lineage.graph_revision}`);
+      if(lineage.continuation_id)values.push(`Продолжение: ${lineage.continuation_id}`);
+      if(lineage.retry_number||lineage.retry_limit)values.push(`Повторы: ${lineage.retry_number} / ${lineage.retry_limit}`);
+      for(const [taskId,input] of Object.entries(lineage.inputs||{}))values.push(`Вход ${taskId}: ${input.id} · ${input.sha256}`);
+      for(const text of values)evidence.append(node("p",text));body.append(evidence);
+    }
     const actions=node("div",undefined,"task-actions");
     const options=[];
-    if(task.state==="planned")options.push(["enqueue","Поставить в очередь"]);
+    if(task.state==="planned"&&!card.lineage?.pipeline_id)options.push(["enqueue","Поставить в очередь"]);
     const pending=pendingStops.get(id);
     if(!["succeeded","failed","cancelled"].includes(task.state)||pending) {
       if(pending?.body.operation==="pause"||!task.paused)options.push(["pause",stopTitle(id,"pause")]);

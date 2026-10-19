@@ -3,9 +3,10 @@
 import json
 
 from ..domain.orchestration import AccessScope, QueueEvent, WorkflowDraft
-from ..orchestration.store import Store, StoreError
+from ..orchestration.store import Store, StoreError, changed
 from .commands import CommentCommand, comment, execute
 from .projection import AgentCard, TaskCard, TaskEventPage, TaskPage, task_card
+from .results import ResultViews
 
 
 class TrackerService:
@@ -20,7 +21,10 @@ class TrackerService:
 
     def task(self, scope: AccessScope, task_id: str) -> TaskCard:
         self.store.refresh_results(scope, self.store.task(scope, task_id).workflow_id)
-        return self._card(scope, task_id)
+        views = ResultViews(self.store)
+        with self.store.transaction():
+            card = views.capture(scope, self._card(scope, task_id))
+        return views.card(scope, card)
 
     def _card(self, scope: AccessScope, task_id: str) -> TaskCard:
         task = self.store.task(scope, task_id)
@@ -32,16 +36,22 @@ class TrackerService:
 
     def board(self, scope: AccessScope, workflow_id: str, *, archived: bool = False) -> list[TaskCard]:
         self.store.refresh_results(scope, workflow_id)
-        return [self._card(scope, task.id) for task in self.store.tasks(scope, workflow_id) if archived or not task.archived]
+        views = ResultViews(self.store)
+        with self.store.transaction():
+            cards = [views.capture(scope, self._card(scope, task.id)) for task in self.store.tasks(scope, workflow_id) if archived or not task.archived]
+        return [views.card(scope, card) for card in cards]
 
     def agents(self, scope: AccessScope) -> list[AgentCard]:
         self.store.refresh_results(scope)
         result = []
-        for instance in self.store.instances(scope):
-            attempt = self.store._attempt(instance.current_attempt_id) if instance.current_attempt_id else None
-            task = self.store.task(scope, attempt.task_id) if attempt else None
-            result.append(AgentCard(instance=instance, task=task, attempt=attempt))
-        return result
+        views = ResultViews(self.store)
+        with self.store.transaction():
+            for instance in self.store.instances(scope):
+                attempt = self.store._attempt(instance.current_attempt_id) if instance.current_attempt_id else None
+                task = self.store.task(scope, attempt.task_id) if attempt else None
+                card = views.capture(scope, self._card(scope, task.id)) if task else None
+                result.append(AgentCard(instance=instance, task=task, attempt=attempt, card=card))
+        return [changed(entry, card=views.card(scope, entry.card)) if entry.card else entry for entry in result]
 
 
     def comment(self, scope: AccessScope, task_id: str, data: CommentCommand) -> QueueEvent:
@@ -65,12 +75,14 @@ class TrackerService:
         if q:
             where += " AND instr(flycode_casefold(json_extract(t.data,'$.short_id')||char(10)||json_extract(t.data,'$.title')||char(10)||json_extract(t.data,'$.objective')),?)>0"
             values.append(q.casefold())
+        views = ResultViews(self.store)
         with self.store.transaction():
             rows = self.store.db.execute('SELECT t.rowid AS cursor,t.id FROM tasks t JOIN workflows w ON w.id=t.workflow_id '
                 'WHERE ' + where + ' ORDER BY t.rowid LIMIT ?', (*values, limit + 1)).fetchall()
-            return TaskPage(items=[self._card(scope, row['id']) for row in rows[:limit]],
+            page = TaskPage(items=[views.capture(scope, self._card(scope, row['id'])) for row in rows[:limit]],
                 next_cursor=rows[limit - 1]['cursor'] if len(rows) > limit else None,
                 cursor=self.store.db.execute('SELECT COALESCE(MAX(sequence),0) FROM events').fetchone()[0])
+        return changed(page, items=[views.card(scope, item) for item in page.items])
 
     def events(self, scope: AccessScope, *, after=0, limit=500) -> tuple[list[QueueEvent], int]:
         if not 0 <= after <= 2**63 - 1 or not 1 <= limit <= 1000:
@@ -89,7 +101,7 @@ class TrackerService:
         task = self.store.task(scope, task_id)
         with self.store.transaction():
             rows = self.store.db.execute('SELECT sequence,data FROM events WHERE workflow_id=? AND sequence>? '
-                "AND json_extract(data,'$.task_id')=? ORDER BY sequence LIMIT ?",
+                "AND (json_extract(data,'$.task_id')=? OR json_extract(data,'$.kind')='pipeline_replanned') ORDER BY sequence LIMIT ?",
                 (task.workflow_id, after, task.id, limit + 1)).fetchall()
             return TaskEventPage(items=[QueueEvent(sequence=row['sequence'], **json.loads(row['data'])) for row in rows[:limit]],
                 next_cursor=rows[limit - 1]['sequence'] if len(rows) > limit else None,

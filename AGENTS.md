@@ -212,6 +212,8 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Read SQLite column definitions before audit queries; workflow state is stored inside `workflows.data`.
 - Before adding optional immutable-record fields, verify retained full-model and omitted-field hashes through their real consumers.
 
+- Use `Store.confirm_started` for assignment startup; `Store` has no `begin` method.
+
 ## 12. How this file was built
 
 This boilerplate synthesizes:

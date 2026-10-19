@@ -1,8 +1,11 @@
 """Presentation values are derived, never a second mutable task lifecycle."""
 
+from pydantic import Field
+
 from ..domain.orchestration import (
     AgentAttempt,
     AgentInstance,
+    CompletionInput,
     QueueEvent,
     QueueModel,
     WorkflowSpec,
@@ -14,18 +17,61 @@ COLUMNS = {'planned': 'drafts', 'ready': 'queue', 'assigned': 'in_progress', 'ru
            'failed': 'failed', 'cancelled': 'cancelled'}
 
 
+class CompletionView(QueueModel):
+    id: str
+    artifact_id: str
+    review_id: str
+    current: bool
+
+
+class IntegrationView(QueueModel):
+    id: str
+    state: str
+    current: bool
+    error: str | None
+
+
+class ReviewView(QueueModel):
+    id: str
+    status: str
+    evidence_id: str
+
+
+class TaskLineage(QueueModel):
+    artifact_id: str | None = None
+    inputs: dict[str, CompletionInput] = Field(default_factory=dict)
+    continuation_id: str | None = None
+    retry_number: int = 0
+    retry_limit: int = 0
+    pipeline_id: str | None = None
+    graph_revision: int | None = None
+
+
+class ChildWait(QueueModel):
+    checkpoint_id: str
+    children: tuple[str, ...]
+    pending: tuple[str, ...]
+
+
 class TaskCard(QueueModel):
     task: WorkItem
     column: str
     attempt: AgentAttempt | None = None
     last_event: QueueEvent | None = None
     blockers: tuple[str, ...] = ()
+    completion: CompletionView | None = None
+    integration: IntegrationView | None = None
+    review: ReviewView | None = None
+    lineage: TaskLineage = Field(default_factory=TaskLineage)
+    wait: ChildWait | None = None
+    last_action: QueueEvent | None = None
 
 
 class AgentCard(QueueModel):
     instance: AgentInstance
     task: WorkItem | None = None
     attempt: AgentAttempt | None = None
+    card: TaskCard | None = None
 
 
 def task_card(task: WorkItem, workflow: WorkflowSpec, tasks: list[WorkItem], attempt: AgentAttempt | None,

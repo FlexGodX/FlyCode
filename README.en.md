@@ -158,7 +158,18 @@ budgets, profiles and oracle approval are required; source and worker settings
 come from a pinned template. New output cannot replace an earlier failed required
 task or reset its spending/attempts. The64-task bound includes existing history,
 and the integrator budget never increases automatically. Controller replan
-proposals and common result views remain unimplemented.
+proposals remain unimplemented.
+
+`tasks show/list`, HTTP and the Tasks screen share one result projection.
+Verified task completion is separate from applying the entire workflow. Cards,
+list and active agents show currentness, child waits, graph revision, approved
+retry count and the last meaningful action without heartbeats. Details retain
+independent review/evidence IDs and pinned input receipts. Missing evidence or
+changed source revokes currentness; a later metadata change cannot keep the old
+card's pass. Metadata and cursor share one SQL snapshot; physical checks run
+afterward. Host schedules approved stages, so pending pipeline cards offer no
+manual enqueue. Public recipe/retry/replan commands across UI/CLI/API and combined
+orchestration acceptance remain in the plan.
 An explicit primary compatibility probe requests
 one structured candidate; ordinary generation keeps its existing count and limits.
 The model transport adapter acquires an endpoint slot and charges the request

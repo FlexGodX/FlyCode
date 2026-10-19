@@ -3212,3 +3212,20 @@ Combined проверяет197 source files текущих параллельн�
 5children не объявляются literal64-task stress. Combined Task4 acceptance,
 общие result/command views, controller proposals и aggregate/neural/research/
 final acceptance остаются открыты. Full/live-LM/graph/UI/training не запускались.
+
+Поставка общих result projections,2026-10-19: completion задачи и integration
+workflow, актуальность, lineage входов/continuation/retry/graph, review/evidence,
+активное ожидание и last_action/blockers читаются из общего Store для CLI/API/
+Tasks/agents. Metadata/cursor фиксируются одной короткой SQL-транзакцией; реальные
+Completions.current/Integration.current проверяются вне SQL и заново для каждой
+карточки. Изменённая ревизия или поздняя потеря evidence не сохраняет current=true.
+Старый checkpoint после resume остаётся в lineage, но не в активном ожидании;
+планируемые pipeline этапы не предлагают ручной enqueue. Final extracted-wheel13
+проходит219.11s, compatibility28 —15.14s, браузер5состояний1440/390/320/keyboard/
+Stop, старый Tasks browser, Ruff4/scoped mypy3/package176/UTF-8 README/CLI и312
+unchanged inputs проходят. Frozen combined-brain199 source:3проверки44.79s плюс
+финальная delta1 —34.66s. Все21граница и обе wheel-версии сохранены в
+[отчёте](validation/2026-10-19-task-result-projections.md); счётчики пересекаются.
+Safe result artifact drilldown, public owner approval/replan и combined Task4,
+controller/admission/matrix/research/final acceptance остаются открыты. Whole
+Task5 и полная цель не закрыты; full/live-LM/graph/training не запускались.

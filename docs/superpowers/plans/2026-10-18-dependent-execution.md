@@ -293,6 +293,34 @@ combined Task4 checkboxes remain open until their full acceptance is established
 - [ ] Feature-only API/native/browser checks; keyboard/desktop/390/320 Stop and safe evidence, then relevant Ruff/mypy and isolated wheel/extracted CLI. Preserve failed measurements and source boundaries.
 - [ ] Independent review, verified commit/push containing only this work. Do not close the aggregate goal: neural orchestration/admission/matrix and remaining Task8/final full verification require their own evidence.
 
+### Task5 result projection increment
+
+Keep Task4 combined/controller acceptance open. Add presentation-only models in
+`tracker/projection.py` and `tracker/results.py`; enrich TrackerService cards
+through the real Completions.current/Integration.current consumers after the
+metadata/cursor transaction closes. No schema migration, new execution command,
+user path, argv or second result lifecycle. Preserve last_event, add last_action
+that ignores lease/heartbeat bookkeeping and includes addressed graph events.
+
+1. RED `test_tracker_results.py`: actual stopped parent wait, independently
+   verified child, resumed parent exact inputs and completed integration must be
+   distinct common views. Read page under real SQL and inspect current evidence
+   outside transactions. Missing evidence and changed source must invalidate
+   currentness without new spending. Include denied foreign project reads.
+2. Add typed completion/integration/review/lineage/wait summaries with scoped
+   server IDs and exact hashes only; never expose runtime/source/oracle paths.
+   Snapshot card metadata and cursor atomically, inspect evidence outside SQL,
+   and reject claims of currentness when task/references change during inspection.
+   Reuse the same summaries and blockers for active AgentCards.
+3. Task detail/list/board/agents render completion separately from integration,
+   exact inputs, parent wait, current graph and retained review/evidence IDs.
+   Use literal text nodes, existing keyboard dialog and Stop paths. No legacy
+   interface markup changes or execution grant through presentation.
+4. Check native/API/CLI equality and scope/token/origin, actual browser desktop/
+   390/320, keyboard/Stop and stale result display. Preserve all failed boundaries;
+   run only feature tests plus scoped Ruff/mypy, extracted wheel/CLI, review and
+   checked commit/push. README RU/EN, handoff/Plan and exact evidence follow.
+
 ## Self-review
 
 Task success/dependencies→Tasks1/2/3; data flow and exact merged result→Task2; preapproved DAG authority→Task3; child wait/retry/replan→Task4; truthful access and delivery→Task5. Final integration and research admission remain separate gates. This plan addresses the real dependency requirement rather than introducing weaker artifact-only edges.
@@ -389,3 +417,17 @@ checked, the whole task remains open. Task5 common result/wait views and overall
 neural/research acceptance remain active. No full/live-model/graph/UI/training run;
 parallel brain/schema23–25 changes are preserved and excluded from this commit.
 Development source:`/private/tmp/flycode-parent-paid-outcomes-green-whojmkvm`; delivery:`/private/tmp/flycode-parent-delivery-20261019`.
+
+## Task5 shared-result checkpoint,2026-10-19
+
+The presentation increment above is checked: final wheel13, compatibility28,
+five real native browser states at1440/390/320 with keyboard/Stop, old Tasks
+browser, Ruff4/scoped mypy3/package176/312 unchanged inputs and UTF-8 README/CLI.
+Independent review's cross-card cache and stale display findings are fixed.
+Historical checkpoint remains continuation lineage after resume, not active wait.
+Frozen brain snapshot interoperability3 plus final delta1 passes; all21 native
+boundaries and both package rounds remain in the
+[report](../../validation/2026-10-19-task-result-projections.md). Counts overlap.
+Safe result-artifact drilldown and public owner recipe/replan commands are still
+open, so Task5 aggregate checkboxes stay open. Combined Task4 acceptance and
+controller/neural/research/final acceptance stay open. No whole-goal completion.
