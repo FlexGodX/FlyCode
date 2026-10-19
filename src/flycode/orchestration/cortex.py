@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from ..domain.message_routes import MessageGrantPin
 from ..llm.catalogue import CatalogueBusy
 from ..llm.lmstudio import LMStudioCortex
 from ..llm.openai_compatible import OpenAICompatibleLLM
@@ -28,7 +29,8 @@ class AttemptCortex:
         self.should_stop = should_stop
         self.message_recipients = tuple(message_recipients)
         self._message_endpoints: tuple[MessageEndpoint, ...] = ()
-        self._message_candidates: dict[str, tuple[str, tuple[MessageEndpoint, ...]]] = {}
+        self._message_grant: MessageGrantPin | None = None
+        self._message_candidates: dict[str, tuple[str, tuple[MessageEndpoint, ...], MessageGrantPin | None]] = {}
         self.artifacts = Artifacts(store, artifact_root) if artifact_root is not None else None
         attempt, task, workflow = store._owned(scope, attempt_id, fence, running=True)
         self._has_inputs = bool(task.input_artifacts)
@@ -64,15 +66,15 @@ class AttemptCortex:
         if selected is None or not valid:
             return ToolResult(success=False, error_message='message_candidate', payload={'blocked': 'message_candidate'})
         return Messages(self.store).execute(self.scope, self.attempt_id, self.fence, root=root, action=action,
-            routes=self.message_recipients, recipient_pins=selected[1])
+            routes=tuple(pin.instance_id for pin in selected[1]), recipient_pins=selected[1], route_proof=selected[2])
 
-    def bind_message_candidates(self, candidates, *, recipient_pins) -> None:
+    def bind_message_candidates(self, candidates, *, recipient_pins, route_proof=None) -> None:
         """Bind a host-parsed response from either model entry point."""
         self._message_candidates.clear()
-        Messages(self.store).validate_endpoints(self.scope, self.attempt_id, self.fence, recipient_pins)
+        Messages(self.store).validate_routing(self.scope, self.attempt_id, self.fence, recipient_pins, route_proof)
         for item in candidates:
             if item.tool == 'send_message' and recipient_pins:
-                self._message_candidates[item.id] = (self._message_digest(item), tuple(recipient_pins))
+                self._message_candidates[item.id] = (self._message_digest(item), tuple(recipient_pins), route_proof)
 
     @property
     def model_calls(self):
@@ -130,9 +132,10 @@ class AttemptCortex:
         base_text = text
         tools = list(task.permissions.tools)
         if 'send_message' in tools:
-            self._message_endpoints = Messages(self.store).capture(self.scope, self.attempt_id, self.fence,
-                self.message_recipients)
+            routing = Messages(self.store).routing(self.scope, self.attempt_id, self.fence, static=self.message_recipients)
+            self._message_endpoints, self._message_grant = routing.endpoints, routing.grant
             if not self._message_endpoints:
+                self._message_grant = None
                 tools.remove('send_message')
             else:
                 text += ('\n\nHost-approved send_message recipients: '
@@ -153,6 +156,7 @@ class AttemptCortex:
             'candidate_tools': list(dict.fromkeys([*tools, 'stop']))})
         if 'send_message' in tools and not self.core.reasoner.context_fits(result):
             self._message_endpoints = ()
+            self._message_grant = None
             result = result.model_copy(update={'task': base_text,
                 'candidate_tools': [tool for tool in result.candidate_tools if tool != 'send_message']})
             with self.store.transaction():
@@ -196,6 +200,7 @@ class AttemptCortex:
     def generate_candidates(self, context: CortexContext):
         self._message_candidates.clear()
         self._message_endpoints = ()
+        self._message_grant = None
         if self.store.db.in_transaction:
             raise RuntimeError('Model transport cannot run in a SQLite transaction')
         if not self.core._has_budget() and plan_model_calls(context).call_reasoner:
@@ -258,7 +263,7 @@ class AttemptCortex:
         result = [item.model_copy(update={'id': uuid4().hex}) for item in candidates]
         if self.core.reasoner.request_count > before and not self.core.last_routing.error:
             try:
-                self.bind_message_candidates(result, recipient_pins=self._message_endpoints)
+                self.bind_message_candidates(result, recipient_pins=self._message_endpoints, route_proof=self._message_grant)
             except StoreError as error:
                 if error.code != 'message_route_stale':
                     raise

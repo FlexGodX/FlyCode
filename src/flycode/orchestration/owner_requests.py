@@ -2,8 +2,9 @@
 
 from typing import Annotated, Literal
 
-from pydantic import Field, TypeAdapter
+from pydantic import Field, TypeAdapter, model_validator
 
+from ..domain.message_routes import MessageRouteEdge
 from ..domain.orchestration import BudgetAmount, QueueModel, TaskDraft
 from ..domain.pipeline import RetryPolicy
 from ..domain.verification_control import CatalogueID
@@ -80,7 +81,33 @@ class OwnerReplan(OwnerBase):
     idempotency_key: CommandKey
 
 
-OwnerCommand = Annotated[OwnerPreview | OwnerPrepare | OwnerApprove | OwnerReplan, Field(discriminator='operation')]
+class OwnerMessageRoutesPreview(OwnerBase):
+    operation: Literal['message_routes_preview']
+    workflow_id: CatalogueID
+
+
+class OwnerMessageRoutes(OwnerBase):
+    operation: Literal['message_routes']
+    pipeline_id: CatalogueID
+    expected_revision: Revision
+    task_revisions: dict[CatalogueID, Revision] = Field(min_length=1, max_length=64)
+    expected_grant_id: CatalogueID | None
+    edges: tuple[MessageRouteEdge, ...] = Field(max_length=192)
+    idempotency_key: CommandKey
+
+    @model_validator(mode='after')
+    def bounded_routes(self):
+        pairs = [(edge.sender_task_id, edge.recipient_task_id) for edge in self.edges]
+        if len(set(pairs)) != len(pairs):
+            raise ValueError('Duplicate message route')
+        for sender in {edge.sender_task_id for edge in self.edges}:
+            if sum(edge.sender_task_id == sender for edge in self.edges) > 3:
+                raise ValueError('At most three recipients per sender')
+        return self
+
+
+OwnerCommand = Annotated[OwnerPreview | OwnerPrepare | OwnerApprove | OwnerReplan
+    | OwnerMessageRoutes | OwnerMessageRoutesPreview, Field(discriminator='operation')]
 
 
 def owner_request(value):
@@ -130,6 +157,19 @@ class OwnerResult(QueueModel):
     partial: bool = False
 
 
+class OwnerMessageRoutesResult(QueueModel):
+    kind: Literal['message_routes'] = 'message_routes'
+    project_id: CatalogueID
+    project_revision: Revision
+    workflow_id: CatalogueID
+    workflow_revision: Revision
+    pipeline_id: CatalogueID | None
+    grant_id: CatalogueID | None
+    edges: tuple[MessageRouteEdge, ...] = Field(default=(), max_length=192)
+    active: bool = False
+    reason: str | None = None
+
+
 class OwnerOutcome(QueueModel):
-    result: OwnerResult | None = None
+    result: OwnerResult | OwnerMessageRoutesResult | None = None
     error_code: str | None = Field(default=None, pattern=r'^[a-z0-9_]+$', max_length=100)

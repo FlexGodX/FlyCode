@@ -12,9 +12,12 @@ from ..verification.oracle_transfer import OracleTransfer
 from ..verification.registry import VerificationRegistry
 from ..verification.snapshot import digest
 from .dispatch import Dispatcher
+from .message_routes import MessageRoutes
 from .owner_requests import (
     OwnerApprove,
     OwnerCommand,
+    OwnerMessageRoutes,
+    OwnerMessageRoutesPreview,
     OwnerOutcome,
     OwnerPrepare,
     OwnerPreview,
@@ -62,6 +65,11 @@ class OwnerCommands:
             scope = AccessScope(actor_id=ACTOR, project_ids={project.id}, role='owner')
             if isinstance(command, OwnerPreview):
                 return OwnerOutcome(result=self._preview(scope, project, command.workflow_id))
+            if isinstance(command, OwnerMessageRoutesPreview):
+                return OwnerOutcome(result=MessageRoutes(self.store).view(scope, project, command.workflow_id))
+            if isinstance(command, OwnerMessageRoutes):
+                routes = MessageRoutes(self.store)
+                return OwnerOutcome(result=routes.result(project, routes.approve(scope, project, command)))
             if isinstance(command, OwnerPrepare):
                 self.dispatcher = Dispatcher(self.store, self.root)
             intent = self._intent(scope, project, command)

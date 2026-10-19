@@ -336,6 +336,11 @@ class Store:
             except BaseException:
                 self.db.close()
                 raise
+        try:
+            self._message_routes_schema()
+        except BaseException:
+            self.db.close()
+            raise
         if host is not None:
             try:
                 host.bind_path(self.path)
@@ -343,6 +348,34 @@ class Store:
             except BaseException:
                 self.db.close()
                 raise
+
+    def _message_routes_schema(self):
+        """Install route authority independently of the global migration chain."""
+        row = self.db.execute("SELECT value FROM counters WHERE name='message_routes_schema'").fetchone()
+        if row is not None:
+            if row['value'] != 1:
+                raise StoreError('schema_version', 'message_routes')
+            return
+        with self.transaction():
+            row = self.db.execute("SELECT value FROM counters WHERE name='message_routes_schema'").fetchone()
+            if row is not None:
+                if row['value'] != 1:
+                    raise StoreError('schema_version', 'message_routes')
+                return
+            partial = self.db.execute("""SELECT 1 FROM sqlite_master WHERE type='table'
+                AND name IN ('message_route_grants','message_route_heads','message_route_proofs')""").fetchone()
+            if partial is not None:
+                raise StoreError('schema_version', 'Unversioned message routes')
+            self.db.execute("""CREATE TABLE message_route_grants (
+                id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES canonical_projects(id),
+                workflow_id TEXT NOT NULL REFERENCES workflows(id), data TEXT NOT NULL)""")
+            self.db.execute("""CREATE TABLE message_route_heads (
+                workflow_id TEXT PRIMARY KEY REFERENCES workflows(id),
+                grant_id TEXT NOT NULL REFERENCES message_route_grants(id))""")
+            self.db.execute("""CREATE TABLE message_route_proofs (
+                message_id TEXT PRIMARY KEY REFERENCES messages(id),
+                grant_id TEXT NOT NULL REFERENCES message_route_grants(id), grant_hash TEXT NOT NULL)""")
+            self.db.execute("INSERT INTO counters VALUES ('message_routes_schema',1)")
 
     def _host_guard(self):
         if self.db.in_transaction:

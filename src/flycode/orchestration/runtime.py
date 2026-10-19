@@ -370,6 +370,26 @@ class WorkerHandle:
                                 event_kind=kind, step=step if isinstance(step, int) and 0 <= step <= 121 else None,
                                 mode=mode if mode in {'explore','diagnose','plan','execute','verify','recover','consolidate','stop'} else None,
                                 tool=tool if tool in VALID_TOOLS else None)
+                        if (kind == 'controller' and not self.message_recipients
+                                and type(step) is int and 0 <= step <= 121
+                                and mode in {'explore','diagnose','plan','execute','verify','recover','consolidate','stop'}):
+                            bus = Messages(connection)
+                            routing = bus.routing(self.scope, attempt.id, attempt.fence)
+                            if routing.endpoints and routing.grant is not None:
+                                draft = MessageDraft(recipients=tuple(pin.instance_id for pin in routing.endpoints),
+                                    idempotency_key=f'activity:{step}:{routing.grant.id}',
+                                    content=MessageProgress(kind='progress', summary=f'Controller entered {mode} at step {step}.', step=step))
+                                try:
+                                    bus.send(self.scope, attempt.id, attempt.fence, draft,
+                                        recipient_pins=routing.endpoints, route_proof=routing.grant)
+                                except StoreError as error:
+                                    if error.code not in {'recipient', 'recipient_workflow', 'message_scope',
+                                            'message_budget', 'message_route_stale'}:
+                                        raise
+                                    with connection.transaction():
+                                        connection._owned(self.scope, attempt.id, attempt.fence, running=True)
+                                        connection._event(self.scope, workflow, 'message_blocked', task=task, attempt=attempt,
+                                            reason=error.code, message_kind='progress')
                     elif request.operation == 'result':
                         result = RunResult.model_validate(request.payload)
                         content = result.model_dump_json()

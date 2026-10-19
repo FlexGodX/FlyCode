@@ -415,14 +415,24 @@ and explicit host routes, the model can select a typed message action. RPC check
 recipients and debits the shared tool budget before publication; replay after a
 host identity change cannot debit again. Questions and accepted answers remain
 available for later decisions within their original lifetime and permissions;
-activity notifications yield context space to substantive messages. The messaging
-UI and child-wait dispatcher remain unfinished. Message lifetime and authority are
+activity notifications yield context space to substantive messages. A conversation feed
+and automatic task creation from `task_request` remain unfinished. Message lifetime and authority are
 checked again after model inference; invalidated decisions cannot execute.
 Selected message recipients are pinned to the exact attempt, fence and contract
 shown to the model. Pins are rechecked after HTTP and atomically before sending;
 reusing an instance cannot redirect an old candidate into a replacement attempt.
 The host also checks the selected message's ID, tool and arguments.
-Automatic owner-approved communication routes between tasks remain unfinished.
+The Execution plan dialog now lets the owner explicitly approve directed task
+routes and revoke them. The Host resolves current recipient attempts before each
+model request, so a peer that starts later becomes available without restarting
+the sender. Grants bind the approved graph and never expand tools, file access
+or budgets. Revocation blocks new sends and use of old questions/answers while
+preserving the journal; reapproval cannot revive messages from a revoked grant.
+
+[The checked two-worker scenario](docs/validation/2026-10-19-owner-message-routes.md)
+uses a detached Host, actual HTTP, a correlated question/answer, three independent
+reviews and current integration of the combined edits. Automatic message-to-task
+transitions, task avalanches and scientific criteria require separate acceptance.
 
 ## First run without an API key
 

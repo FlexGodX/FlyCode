@@ -7,7 +7,7 @@
   let context=null,request=0,fieldId=0;
   function node(tag,text,className){const value=document.createElement(tag);if(text!==undefined)value.textContent=text;if(className)value.className=className;return value;}
   function current(saved,generation){return context===saved&&request===generation&&dialog.open;}
-  function errorMessage(error){return error.code==="revision"?"План изменился. Обновите его и проверьте условия.":error.code==="scope"||error.code==="project_changed"?"Папка проекта недоступна или изменилась. Сохранённые кнопки остановки остаются доступны.":error.message;}
+  function errorMessage(error){return ["revision","message_route_revision"].includes(error.code)?"План изменился. Обновите его и проверьте условия.":error.code==="scope"||error.code==="project_changed"?"Папка проекта недоступна или изменилась. Сохранённые кнопки остановки остаются доступны.":error.message;}
   const storageKey=saved=>`flycode-owner-v1:${saved.projectId}:${saved.workflowId}`;
   function pending(saved){
     try{const value=JSON.parse(sessionStorage.getItem(storageKey(saved))||"null");return value?.projectId===saved.projectId&&value?.workflowId===saved.workflowId&&typeof value.body==="string"?value:null;}catch{return null;}
@@ -43,10 +43,10 @@
     try{
       const outcome=await saved.api("/api/tasks/owner",JSON.parse(record.body));forget(saved,record);
       if(!current(saved,generation))return;
-      const messages={prepared:"Папка подготовлена. Выполнение ещё не разрешено.",approved:"План разрешён. Выполнение продолжит служба задач.",replanned:"Изменения плана приняты. Расходы и срок сохранены."};
+      const messages={prepared:"Папка подготовлена. Выполнение ещё не разрешено.",approved:"План разрешён. Выполнение продолжит служба задач.",replanned:"Изменения плана приняты. Расходы и срок сохранены.",message_routes:outcome.result.edges?.length?"Связи между задачами сохранены.":"Связи между задачами отозваны."};
       $("#ownerReceipt").textContent=messages[outcome.result.kind];await load(saved);await saved.refresh();
     }catch(error){
-      if(!error.result?.partial&&["revision","idempotency","invalid_fields","scope","project_changed","verification_profile_changed","verification_profile_scope"].includes(error.code))forget(saved,record);
+      if(!error.result?.partial&&["revision","idempotency","invalid_fields","scope","project_changed","verification_profile_changed","verification_profile_scope","message_route_revision","message_route_scope","message_scope","permission","message_route_changed","message_route_stale","pipeline_changed","pipeline_generation","paused"].includes(error.code))forget(saved,record);
       if(current(saved,generation)){
         $("#ownerError").textContent=error.result?.partial?"Подготовлена часть папок. Повторите сохранённый запрос, чтобы продолжить.":error.status?errorMessage(error):"Ответ не получен. Сохранён точный запрос для повтора.";
         $("#ownerError").hidden=false;
@@ -185,6 +185,46 @@
         expected_revision:preview.workflow_revision,task_revisions:Object.fromEntries(preview.tasks.map(task=>[task.id,task.revision])),changes,new_branches,profiles:profileRefs()};
     });return form;
   }
+  function messageRoutesForm(saved,preview,routes){
+    const form=node("form",undefined,"owner-form"),edges=routes.edges.map(edge=>({...edge})),list=node("div");
+    const title=id=>{const task=preview.tasks.find(task=>task.id===id);return task?`${task.title} ${id.slice(0,6)}`:`Задача ${id.slice(0,6)}`;};
+    form.append(node("h3","Связи между задачами"),node("p","Разрешите, какие задачи могут отправлять сообщения друг другу. Каждое направление выбирается отдельно. Инструменты, доступ к файлам и бюджет задач сохраняются."));
+    if(routes.reason)form.append(node("p","План или его условия изменились. Проверьте и заново подтвердите список связей.","owner-blocker"));
+    const senders=preview.tasks.filter(task=>{const permission=saved.fullTasks.get(task.id)?.permissions;return permission?.approved&&permission.tools.includes("send_message");});
+    const sender=select(senders.map(task=>[task.id,title(task.id)])),recipient=select([]);sender.required=recipient.required=false;
+    const confirm=node("input");confirm.type="checkbox";confirm.required=true;
+    const add=node("button","Добавить связь"),revoke=node("button","Отозвать все связи"),button=node("button","Сохранить связи","primary");add.type=revoke.type="button";button.type="submit";
+    const refreshRecipients=()=>{
+      const previous=recipient.value;recipient.replaceChildren(new Option("Выберите",""));
+      for(const task of preview.tasks)if(task.id!==sender.value&&saved.fullTasks.get(task.id)?.permissions?.approved)recipient.add(new Option(title(task.id),task.id));
+      if([...recipient.options].some(option=>option.value===previous))recipient.value=previous;
+    };
+    const render=()=>{
+      list.replaceChildren();
+      if(!edges.length)list.append(node("p","Связи не разрешены."));
+      for(const edge of edges){
+        const row=node("article",undefined,"owner-task");row.dataset.messageRoute=`${edge.sender_task_id}:${edge.recipient_task_id}`;
+        row.append(node("p",`${title(edge.sender_task_id)} → ${title(edge.recipient_task_id)}`));
+        const remove=node("button","Убрать связь");remove.type="button";remove.setAttribute("aria-label",`Убрать связь ${title(edge.sender_task_id)} → ${title(edge.recipient_task_id)}`);
+        remove.disabled=Boolean(pending(saved)||saved.busy||saved.loading);
+        remove.onclick=()=>{edges.splice(edges.indexOf(edge),1);confirm.checked=false;render();sync(saved);};row.append(remove);list.append(row);
+      }
+    };
+    sender.onchange=()=>{refreshRecipients();sync(saved);};
+    add.onclick=()=>{if(!sender.value||!recipient.value)return;edges.push({sender_task_id:sender.value,recipient_task_id:recipient.value});confirm.checked=false;render();sync(saved);};
+    revoke.onclick=()=>{edges.splice(0);confirm.checked=false;render();sync(saved);};
+    refreshRecipients();render();form.append(list,field("Отправитель сообщения",sender),field("Получатель сообщения",recipient),add,revoke,
+      field("Разрешаю указанные связи между задачами",confirm),button);
+    if(!senders.length)form.append(node("p","В задачах не разрешена отправка сообщений. Здесь можно отозвать существующие связи."));
+    wireForm(saved,form,button,()=>confirm.checked&&(Boolean(routes.reason)||JSON.stringify(edges)!==JSON.stringify(routes.edges)),()=>({
+      operation:"message_routes",project_id:preview.project_id,project_revision:preview.project_revision,pipeline_id:preview.pipeline_id,
+      expected_revision:preview.workflow_revision,task_revisions:Object.fromEntries(preview.tasks.map(task=>[task.id,task.revision])),expected_grant_id:routes.grant_id,edges}));
+    saved.controls.push(locked=>{
+      add.disabled=locked||!sender.value||!recipient.value||edges.some(edge=>edge.sender_task_id===sender.value&&edge.recipient_task_id===recipient.value)||edges.filter(edge=>edge.sender_task_id===sender.value).length>=3;
+      revoke.disabled=locked||!edges.length;
+    });
+    return form;
+  }
   function stopRows(saved,tasks){
     const box=$("#ownerStops");box.replaceChildren();saved.stopUpdates=new Map();
     const active=tasks.filter(task=>!["succeeded","failed","cancelled"].includes(task.state));
@@ -209,13 +249,14 @@
     }
     disclosure.append(list);box.append(disclosure);
   }
-  function render(saved,preview,catalogue){
+  function render(saved,preview,catalogue,routes){
     const body=$("#ownerBody");body.replaceChildren();saved.controls=[];
     body.append(node("p","Просмотр показывает условия общего плана. Подготовка папки и разрешение выполнения — отдельные команды.","owner-intro"));
     const writers=preview.tasks.filter(task=>task.kind!=="review"&&task.profile_ids.length),root=preview.tasks.find(task=>task.parent_id===null);
     if(!preview.pipeline_id){if(writers.length)body.append(prepareForm(saved,preview,writers));if(root&&writers.length>=2)body.append(approvalForm(saved,preview,writers,root));}
     else {body.append(node("p",`План разрешён · версия графа ${preview.graph_revision}. Привязки закреплены выбранным планом.`));
       if(root?.state==="blocked"&&root.blockers.some(reason=>["waiting_children","child_review_failed","child_failed"].includes(reason))&&!preview.tasks.some(task=>saved.fullTasks.get(task.id)?.paused)&&preview.graph_revision<2)body.append(replanForm(saved,preview,catalogue,writers,root));}
+    if(preview.pipeline_id)body.append(messageRoutesForm(saved,preview,routes));
     const tasks=node("details");tasks.append(node("summary",`Задачи и условия (${preview.tasks.length})`));
     for(const task of preview.tasks){
       const box=node("article",undefined,"owner-task");box.dataset.ownerTask=task.id;
@@ -247,9 +288,11 @@
         saved.api(`/api/tasks/owner/${saved.workflowId}?project_id=${saved.projectId}`),
         saved.api(`/api/verification/catalogue?project_id=${saved.projectId}`)]);
       if(!current(saved,generation))return;
+      const routeOutcome=await saved.api(`/api/tasks/owner/${saved.workflowId}/message-routes?project_id=${saved.projectId}`);
+      if(!current(saved,generation))return;
       saved.fullTasks=new Map();
       if(outcome.result.pipeline_id){const cards=await Promise.all(outcome.result.tasks.map(task=>saved.api(`/api/tasks/${task.id}`)));if(!current(saved,generation))return;for(const card of cards)saved.fullTasks.set(card.task.id,card.task);}
-      saved.preview=outcome.result;saved.catalogue=catalogue;render(saved,outcome.result,catalogue);$("#ownerStatus").textContent="План загружен";return true;
+      saved.preview=outcome.result;saved.catalogue=catalogue;render(saved,outcome.result,catalogue,routeOutcome.result);$("#ownerStatus").textContent="План загружен";return true;
     }catch(error){if(current(saved,generation)){
       $("#ownerError").textContent=errorMessage(error);$("#ownerError").hidden=false;$("#ownerStatus").textContent="План недоступен";
       if(["scope","project_changed"].includes(error.code))stopRows(saved,(saved.preview?.tasks||[saved.card.task]).map(task=>({id:task.id,revision:task.revision,state:task.state,title:`Задача ${task.id.slice(0,6)}`})));

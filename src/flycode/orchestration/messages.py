@@ -5,6 +5,7 @@ import json
 from typing import cast
 from uuid import uuid4
 
+from ..domain.message_routes import MessageGrantPin
 from ..domain.orchestration import (
     AgentMessage,
     MessageDraft,
@@ -12,6 +13,7 @@ from ..domain.orchestration import (
     QueueModel,
 )
 from ..tools.filesystem import ToolResult
+from .message_routes import MessageRoutes
 from .store import Store, StoreError, covers
 from .tools import Tools, authorize
 
@@ -27,9 +29,37 @@ class MessageEndpoint(QueueModel):
     contract_hash: str
 
 
+class MessageRouting(QueueModel):
+    endpoints: tuple[MessageEndpoint, ...] = ()
+    grant: MessageGrantPin | None = None
+
+
 class Messages:
     def __init__(self, store: Store):
         self.store = store
+
+    def routing(self, scope, attempt_id, fence, *, static=()) -> MessageRouting:
+        if static:
+            return MessageRouting(endpoints=self.capture(scope, attempt_id, fence, static))
+        try:
+            resolved = MessageRoutes(self.store).live(scope, attempt_id, fence)
+        except StoreError as error:
+            if error.code not in {'message_route_stale', 'message_route_changed'}:
+                raise
+            return MessageRouting()
+        return MessageRouting(endpoints=self.capture(scope, attempt_id, fence, resolved.recipients), grant=resolved.grant)
+
+    def validate_routing(self, scope, attempt_id, fence, pins, route_proof=None) -> None:
+        if route_proof is not None:
+            try:
+                grant = MessageRoutes(self.store).require(scope, attempt_id, fence, route_proof)
+                sender = self.store._attempt(attempt_id)
+                allowed = {edge.recipient_task_id for edge in grant.edges if edge.sender_task_id == sender.task_id}
+                if any(pin.task_id not in allowed for pin in pins):
+                    raise StoreError('message_route_stale')
+            except StoreError as error:
+                raise StoreError('message_route_stale') from error
+        self.validate_endpoints(scope, attempt_id, fence, pins)
 
     def capture(self, scope, attempt_id, fence, identities) -> tuple[MessageEndpoint, ...]:
         sender, _, _ = self.store._owned(scope, attempt_id, fence, running=True)
@@ -52,7 +82,7 @@ class Messages:
         if self.capture(scope, attempt_id, fence, [pin.instance_id for pin in pins]) != tuple(pins):
             raise StoreError('message_route_stale', 'A displayed recipient no longer owns the same attempt and contract')
 
-    def execute(self, scope, attempt_id, fence, *, root, action, routes, recipient_pins=None) -> ToolResult:
+    def execute(self, scope, attempt_id, fence, *, root, action, routes, recipient_pins=None, route_proof=None) -> ToolResult:
         """Execute one model-selected communication action on the owning host."""
         store, tools = self.store, Tools(self.store)
         _, task, workflow = store._owned(scope, attempt_id, fence, running=True)
@@ -67,7 +97,7 @@ class Messages:
                 recipient_pins = tuple(pin for pin in recipient_pins if pin.instance_id in draft.recipients)
                 if {pin.instance_id for pin in recipient_pins} != set(draft.recipients):
                     raise StoreError('message_route')
-                self.validate_endpoints(scope, attempt_id, fence, recipient_pins)
+                self.validate_routing(scope, attempt_id, fence, recipient_pins, route_proof)
         except StoreError as error:
             return ToolResult(success=False, error_message=error.code, payload={'blocked': error.code})
         try:
@@ -77,7 +107,7 @@ class Messages:
                 raise
             return ToolResult(success=False, error_message=error.code, payload={'blocked': error.code})
         try:
-            sent = self.send(scope, attempt_id, fence, draft, recipient_pins=recipient_pins)
+            sent = self.send(scope, attempt_id, fence, draft, recipient_pins=recipient_pins, route_proof=route_proof)
             result = ToolResult(success=True, payload={'message_ids': [item.id for item in sent]})
         except StoreError as error:
             result = ToolResult(success=False, error_message=error.code, payload={'blocked': error.code})
@@ -143,6 +173,26 @@ class Messages:
         return self.store.db.execute('SELECT * FROM message_questions WHERE workflow_id=? AND correlation_id=?',
             (message.workflow_id, message.correlation_id)).fetchone()
 
+    def _route_revoked(self, scope, message):
+        proof = self.store.db.execute('SELECT grant_id,grant_hash FROM message_route_proofs WHERE message_id=?',
+            (message.id,)).fetchone()
+        events = self.store.db.execute("""SELECT json_extract(data,'$.data.route_grant') AS pin FROM events
+            WHERE workflow_id=? AND json_extract(data,'$.kind')='message_sent'
+            AND json_extract(data,'$.data.message_id')=?""", (message.workflow_id, message.id)).fetchall()
+        anchored = [row['pin'] for row in events if row['pin'] is not None]
+        if proof is None:
+            return bool(anchored)
+        try:
+            pin = MessageGrantPin(id=proof['grant_id'], sha256=proof['grant_hash'])
+            if len(events) != 1 or len(anchored) != 1 or MessageGrantPin.model_validate_json(anchored[0]) != pin:
+                return True
+            grant = MessageRoutes(self.store).require(scope, message.attempt_id, message.sender_fence, pin)
+            recipient = self.store._attempt(message.recipient_attempt_id)
+            return not any(edge.sender_task_id == message.task_id and edge.recipient_task_id == recipient.task_id
+                for edge in grant.edges)
+        except ValueError:
+            return True
+
     def _reason(self, scope, message, *, received=False):
         if message.expires_at <= self.store.clock():
             return 'expired'
@@ -151,6 +201,8 @@ class Messages:
             return 'stale_sender'
         if not self._current(scope, recipient, running=False):
             return 'stale_recipient'
+        if self._route_revoked(scope, message):
+            return 'message_route_revoked'
         source, target = self.store.task(scope, sender.task_id), self.store.task(scope, recipient.task_id)
         if (source.permissions is None or target.permissions is None
                 or not covers(target.permissions.read_scopes, source.permissions.read_scopes)
@@ -159,6 +211,8 @@ class Messages:
             return 'message_scope'
         if message.causation_id is not None:
             parent = self._message(message.causation_id)
+            if self._route_revoked(scope, parent):
+                return 'message_route_revoked'
             if ((parent.recipient_id == sender.instance_id and parent.recipient_attempt_id != sender.id)
                     or (parent.sender_id == sender.instance_id and parent.attempt_id != sender.id)
                     or (parent.sender_id == recipient.instance_id and parent.attempt_id != recipient.id)
@@ -232,11 +286,13 @@ class Messages:
             task=store.task(scope, recipient.task_id), attempt=recipient, message_id=message.id, reason=reason)
         return receipt
 
-    def send(self, scope, attempt_id, fence, draft: MessageDraft, *, recipient_pins=None) -> list[AgentMessage]:
+    def send(self, scope, attempt_id, fence, draft: MessageDraft, *, recipient_pins=None, route_proof=None) -> list[AgentMessage]:
         store = self.store
         store._role(scope, ('runtime',))
         draft = MessageDraft.model_validate(draft.model_dump())
+        store._host_guard()
         with store.transaction():
+            store._host_sql()
             sender = store._attempt(attempt_id)
             task = store.task(scope, sender.task_id)
             workflow = store._workflow(sender.workflow_id)
@@ -250,10 +306,14 @@ class Messages:
                 if previous['request_hash'] != digest:
                     raise StoreError('idempotency', 'Key already belongs to a different message')
                 return [self._message(identity) for identity in json.loads(previous['message_ids'])]
+            if route_proof is not None and recipient_pins is None:
+                raise StoreError('message_route_stale')
             parent = self._parent(scope, sender, draft)
+            if parent is not None and self._route_revoked(scope, parent):
+                raise StoreError('message_route_stale')
             targets = self.recipients(scope, sender, draft.recipients, parent=parent)
             if recipient_pins is not None:
-                self.validate_endpoints(scope, attempt_id, fence, recipient_pins)
+                self.validate_routing(scope, attempt_id, fence, recipient_pins, route_proof)
                 expected = {pin.instance_id: pin for pin in recipient_pins}
                 resolved = {recipient.instance_id: MessageEndpoint(instance_id=recipient.instance_id,
                     attempt_id=recipient.id, task_id=recipient.task_id, fence=recipient.fence,
@@ -290,10 +350,14 @@ class Messages:
                 if len(data.encode()) > 16 * 1024:
                     raise StoreError('message_size')
                 store.db.execute('UPDATE messages SET data=? WHERE id=?', (data, identity))
+                if route_proof is not None:
+                    store.db.execute('INSERT INTO message_route_proofs VALUES (?,?,?)',
+                        (identity, route_proof.id, route_proof.sha256))
                 store.db.execute('INSERT INTO message_outbox(message_id) VALUES (?)', (identity,))
                 store._event(scope, workflow, 'message_sent', task=task, attempt=sender, message_id=identity,
                     recipient_id=recipient.instance_id, message_kind=message.content.kind,
-                    content_hash=hashlib.sha256(data.encode()).hexdigest())
+                    content_hash=hashlib.sha256(data.encode()).hexdigest(),
+                    **({'route_grant': route_proof.model_dump(mode='json')} if route_proof is not None else {}))
                 messages.append(message)
             current_question = next((item for item in messages if self._reason(scope, item) is None), None)
             if draft.content.kind == 'question' and current_question is not None:

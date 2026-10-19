@@ -7,7 +7,11 @@ from fastapi import APIRouter, HTTPException, Path, Query
 from fastapi.responses import JSONResponse
 
 from ..orchestration.attach import CoordinatorClient
-from ..orchestration.owner_requests import OwnerCommand, OwnerPreview
+from ..orchestration.owner_requests import (
+    OwnerCommand,
+    OwnerMessageRoutesPreview,
+    OwnerPreview,
+)
 from ..orchestration.projects import Projects
 from ..orchestration.store import Store, StoreError, default_state_path
 from .projects import project_options
@@ -37,7 +41,7 @@ def owner_router(manager):
             project = allowed(store, command.project_id)
             if project.revision != command.project_revision:
                 raise StoreError('project_changed')
-            if not isinstance(command, OwnerPreview):
+            if not isinstance(command, (OwnerPreview, OwnerMessageRoutesPreview)):
                 Projects(store)._grant(project, actor)
             with CoordinatorClient(store.path) as client:
                 outcome = client.owner(command.model_dump(mode='json'))
@@ -66,6 +70,19 @@ def owner_router(manager):
         finally:
             store.close()
         return forward(OwnerPreview(operation='preview', project_id=project.id,
+            project_revision=project.revision, workflow_id=workflow_id))
+
+    @router.get('/api/tasks/owner/{workflow_id}/message-routes')
+    def message_routes_preview(workflow_id: Annotated[str, Path(pattern=r'^[0-9a-f]{32}$')],
+                               project_id: Annotated[str, Query(pattern=r'^[0-9a-f]{32}$')]):
+        store = Store(default_state_path())
+        try:
+            project = allowed(store, project_id)
+        except StoreError as error:
+            raise HTTPException(403 if error.code == 'scope' else 409, {'code': error.code}) from error
+        finally:
+            store.close()
+        return forward(OwnerMessageRoutesPreview(operation='message_routes_preview', project_id=project.id,
             project_revision=project.revision, workflow_id=workflow_id))
 
     return router

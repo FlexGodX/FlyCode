@@ -219,6 +219,9 @@ When the user corrects your approach, append a one-line rule here before ending 
 - After bounded registered-profile capture, run `_project_sql` and `_profile_sql` together in a short transaction.
 - Pin task and workflow revisions before completion-currentness inspection; recheck both before applying a negative result after integration publication.
 
+- Check the owner result kind before accessing variant-specific fields in shared UI success handlers; exercise existing success flows after adding a result variant.
+- Mark a verification report passed only after required browser, HTTP and process cleanup succeeds.
+
 ## 12. How this file was built
 
 This boilerplate synthesizes:

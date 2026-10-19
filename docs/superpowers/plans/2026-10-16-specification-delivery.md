@@ -1,5 +1,23 @@
 # Specification delivery Implementation Plan
 
+Owner-approved task routes,2026-10-19: explicit directed grants/head CAS and
+revocation now connect the owner API/Tasks form to dynamic exact worker endpoints.
+A peer started later is discovered on the next request; grant/endpoint/candidate
+pins and physical Host checks reject stale publication. Pending/remembered old
+messages and old causation remain revoked after reapproval or proof substitution.
+Exact extracted186-file wheel226 scoped tests pass247.88s;
+frozen merged232-file controller254 tests pass288.72s.
+Route UI1440/390/320 and old preview/commands pass on the extracted package.
+Detached automatic question/answer passes71.56s on that package,
+87.72s on the controller merge:7tasks,4instances,8attempts,
+10workflow models +1 probe,55tools,3fresh independent reviews/current integration.
+No reservations/uncertainty, deadline/other owner bytes and cleanup preserved.
+Ruff/mypy9, UTF8 README/package identity and extracted Stop CLI pass. Registered
+prompt-command route bridge is checked locally and excluded from this public
+package. Controlled local HTTP proves software behavior only. Message-to-task
+transitions, avalanche, scientific and aggregate/full/final goal gates remain open.
+Report: [owner message routes](../../validation/2026-10-19-owner-message-routes.md).
+
 Checked exact message endpoints,2026-10-19: extracted184-file wheel150 scoped
 tests pass94.83s; frozen merged225 source213 tests pass147.75s. Held HTTP without
 incoming messages rejects recipient pause/cancel/reuse/narrower replacement;
