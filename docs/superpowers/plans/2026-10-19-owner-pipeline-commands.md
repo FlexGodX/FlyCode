@@ -20,7 +20,7 @@ recipe/history hashes and omitted-field behavior remain compatible.
 2. [x] Add complete registered profile SQL pins to final parent/replan CAS;
    changed head/row/project after physical preflight must publish nothing.
    No `profile()`, Sources or oracle disk reads in the final transaction.
-3. [ ] Add bounded typed owner command transport to authenticated attachment;
+3. [x] Add bounded typed owner command transport to authenticated attachment;
    execute using `host.connect(catalogue=...)`, never temporary Host/recovery.
    Read-only preview exposes blockers and IDs, excludes internal recipe paths.
    Explicit approval/replan resolves profile IDs/versions server-side; no grants
@@ -29,6 +29,8 @@ recipe/history hashes and omitted-field behavior remain compatible.
 4. [ ] Share adapters through CLI, protected HTTP and explicit Tasks confirmation.
    Check token/origin/scope, rejected fields, stale revisions, replay, keyboard,
    desktop/390/320 and Stop. Keep prior screens and saved materials usable.
+   CLI and protected HTTP now share checked live commands. Tasks controls and
+   their browser acceptance remain pending.
 5. [ ] Execute real public parent preparation/wait, branch retry, separate owner
    replan/new branch, restart, fresh review, continuation and current integrated
    completion under original spending/deadline and max3/4pool/64tasks. Save all
@@ -88,3 +90,22 @@ restore an old head over a concurrent activation.
 Checked Task2 [report](../../validation/2026-10-19-owner-recipe-profiles.md): final wheel14,
 compatibility28 and frozen parallel-source14 pass. Task3 live transport/staging,
 Task4 public controls and Task5 combined acceptance remain unchecked.
+
+Checked live owner commands,2026-10-19: signed bounded requests use the existing
+Host and server-selected scope/roots/profiles. Preview has no grants, bindings,
+oracle activation or execution constructors. Explicit prepare supports partial
+receipts; immutable intent and exact lower-level receipts survive lost response
+and real Host restart. Anchored regular-file transfer retains independent heads
+and fails closed on altered pending bytes. Final Host/project/task/workflow/profile
+CAS prevents late publication. CLI and protected HTTP share these commands.
+
+Final wheel43 pass108.15s, compatibility98 pass56.49s, frozen combined-brain215
+source43 pass116.71s, Ruff12/mypy10/package182/324 unchanged inputs/UTF-8 README/
+CLI pass. Counts overlap. Native English retry/new-branch/restart/fresh-review/
+current integration:7tasks,10attempts,5model/52tool calls plus1 separate probe;
+original1800s deadline/limits/dirty bytes remain, no reservations or uncertainty.
+All12 early boundaries, both first-wheel rounds (including97/98 regression),
+configuration and report-preparation failures are retained in [the report](../../validation/2026-10-19-owner-commands.md).
+Tasks owner confirmation/browser controls and automatic coordinator-process/UI
+combined acceptance remain open, as do aggregate/controller/admission/neural/
+research/full/final gates. No live-LM/graph/training/scientific claim.

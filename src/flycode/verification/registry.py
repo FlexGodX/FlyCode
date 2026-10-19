@@ -480,12 +480,12 @@ class VerificationRegistry:
                     (project.id, record.draft.acceptance.id)).fetchone()
                 if head is None or head['approval_hash'] != record.approval_hash:
                     raise ValueError('A newer owner approval superseded this profile')
-                directory = self._directory(storage, 'oracles', project.id, record.id)
-                approved = OracleRegistry(directory).resolve(
-                    record.approval_hash, record.draft.acceptance)
-                if digest([item.model_dump() for item in approved.checks]) != digest(
-                        [item.model_dump() for item in record.draft.checks]):
-                    raise ValueError('Registered profile checks changed')
+                from .oracle_transfer import capture_registered
+
+                capture_registered(self, project, storage, record)
+                with self.store.transaction():
+                    self._project_sql(project)
+                    self._profile_sql(record)
             except (OSError, ValueError) as error:
                 raise StoreError('verification_profile_changed') from error
         return record

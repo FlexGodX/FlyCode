@@ -1,5 +1,24 @@
 # Specification delivery Implementation Plan
 
+Checked live owner commands,2026-10-19: signed bounded requests use the existing
+Host and server-selected scope/roots/profiles. Preview has no grants, bindings,
+oracle activation or execution constructors. Explicit prepare supports partial
+receipts; immutable intent and exact lower-level receipts survive lost response
+and real Host restart. Anchored regular-file transfer retains independent heads
+and fails closed on altered pending bytes. Final Host/project/task/workflow/profile
+CAS prevents late publication. CLI and protected HTTP share these commands.
+
+Final wheel43 pass108.15s, compatibility98 pass56.49s, frozen combined-brain215
+source43 pass116.71s, Ruff12/mypy10/package182/324 unchanged inputs/UTF-8 README/
+CLI pass. Counts overlap. Native English retry/new-branch/restart/fresh-review/
+current integration:7tasks,10attempts,5model/52tool calls plus1 separate probe;
+original1800s deadline/limits/dirty bytes remain, no reservations or uncertainty.
+All12 early boundaries, both first-wheel rounds (including97/98 regression),
+configuration and report-preparation failures are retained in [the report](../../validation/2026-10-19-owner-commands.md).
+Tasks owner confirmation/browser controls and automatic coordinator-process/UI
+combined acceptance remain open, as do aggregate/controller/admission/neural/
+research/full/final gates. No live-LM/graph/training/scientific claim.
+
 Checked parent/replan profile pins,2026-10-19: trusted owner calls now verify
 exact registered criteria/trust/reruns outside SQL, then pin full profile/head/
 project in final CAS before publication or new branch ID allocation. Final wheel14

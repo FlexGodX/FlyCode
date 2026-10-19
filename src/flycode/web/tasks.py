@@ -40,6 +40,7 @@ from ..tracker.projection import (
     TaskSnapshot,
 )
 from ..tracker.service import TrackerService
+from .owner import owner_router
 from .projects import project_options
 from .verification import verification_router
 
@@ -304,5 +305,6 @@ def task_router(manager) -> APIRouter:
         with access() as (_, tracker, scope):
             return tracker.comment(scope, identity, body)
 
+    router.include_router(owner_router(manager))
     router.include_router(verification_router(access, actor))
     return router

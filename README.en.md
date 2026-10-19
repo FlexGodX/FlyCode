@@ -167,6 +167,19 @@ the full profile, active head and project are pinned again before publication
 and ID allocation. Command replay includes the selected profiles and returns
 the saved receipt without starting new work.
 
+Live owner commands share `tasks owner --project . --input owner-command.json`
+and protected `POST /api/tasks/owner`. Read-only
+`GET /api/tasks/owner/{workflow_id}?project_id=...` returns task IDs/revisions,
+blockers and registered criteria. `preview` prepares nothing; explicit `prepare`
+binds source without attempts, `approve_parent` authorizes the route, and `replan`
+changes a stopped graph or adds writer/reviewer pairs. JSON supplies references
+and expected revisions; the server selects folders, roles and oracle approvals.
+Connect the service first with `tasks service attach`. Tasks-screen buttons for
+these commands remain pending. Exact-key retry preserves frozen intent, partial
+preparation and saved receipts across Host restart; changed input is rejected.
+Catalogue registration alone does not change an approved workflow: a separate
+owner command activates its runtime oracle version.
+
 `tasks show/list`, HTTP and the Tasks screen share one result projection.
 Verified task completion is separate from applying the entire workflow. Cards,
 list and active agents show currentness, child waits, graph revision, approved

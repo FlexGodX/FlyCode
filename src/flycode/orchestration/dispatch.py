@@ -48,7 +48,7 @@ class Dispatcher:
         return WorkerBinding.model_validate_json(row['data'])
 
     def bind(self, scope, task_id, source: Path, *, expected_revision, key, expected_binding_id=None,
-             brain='functional', seed=0) -> WorkerBinding:
+             brain='functional', seed=0, project_pin=None, expected_workflow_revision=None) -> WorkerBinding:
         store = self.store
         store._role(scope, ('owner',))
         task = store.task(scope, task_id)
@@ -60,11 +60,22 @@ class Dispatcher:
             raise StoreError('source_unavailable', 'Approved folder is unavailable') from error
         request = {'bind_worker': task_id, 'source': str(source), 'root': str(self.root), 'revision': expected_revision,
             'previous': expected_binding_id, 'brain': brain, 'seed': seed}
+        if project_pin is not None:
+            from ..verification.snapshot import digest
+
+            request['project_pin'] = digest(project_pin.model_dump(mode='json'))
+        if expected_workflow_revision is not None:
+            request['workflow_revision'] = expected_workflow_revision
         with store.transaction():
             found, saved, _ = store._replay(scope, key, request)
             if found:
                 return WorkerBinding.model_validate(saved)
+            if store.host is not None:
+                store._host_sql()
             self._can_bind(scope, task_id, expected_revision, expected_binding_id)
+            self._project_pin(task, project_pin)
+            if expected_workflow_revision is not None and store.workflow(scope, task.workflow_id).revision != expected_workflow_revision:
+                raise StoreError('revision')
         if not source.is_dir():
             raise StoreError('source_unavailable', 'Approved folder is unavailable')
         if self.root.is_relative_to(source):
@@ -74,12 +85,22 @@ class Dispatcher:
             snapshot = capture(source)
         except (OSError, ValueError) as error:
             raise StoreError('source_unavailable', 'Approved folder could not be captured') from error
+        if project_pin is not None:
+            from .sources import Sources
+
+            if Sources(store).prepare(source) != project_pin.root:
+                raise StoreError('project_changed')
         with store.transaction():
             found, saved, digest = store._replay(scope, key, request)
             if found:
                 return WorkerBinding.model_validate(saved)
+            if store.host is not None:
+                store._host_sql()
             task, previous = self._can_bind(scope, task_id, expected_revision, expected_binding_id)
+            self._project_pin(task, project_pin)
             workflow = store.workflow(scope, task.workflow_id)
+            if expected_workflow_revision is not None and workflow.revision != expected_workflow_revision:
+                raise StoreError('revision')
             if task.base_snapshot_hash is not None and task.base_snapshot_hash != snapshot.subject_hash:
                 raise StoreError('snapshot_changed')
             binding = WorkerBinding(id=uuid4().hex, task_id=task.id, workflow_id=workflow.id,
@@ -93,6 +114,13 @@ class Dispatcher:
             store._event(scope, workflow, 'worker_binding_created', task=task, binding=binding.model_dump(mode='json'))
             store._remember(scope, key, task.project_id, digest, binding)
             return binding
+
+    def _project_pin(self, task, project):
+        if project is not None:
+            from .projects import Projects
+
+            if project.id != task.project_id or Projects(self.store).get(project.id) != project:
+                raise StoreError('project_changed')
 
     def _can_bind(self, scope, task_id, expected_revision, expected_binding_id):
         task = self.store.task(scope, task_id)

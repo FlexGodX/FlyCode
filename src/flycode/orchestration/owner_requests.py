@@ -1,0 +1,135 @@
+"""Bounded public owner commands; paths and execution authority stay server-side."""
+
+from typing import Annotated, Literal
+
+from pydantic import Field, TypeAdapter
+
+from ..domain.orchestration import BudgetAmount, QueueModel, TaskDraft
+from ..domain.pipeline import RetryPolicy
+from ..domain.verification_control import CatalogueID
+
+Revision = Annotated[int, Field(strict=True, ge=1)]
+CommandKey = Annotated[str, Field(min_length=1, max_length=200, pattern=r'^[^\x00-\x1f\x7f]+$')]
+
+
+class ProfileRef(QueueModel):
+    id: CatalogueID
+    version: Revision
+
+
+class WorkerPreparation(QueueModel):
+    expected_revision: Revision
+    expected_binding_id: CatalogueID | None
+    brain: str = Field(min_length=1, max_length=100)
+    seed: int = Field(default=0, strict=True, ge=0, le=2**32 - 1)
+
+
+class TaskChange(QueueModel):
+    objective: str | None = Field(default=None, min_length=1, max_length=20000)
+    dependencies: tuple[str, ...] | None = Field(default=None, max_length=64)
+
+
+class NewBranch(QueueModel):
+    writer: TaskDraft
+    reviewer: TaskDraft
+    template_writer_id: CatalogueID
+    profile: ProfileRef
+
+
+class OwnerBase(QueueModel):
+    version: Literal['owner-command-v1'] = 'owner-command-v1'
+    project_id: CatalogueID
+    project_revision: Revision
+
+
+class OwnerPreview(OwnerBase):
+    operation: Literal['preview']
+    workflow_id: CatalogueID
+
+
+class OwnerPrepare(OwnerBase):
+    operation: Literal['prepare']
+    workflow_id: CatalogueID
+    expected_revision: Revision
+    workers: dict[CatalogueID, WorkerPreparation] = Field(min_length=1, max_length=31)
+    idempotency_key: CommandKey
+
+
+class OwnerApprove(OwnerBase):
+    operation: Literal['approve_parent']
+    workflow_id: CatalogueID
+    expected_revision: Revision
+    task_revisions: dict[CatalogueID, Revision] = Field(min_length=1, max_length=64)
+    pairs: dict[CatalogueID, CatalogueID] = Field(min_length=2, max_length=31)
+    integrator_id: CatalogueID
+    profiles: dict[CatalogueID, ProfileRef] = Field(min_length=1, max_length=64)
+    preparation_steps: int = Field(default=1, strict=True, ge=1, le=59)
+    reruns: int = Field(default=0, strict=True, ge=0, le=2)
+    retry_policies: dict[CatalogueID, RetryPolicy] = Field(default_factory=dict, max_length=31)
+    idempotency_key: CommandKey
+
+
+class OwnerReplan(OwnerBase):
+    operation: Literal['replan']
+    pipeline_id: CatalogueID
+    expected_revision: Revision
+    task_revisions: dict[CatalogueID, Revision] = Field(min_length=1, max_length=64)
+    changes: dict[CatalogueID, TaskChange] = Field(default_factory=dict, max_length=64)
+    new_branches: tuple[NewBranch, ...] = Field(default=(), max_length=30)
+    profiles: dict[CatalogueID, ProfileRef] = Field(min_length=1, max_length=64)
+    idempotency_key: CommandKey
+
+
+OwnerCommand = Annotated[OwnerPreview | OwnerPrepare | OwnerApprove | OwnerReplan, Field(discriminator='operation')]
+
+
+def owner_request(value):
+    return TypeAdapter(OwnerCommand).validate_python(value)
+
+
+class OwnerTask(QueueModel):
+    id: CatalogueID
+    title: str
+    kind: str
+    revision: Revision
+    state: str
+    parent_id: CatalogueID | None
+    dependencies: tuple[str, ...]
+    profile_ids: tuple[str, ...]
+    criteria_id: str | None
+    criteria_version: int | None
+    permission_approved: bool
+    budget: BudgetAmount | None
+    binding_id: CatalogueID | None
+    blockers: tuple[str, ...]
+
+
+class OwnerProfile(QueueModel):
+    id: CatalogueID
+    version: Revision
+    title: str
+    criteria_id: str | None
+    criteria_version: int | None
+    reruns: int
+    available: bool
+    reason: str | None = None
+
+
+class OwnerResult(QueueModel):
+    kind: Literal['preview', 'prepared', 'approved', 'replanned']
+    project_id: CatalogueID
+    project_revision: Revision
+    workflow_id: CatalogueID
+    workflow_revision: Revision
+    pipeline_id: CatalogueID | None = None
+    graph_revision: int = Field(default=0, strict=True, ge=0, le=2)
+    binding_ids: dict[CatalogueID, CatalogueID] = Field(default_factory=dict, max_length=31)
+    added_task_ids: tuple[CatalogueID, ...] = Field(default=(), max_length=64)
+    tasks: tuple[OwnerTask, ...] = Field(default=(), max_length=64)
+    profiles: tuple[OwnerProfile, ...] = Field(default=(), max_length=64)
+    partial: bool = False
+
+
+class OwnerOutcome(QueueModel):
+    result: OwnerResult | None = None
+    error_code: str | None = Field(default=None, pattern=r'^[a-z0-9_]+$', max_length=100)

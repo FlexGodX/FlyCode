@@ -109,13 +109,13 @@ class Pipelines:
             expected_revisions=expected_revisions, approval_hashes=approval_hashes, key=key, reruns=reruns, dependent=True)
 
     def approve_parent(self, scope, workflow_id, pairs, integrator_id, *, source,
-                       expected_revisions, approval_hashes, key, preparation_steps=1, reruns=0, retry_policies=None, profile_pins=None):
+                       expected_revisions, approval_hashes, key, preparation_steps=1, reruns=0, retry_policies=None, profile_pins=None, expected_revision=None):
         return self._approve_many(scope, workflow_id, pairs, integrator_id, source=source,
             expected_revisions=expected_revisions, approval_hashes=approval_hashes, key=key, reruns=reruns,
-            dependent=True, parent=True, preparation_steps=preparation_steps, retry_policies=retry_policies, profile_pins=profile_pins)
+            dependent=True, parent=True, preparation_steps=preparation_steps, retry_policies=retry_policies, profile_pins=profile_pins, expected_revision=expected_revision)
 
     def _approve_many(self, scope, workflow_id, pairs, integrator_id, *, source,
-                      expected_revisions, approval_hashes, key, reruns, dependent=False, parent=False, preparation_steps=1, retry_policies=None, profile_pins=None):
+                      expected_revisions, approval_hashes, key, reruns, dependent=False, parent=False, preparation_steps=1, retry_policies=None, profile_pins=None, expected_revision=None):
         store = self.store
         store._role(scope, ('owner',))
         store.workflow(scope, workflow_id)
@@ -124,6 +124,8 @@ class Pipelines:
             'revisions': expected_revisions, 'approvals': approval_hashes, 'source': str(source),
             'root': str(self.root), 'reruns': reruns}
         registered = ApprovalProfiles(store, profile_pins)
+        if expected_revision is not None:
+            request['workflow_revision'] = expected_revision
         if profile_pins is not None:
             request['verification_profiles'] = registered.request()
         policies = TypeAdapter(dict[str, RetryPolicy]).validate_python(retry_policies) if retry_policies is not None else {}
@@ -135,8 +137,12 @@ class Pipelines:
             found, saved, _ = store._replay(scope, key, request)
             if found:
                 return model.model_validate(saved)
+            if store.host is not None:
+                store._host_sql()
             workflow, tasks, profiles, bindings = self._initial_many(scope, workflow_id, pairs,
                 integrator_id, expected_revisions, dependent=dependent, parent=parent)
+            if expected_revision is not None and workflow.revision != expected_revision:
+                raise StoreError('revision')
             if parent:
                 root = tasks[workflow.root_task_id]
                 if (type(preparation_steps) is not int or not 1 <= preparation_steps < min(
@@ -169,6 +175,8 @@ class Pipelines:
             found, saved, request_hash = store._replay(scope, key, request)
             if found:
                 return model.model_validate(saved)
+            if store.host is not None:
+                store._host_sql()
             if self._initial_many(scope, workflow_id, pairs, integrator_id, expected_revisions,
                     dependent=dependent, parent=parent) != (workflow, tasks, profiles, bindings):
                 raise StoreError('revision')

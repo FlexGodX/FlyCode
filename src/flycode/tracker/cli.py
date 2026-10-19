@@ -23,6 +23,7 @@ from ..domain.orchestration import (
 )
 from ..domain.project import TaskStopReceipt
 from ..orchestration.attach import CoordinatorClient, attach_coordinator
+from ..orchestration.owner_requests import owner_request
 from ..orchestration.projects import Projects
 from ..orchestration.store import Store, StoreError, default_state_path
 from .commands import CommentCommand
@@ -63,7 +64,7 @@ def configure_parser(subparsers):
     commands = parser.add_subparsers(dest='task_action', required=True)
     service = commands.add_parser('service', help='Check or explicitly connect the shared coordinator')
     service.add_argument('service_action', choices=['status', 'attach'])
-    for name in ('register', 'create', 'list', 'show', 'command', 'comment', 'events', 'agents', 'stops', 'stop', 'materials', 'material'):
+    for name in ('register', 'create', 'list', 'show', 'command', 'comment', 'events', 'agents', 'stops', 'stop', 'materials', 'material', 'owner'):
         command = commands.add_parser(name)
         if name not in {'stops', 'stop'}:
             command.add_argument('--project', required=True, help='Explicit current local project folder')
@@ -73,9 +74,10 @@ def configure_parser(subparsers):
             command.add_argument('material_id', type=_material_identity)
         if name in {'create', 'comment', 'stop'}:
             command.add_argument('--key', required=True, help='Stable idempotency key; reuse for the same request')
-        if name in {'create', 'command'}:
+        if name in {'create', 'command', 'owner'}:
             command.add_argument('--input', required=True,
-                help='TaskDraft JSON file' if name == 'create' else 'Complete TaskCommand JSON file')
+                help={'create': 'TaskDraft JSON file', 'command': 'Complete TaskCommand JSON file',
+                    'owner': 'Complete owner command JSON file: preview, prepare, approve_parent or replan'}[name])
         if name == 'create':
             command.add_argument('--workflow', type=_identity, help='Existing same-project workflow ID')
             command.add_argument('--workflow-budget', help='WorkflowBudget JSON file for a new root only')
@@ -122,6 +124,7 @@ def tasks_command(args) -> int:
         payload: TaskDraft | TaskCommand | CommentCommand | None = None
         result: BaseModel | dict[str, Any] | list[dict[str, Any]]
         budget = None
+        owner_payload = owner_request(_json(args.input)) if action == 'owner' else None
         if action == 'create':
             if args.workflow and args.workflow_budget:
                 raise StoreError('scope')
@@ -144,6 +147,18 @@ def tasks_command(args) -> int:
             return 0
         store = Store(database)
         projects, tracker = Projects(store), TrackerService(store)
+        if owner_payload is not None:
+            project = projects.resolve(Path(args.project).expanduser(), actor_id=None)
+            if owner_payload.project_id != project.id:
+                raise StoreError('scope')
+            with CoordinatorClient(database) as client:
+                outcome = client.owner(owner_payload.model_dump(mode='json'))
+            if outcome.error_code is not None:
+                detail = {'error': {'code': outcome.error_code}, 'result': outcome.result.model_dump(mode='json') if outcome.result else None}
+                print(json.dumps(detail, ensure_ascii=False, allow_nan=False, indent=2), file=sys.stderr)
+                return 2
+            print(outcome.model_dump_json(indent=2))
+            return 0
         if action == 'stops':
             result = projects.stop_page(ACTOR, after=args.after, limit=args.limit)
         elif action == 'stop':

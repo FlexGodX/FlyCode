@@ -21,10 +21,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..domain.source import SourceRoot
 from .host import Host, HostRegistration, HostSession, _file, _read_registration, _root
+from .owner_requests import OwnerOutcome, owner_request
 from .store import StoreError, host_pin_path
 from .wire import receive, send
 
 LIMIT = 8192
+OWNER_LIMIT = 1024 * 1024
 VERSION: Literal['coordinator-attach-v1'] = 'coordinator-attach-v1'
 
 
@@ -58,6 +60,21 @@ class _Request(_Message):
 
 class _Reply(_Message):
     operation: Literal['attached'] = 'attached'
+
+
+class _OwnerHeader(_Message):
+    operation: Literal['owner']
+    payload_hash: str = Field(pattern=r'^[0-9a-f]{64}$')
+
+
+class _OwnerReply(_Message):
+    operation: Literal['owner_result']
+    payload_hash: str = Field(pattern=r'^[0-9a-f]{64}$')
+    outcome: OwnerOutcome
+
+
+def _payload_hash(payload):
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()).hexdigest()
 
 
 def _proof(nonce, value, direction):
@@ -184,6 +201,38 @@ class CoordinatorClient:
         except (OSError, ValueError, TypeError, EOFError, sqlite3.Error) as error:
             raise StoreError('attachment_identity') from error
 
+    def owner(self, value) -> OwnerOutcome:
+        if self.closed:
+            raise StoreError('attachment_closed')
+        try:
+            payload = owner_request(value).model_dump(mode='json')
+        except ValueError:
+            return OwnerOutcome(error_code='invalid_fields')
+        try:
+            registration, expected = _inspect(self.database)
+            descriptor = _descriptor(registration, expected)
+            body = {**expected.model_dump(), 'version': VERSION, 'operation': 'owner',
+                'challenge': secrets.token_hex(32), 'payload_hash': _payload_hash(payload)}
+            with socket.socket(socket.AF_UNIX) as channel:
+                channel.settimeout(1)
+                channel.connect(descriptor.socket_path)
+                send(channel, {**body, 'proof': _proof(descriptor.auth_nonce, body, 'request')}, max_frame=LIMIT)
+                send(channel, payload, max_frame=OWNER_LIMIT)
+                channel.settimeout(30)
+                reply = _OwnerReply.model_validate(receive(channel, max_frame=OWNER_LIMIT, deadline=time.monotonic() + 30))
+            contents = reply.model_dump(exclude={'proof'})
+            if (reply.challenge != body['challenge'] or reply.payload_hash != body['payload_hash']
+                    or not hmac.compare_digest(reply.proof, _proof(descriptor.auth_nonce, contents, 'reply'))
+                    or reply.model_dump(include=set(AttachmentStatus.model_fields)) != expected.model_dump()
+                    or _inspect(self.database) != (registration, expected)):
+                raise StoreError('attachment_identity')
+            _descriptor(registration, expected)
+            return reply.outcome
+        except StoreError:
+            raise
+        except (OSError, ValueError, TypeError, EOFError, sqlite3.Error) as error:
+            raise StoreError('attachment_identity') from error
+
 
 def _launch_preflight(database, failure):
     pin = host_pin_path(database)
@@ -270,6 +319,7 @@ class AttachmentServer:
         self.host = host
         self.stop = Event()
         self.slots = BoundedSemaphore(8)
+        self.owner_slot = BoundedSemaphore(1)
         self.pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix='attach-peer')
         self.channel = None
         self.thread = None
@@ -345,7 +395,8 @@ class AttachmentServer:
         try:
             with channel:
                 channel.settimeout(1)
-                request = _Request.model_validate(receive(channel, max_frame=LIMIT, deadline=time.monotonic() + 1))
+                frame = receive(channel, max_frame=LIMIT, deadline=time.monotonic() + 1)
+                request = (_OwnerHeader if frame.get('operation') == 'owner' else _Request).model_validate(frame)
                 contents = request.model_dump(exclude={'proof'})
                 if (request.model_dump(include=set(AttachmentStatus.model_fields))
                         != self.descriptor.model_dump(include=set(AttachmentStatus.model_fields))
@@ -353,6 +404,9 @@ class AttachmentServer:
                     return
                 self.host.check()
                 _endpoint(self.descriptor)
+                if isinstance(request, _OwnerHeader):
+                    self._owner(channel, request, contents)
+                    return
                 store = self.host.connect()
                 try:
                     self.host.validate_sql(store)
@@ -364,6 +418,29 @@ class AttachmentServer:
             pass
         finally:
             self.slots.release()
+
+    def _owner(self, channel, request, contents):
+        if not self.owner_slot.acquire(blocking=False):
+            outcome = OwnerOutcome(error_code='owner_busy')
+        else:
+            try:
+                payload = receive(channel, max_frame=OWNER_LIMIT, deadline=time.monotonic() + 1)
+                if not hmac.compare_digest(_payload_hash(payload), request.payload_hash):
+                    return
+                from ..llm.catalogue import ModelCatalogue
+                from .owner_commands import OwnerCommands
+
+                store = self.host.connect(catalogue=ModelCatalogue(database=self.host.database))
+                try:
+                    self.host.validate_sql(store)
+                    outcome = OwnerCommands(store).execute(payload)
+                finally:
+                    store.close()
+            finally:
+                self.owner_slot.release()
+        reply = {**contents, 'operation': 'owner_result', 'outcome': outcome.model_dump(mode='json')}
+        channel.settimeout(1)
+        send(channel, {**reply, 'proof': _proof(self.descriptor.auth_nonce, reply, 'reply')}, max_frame=OWNER_LIMIT)
 
     def close(self):
         self.stop.set()
