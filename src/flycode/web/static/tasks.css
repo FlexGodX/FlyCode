@@ -34,3 +34,4 @@
 .task-result {font-size:12px;line-height:1.6;color:var(--green-dark);overflow-wrap:anywhere}.task-list .task-result {grid-column:1/-1}
 
 .task-result.stale {color:var(--orange)}
+.task-materials {margin:18px 0}.task-materials button {display:block;max-width:100%;overflow-wrap:anywhere;text-align:left;margin:8px 0}.task-materials p {font-size:12px;line-height:1.6;overflow-wrap:anywhere}

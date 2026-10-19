@@ -168,8 +168,19 @@ independent review/evidence IDs and pinned input receipts. Missing evidence or
 changed source revokes currentness; a later metadata change cannot keep the old
 card's pass. Metadata and cursor share one SQL snapshot; physical checks run
 afterward. Host schedules approved stages, so pending pipeline cards offer no
-manual enqueue. Public recipe/retry/replan commands across UI/CLI/API and combined
-orchestration acceptance remain in the plan.
+manual enqueue. Public recipe approval/replan commands across UI/CLI/API and
+combined orchestration acceptance remain in the plan.
+
+Expand «Файлы результата» to download saved baseline/target patch files,
+stdout/stderr, JUnit and case reports from independent and final verification.
+`tasks materials TASK --project FOLDER` lists the same materials;
+`tasks material TASK MATERIAL --project FOLDER` returns metadata and
+`content_base64`. HTTP accepts server task/material IDs only. Scope, historical
+assignment and hashes are checked when reading, through bounded no-follow file
+handles. Downloads spend no model/tool budget and do not assert current success.
+Intact historical bytes remain readable after source edits; losing one older
+material does not hide the rest. Legacy/manual records without a proven runtime
+binding are unavailable; there is no filesystem discovery fallback.
 An explicit primary compatibility probe requests
 one structured candidate; ordinary generation keeps its existing count and limits.
 The model transport adapter acquires an endpoint slot and charges the request

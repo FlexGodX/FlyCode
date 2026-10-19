@@ -4,6 +4,17 @@
 
 **Goal:** Реализовать изменения §§100–103 с проверяемыми результатами, общей очередью задач и явным отделением исследовательских допусков.
 
+Current result-material increment (2026-10-19): scoped exact historical patch/
+report downloads share CLI/HTTP/Tasks, with no-follow owned handles and hashes
+outside SQL. Selected provenance tolerates later reviewer completion; unavailable
+old material does not hide intact later bytes. Stale UI callbacks preserve a
+newer task/Stop. Final wheel7, compatibility14, actual desktop/mobile/keyboard/
+download browser, old Tasks browser, Ruff6/scoped mypy5/package177/UTF-8 README/
+CLI/315 unchanged inputs and frozen combined-brain2 pass. All15 early boundaries
+are retained in the [report](../../validation/2026-10-19-task-result-materials.md).
+Owner commands/live-Host/oracle bridge, combined Task4/controller/neural/research/
+final gates remain open. No whole-goal or scientific completion claim.
+
 Current shared-result increment (2026-10-19): task completion versus workflow
 integration/currentness, input/review/evidence/continuation/retry/graph references,
 last action and actual blockers share one Store snapshot across CLI/HTTP/Tasks/

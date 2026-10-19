@@ -69,10 +69,9 @@ def create_app(workspace: Path | None = None, data_dir: Path | None = None,
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Cache-Control"] = "no-store"
-        response.headers["Content-Security-Policy"] = (
+        response.headers.setdefault("Content-Security-Policy",
             "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
-            "connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
-        )
+            "connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
         return response
 
     @app.get("/api/bootstrap")

@@ -1,0 +1,585 @@
+{
+  "parent": "eb39455da6c3ced5a695a9026ea9a9068a73127d",
+  "status": "checked result-material increment; aggregate goal open",
+  "boundaries": [
+    {
+      "exit_code": 0,
+      "seconds": 40.94233241700567,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/orchestration/test_task_result_materials.py::test_public_materials_share_actual_cli_http_bytes_and_remain_historical",
+        "tests/unit/orchestration/test_task_result_materials.py::test_review_completion_cannot_block_reading_an_unchanged_author_patch",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-taskfiles-combined-pmb24m6g/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-taskfiles-combined-pmb24m6g/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-taskfiles-combined-pmb24m6g",
+      "label": "combined",
+      "loaded_package": "/private/tmp/flycode-replan-taskfiles-combined-pmb24m6g/src",
+      "inputs": 371,
+      "input_manifest_sha256": "9843794141191be0ee1a55a595001c0e63b8a842a6fb4a8038f124644991be66",
+      "junit": {
+        "tests": "2",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "40.293"
+      },
+      "note": "Frozen parallel-brain203 source files; two native HTTP/CLI/review-race routes, interoperability only."
+    },
+    {
+      "exit_code": 0,
+      "seconds": 13.327958458045032,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/web/test_canonical_tasks_api.py::test_http_draft_and_restart_use_actual_store_without_execution",
+        "tests/unit/web/test_canonical_tasks_api.py::test_equal_workspace_selectors_never_share_cards_commands_or_replay",
+        "tests/unit/web/test_canonical_tasks_api.py::test_new_reads_and_registration_require_token_and_local_origin",
+        "tests/unit/web/test_canonical_tasks_api.py::test_root_replacement_revokes_http_mapping_without_touching_either_folder",
+        "tests/unit/orchestration/test_tracker_cli.py::test_cli_and_native_web_share_one_restartable_draft_without_execution",
+        "tests/unit/orchestration/test_tracker_cli.py::test_cli_child_creation_and_foreign_ids_preserve_project_scope",
+        "tests/unit/web/test_verification_api.py::test_real_execution_artifacts_are_scoped_hashed_downloads_and_freshness_is_rechecked",
+        "tests/unit/web/test_verification_api.py::test_download_accepts_a_real_report_above_two_megabytes_within_runner_limit",
+        "tests/unit/web/test_verification_api.py::test_missing_old_manifest_cannot_block_download_of_an_intact_later_report",
+        "tests/unit/web/test_verification_api.py::test_verification_reads_require_token_and_same_origin",
+        "tests/unit/web/test_app.py::test_mutations_require_token_and_reject_foreign_origin",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-taskfiles-compat-3m67cpsg/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-taskfiles-compat-3m67cpsg/cases",
+        "-o",
+        "pythonpath="
+      ],
+      "root": "/private/tmp/flycode-replan-taskfiles-compat-3m67cpsg",
+      "label": "compat",
+      "loaded_package": "/private/tmp/flycode-taskfiles-wheel-extracted",
+      "inputs": 312,
+      "input_manifest_sha256": "4e9149be60fe5dc9335b72eca3920372b3345ca917fe458467145bbd10ead075",
+      "junit": {
+        "tests": "14",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "12.716"
+      },
+      "note": "Final extracted wheel; fourteen relevant existing HTTP/CLI/download/CSP security cases."
+    },
+    {
+      "exit_code": 1,
+      "seconds": 32.99344095803099,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/orchestration/test_task_result_materials.py",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-taskfiles-first-green-wqx22htq/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-taskfiles-first-green-wqx22htq/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-taskfiles-first-green-wqx22htq",
+      "label": "first-green",
+      "loaded_package": "/private/tmp/flycode-replan-taskfiles-first-green-wqx22htq/src",
+      "inputs": 311,
+      "input_manifest_sha256": "61c2b6b39c29ccafc83561c07db795bf38ad6aaac59f1e7376ae79a3764a0db1",
+      "junit": {
+        "tests": "2",
+        "failures": "2",
+        "errors": "0",
+        "skipped": "0",
+        "time": "32.476"
+      },
+      "note": "Implementation error: read_regular dir_fd existed only in parallel working tree, absent from public pinned package; HTTP500 retained, not feature RED."
+    },
+    {
+      "exit_code": 0,
+      "seconds": 72.35460020799655,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/orchestration/test_task_result_materials.py",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-taskfiles-native-green-26sf40rz/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-taskfiles-native-green-26sf40rz/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-taskfiles-native-green-26sf40rz",
+      "label": "native-green",
+      "loaded_package": "/private/tmp/flycode-replan-taskfiles-native-green-26sf40rz/src",
+      "inputs": 311,
+      "input_manifest_sha256": "c43d09d6250bfef54c660b596192c2cf1d7810d84a12fc517bb154d91aa484ed",
+      "junit": {
+        "tests": "4",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "71.765"
+      },
+      "note": "Four native cases pass after CSP and task filtering."
+    },
+    {
+      "exit_code": 1,
+      "seconds": 27.80908645800082,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/orchestration/test_task_result_materials.py::test_download_metadata_must_match_its_exact_historical_assignment",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-taskfiles-pins-red-n9mrsim4/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-taskfiles-pins-red-n9mrsim4/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-taskfiles-pins-red-n9mrsim4",
+      "label": "pins-red",
+      "loaded_package": "/private/tmp/flycode-replan-taskfiles-pins-red-n9mrsim4/src",
+      "inputs": 312,
+      "input_manifest_sha256": "6d3aa9debc6d44da3e83353c3b64ccbb7f38b745f4f6655e88af6e50eb96ef52",
+      "junit": {
+        "tests": "1",
+        "failures": "1",
+        "errors": "0",
+        "skipped": "0",
+        "time": "27.281"
+      },
+      "note": "Real historical binding semantic mismatch incorrectly accepted."
+    },
+    {
+      "exit_code": 0,
+      "seconds": 93.69331895903451,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/orchestration/test_task_result_materials.py",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-taskfiles-pins-ui-green-du0dz1a3/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-taskfiles-pins-ui-green-du0dz1a3/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-taskfiles-pins-ui-green-du0dz1a3",
+      "label": "pins-ui-green",
+      "loaded_package": "/private/tmp/flycode-replan-taskfiles-pins-ui-green-du0dz1a3/src",
+      "inputs": 312,
+      "input_manifest_sha256": "844bcc53bb3ebd478b15512f637b6bc5a2ee955814ac335539f079fbef07ee4d",
+      "junit": {
+        "tests": "5",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "93.179"
+      },
+      "note": "Five native cases plus real downloads/mobile/keyboard and controlled failed download pass."
+    },
+    {
+      "exit_code": 1,
+      "seconds": 33.19873483298579,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/orchestration/test_task_result_materials.py",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-taskfiles-red-c2pnst8x/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-taskfiles-red-c2pnst8x/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-taskfiles-red-c2pnst8x",
+      "label": "red",
+      "loaded_package": "/private/tmp/flycode-replan-taskfiles-red-c2pnst8x/src",
+      "inputs": 310,
+      "input_manifest_sha256": "9701fc8a77b6478e471af10c06cfeb3099a1e3df864390ae3577f698760ef2ba",
+      "junit": {
+        "tests": "2",
+        "failures": "2",
+        "errors": "0",
+        "skipped": "0",
+        "time": "32.548"
+      },
+      "note": "Real missing service catalogue and HTTP404."
+    },
+    {
+      "exit_code": 0,
+      "seconds": 120.29459720797604,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/orchestration/test_task_result_materials.py",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-taskfiles-retention-race-green-dlg_n6j7/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-taskfiles-retention-race-green-dlg_n6j7/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-taskfiles-retention-race-green-dlg_n6j7",
+      "label": "retention-race-green",
+      "loaded_package": "/private/tmp/flycode-replan-taskfiles-retention-race-green-dlg_n6j7/src",
+      "inputs": 312,
+      "input_manifest_sha256": "2a71bf935e9a9a7abfaff36b90391e9343ec32ce9114e48744f42cb38d7ef56f",
+      "junit": {
+        "tests": "6",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "119.642"
+      },
+      "note": "Six cases pass, including both delayed catalogue/download error responses and retained later patch."
+    },
+    {
+      "exit_code": 1,
+      "seconds": 56.86053950001951,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/orchestration/test_task_result_materials.py::test_lost_historical_material_does_not_hide_an_intact_later_result",
+        "tests/unit/orchestration/test_task_result_materials.py::test_public_materials_share_actual_cli_http_bytes_and_remain_historical",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-taskfiles-retention-race-red-vycvpmpg/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-taskfiles-retention-race-red-vycvpmpg/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-taskfiles-retention-race-red-vycvpmpg",
+      "label": "retention-race-red",
+      "loaded_package": "/private/tmp/flycode-replan-taskfiles-retention-race-red-vycvpmpg/src",
+      "inputs": 312,
+      "input_manifest_sha256": "b249eedabc7bf58b079905256ef4dc6623a320816a72bc91af1fbc04fad7c4d3",
+      "junit": {
+        "tests": "2",
+        "failures": "2",
+        "errors": "0",
+        "skipped": "0",
+        "time": "56.355"
+      },
+      "note": "Real missing old manifest blocked intact later patch, and delayed old HTTP scope response hid newer task."
+    },
+    {
+      "exit_code": 0,
+      "seconds": 5.134083583019674,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/orchestration/test_task_result_materials.py::test_review_completion_cannot_block_reading_an_unchanged_author_patch",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-taskfiles-review-race-green-ebet672s/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-taskfiles-review-race-green-ebet672s/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-taskfiles-review-race-green-ebet672s",
+      "label": "review-race-green",
+      "loaded_package": "/private/tmp/flycode-replan-taskfiles-review-race-green-ebet672s/src",
+      "inputs": 312,
+      "input_manifest_sha256": "4e9149be60fe5dc9335b72eca3920372b3345ca917fe458467145bbd10ead075",
+      "junit": {
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "4.637"
+      },
+      "note": "Exact reviewer completion route passes after removing unrelated reviews and completion bookkeeping from author patch readset."
+    },
+    {
+      "exit_code": 1,
+      "seconds": 6.632505166984629,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/orchestration/test_task_result_materials.py::test_review_completion_cannot_block_reading_an_unchanged_author_patch",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-taskfiles-review-race-red-qrge4gvl/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-taskfiles-review-race-red-qrge4gvl/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-taskfiles-review-race-red-qrge4gvl",
+      "label": "review-race-red",
+      "loaded_package": "/private/tmp/flycode-replan-taskfiles-review-race-red-qrge4gvl/src",
+      "inputs": 312,
+      "input_manifest_sha256": "d24619593ac8a6c452206efe97859b2aff92bccd16c0f9fdf2a7edf7a4ae93ae",
+      "junit": {
+        "tests": "1",
+        "failures": "1",
+        "errors": "0",
+        "skipped": "0",
+        "time": "5.788"
+      },
+      "note": "Actual independent review completes between saved patch reads; unchanged bytes rejected as revision."
+    },
+    {
+      "exit_code": 1,
+      "seconds": 64.15020270796958,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/orchestration/test_task_result_materials.py",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-taskfiles-scope-corrected-red-klr38vt6/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-taskfiles-scope-corrected-red-klr38vt6/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-taskfiles-scope-corrected-red-klr38vt6",
+      "label": "scope-corrected-red",
+      "loaded_package": "/private/tmp/flycode-replan-taskfiles-scope-corrected-red-klr38vt6/src",
+      "inputs": 311,
+      "input_manifest_sha256": "88322512305e4fd7ad9b58888445af900814a49eb2e7cffd01de46ab2a5b8578",
+      "junit": {
+        "tests": "4",
+        "failures": "2",
+        "errors": "0",
+        "skipped": "0",
+        "time": "63.611"
+      },
+      "note": "Real sandbox CSP overwritten by middleware and unrelated task integration reports exposed in task catalogue; two other cases pass."
+    },
+    {
+      "exit_code": 1,
+      "seconds": 31.98685387498699,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/orchestration/test_task_result_materials.py::test_integration_materials_belong_to_the_checked_task_or_integrator",
+        "tests/unit/orchestration/test_task_result_materials.py::test_download_rejects_tamper_links_fifo_and_oversize_without_spending",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-taskfiles-scope-red-g88jg3ti/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-taskfiles-scope-red-g88jg3ti/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-taskfiles-scope-red-g88jg3ti",
+      "label": "scope-red",
+      "loaded_package": "/private/tmp/flycode-replan-taskfiles-scope-red-g88jg3ti/src",
+      "inputs": 311,
+      "input_manifest_sha256": "c201867194f0d343727a1ce14c3560bd6374cf6f4ffea0914370cc6f6bc7bb25",
+      "junit": {
+        "tests": "2",
+        "failures": "2",
+        "errors": "0",
+        "skipped": "0",
+        "time": "31.464"
+      },
+      "note": "Same helper error prevented new scope/special-file scenarios; not feature RED."
+    },
+    {
+      "exit_code": 1,
+      "seconds": 34.942623124981765,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/orchestration/test_task_result_materials.py::test_public_materials_share_actual_cli_http_bytes_and_remain_historical",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-taskfiles-ui-green-4695ut1z/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-taskfiles-ui-green-4695ut1z/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-taskfiles-ui-green-4695ut1z",
+      "label": "ui-green",
+      "loaded_package": "/private/tmp/flycode-replan-taskfiles-ui-green-4695ut1z/src",
+      "inputs": 312,
+      "input_manifest_sha256": "6d3aa9debc6d44da3e83353c3b64ccbb7f38b745f4f6655e88af6e50eb96ef52",
+      "junit": {
+        "tests": "1",
+        "failures": "1",
+        "errors": "0",
+        "skipped": "0",
+        "time": "34.350"
+      },
+      "note": "Duplicate unchanged UI failure: inline preparation assertion stopped before edits but measurement was mistakenly launched; not a new feature RED or passing fix."
+    },
+    {
+      "exit_code": 1,
+      "seconds": 34.99337220896268,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/orchestration/test_task_result_materials.py::test_public_materials_share_actual_cli_http_bytes_and_remain_historical",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-taskfiles-ui-red-8xfhl_ne/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-taskfiles-ui-red-8xfhl_ne/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-taskfiles-ui-red-8xfhl_ne",
+      "label": "ui-red",
+      "loaded_package": "/private/tmp/flycode-replan-taskfiles-ui-red-8xfhl_ne/src",
+      "inputs": 312,
+      "input_manifest_sha256": "751199749e05deccbc00253a70695d410cd56607bac8fec7ab3996e03fa00a5d",
+      "junit": {
+        "tests": "1",
+        "failures": "1",
+        "errors": "0",
+        "skipped": "0",
+        "time": "34.406"
+      },
+      "note": "Actual missing material disclosure, before screenshot retained."
+    }
+  ],
+  "package": {
+    "source": "/private/tmp/flycode-taskfiles-package-source-ntwnatb9",
+    "wheel": "/private/tmp/flycode-taskfiles-wheel-output/flycode-0.1.0-py3-none-any.whl",
+    "sha256": "7e0a9f1ae4441ac0bde819b534c4f76bf611ed6276c3040afccc159c6baaed9f",
+    "extract": "/private/tmp/flycode-taskfiles-wheel-extracted",
+    "inputs": 315
+  },
+  "package_manifest_sha256": "54e929a898e18883d490e9f2e4a7cc2aa93e817cf6fb608fa69b93ccb1326591",
+  "feature": {
+    "exit_code": 0,
+    "seconds": 127.57939345802879,
+    "collection": [
+      "tests/unit/orchestration/test_task_result_materials.py::test_materials_expose_exact_saved_patch_and_independent_report_bytes",
+      "tests/unit/orchestration/test_task_result_materials.py::test_public_materials_share_actual_cli_http_bytes_and_remain_historical",
+      "tests/unit/orchestration/test_task_result_materials.py::test_integration_materials_belong_to_the_checked_task_or_integrator",
+      "tests/unit/orchestration/test_task_result_materials.py::test_download_rejects_tamper_links_fifo_and_oversize_without_spending",
+      "tests/unit/orchestration/test_task_result_materials.py::test_download_metadata_must_match_its_exact_historical_assignment",
+      "tests/unit/orchestration/test_task_result_materials.py::test_lost_historical_material_does_not_hide_an_intact_later_result",
+      "tests/unit/orchestration/test_task_result_materials.py::test_review_completion_cannot_block_reading_an_unchanged_author_patch"
+    ],
+    "source_files": 177,
+    "inputs": 315,
+    "junit": {
+      "tests": "7",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "127.333"
+    }
+  },
+  "static": {
+    "ruff": {
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "src/flycode/tracker/materials.py",
+        "src/flycode/tracker/service.py",
+        "src/flycode/tracker/cli.py",
+        "src/flycode/web/tasks.py",
+        "src/flycode/web/app.py",
+        "tests/unit/orchestration/test_task_result_materials.py"
+      ],
+      "exit_code": 0
+    },
+    "mypy": {
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "mypy",
+        "--follow-imports=silent",
+        "src/flycode/tracker/materials.py",
+        "src/flycode/tracker/service.py",
+        "src/flycode/tracker/cli.py",
+        "src/flycode/web/tasks.py",
+        "src/flycode/web/app.py"
+      ],
+      "exit_code": 0
+    }
+  },
+  "legacy_browser": {
+    "root": "/private/tmp/flycode-taskfiles-legacy-ui-1spjknf7",
+    "exit_code": 0,
+    "seconds": 4.375517249980476,
+    "counts": {
+      "attempts": 0,
+      "model_calls": 0,
+      "tool_calls": 0
+    }
+  },
+  "accounting": {
+    "schema": {
+      "workflows": "CREATE TABLE workflows (\n                id TEXT PRIMARY KEY, project_id TEXT NOT NULL, slot INTEGER NOT NULL, data TEXT NOT NULL,\n                root_task_id TEXT NOT NULL REFERENCES tasks(id) DEFERRABLE INITIALLY DEFERRED)",
+      "attempts": "CREATE TABLE attempts (\n                id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL REFERENCES workflows(id),\n                task_id TEXT NOT NULL REFERENCES tasks(id), instance_id TEXT NOT NULL REFERENCES instances(id),\n                state TEXT NOT NULL, data TEXT NOT NULL)",
+      "reservations": "CREATE TABLE reservations (\n                attempt_id TEXT PRIMARY KEY REFERENCES attempts(id),\n                model_reserved INTEGER NOT NULL CHECK(model_reserved>=0),\n                tool_reserved INTEGER NOT NULL CHECK(tool_reserved>=0),\n                model_spent INTEGER NOT NULL CHECK(model_spent>=0),\n                tool_spent INTEGER NOT NULL CHECK(tool_spent>=0),\n                verification INTEGER NOT NULL, uncertain INTEGER NOT NULL DEFAULT 0)",
+      "model_calls": "CREATE TABLE model_calls (\n                id TEXT PRIMARY KEY, attempt_id TEXT REFERENCES attempts(id),\n                endpoint_ref TEXT NOT NULL, state TEXT NOT NULL, data TEXT NOT NULL)",
+      "tool_calls": "CREATE TABLE tool_calls (\n                id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL REFERENCES attempts(id),\n                state TEXT NOT NULL, data TEXT NOT NULL)",
+      "integrations": "CREATE TABLE integrations (\n                id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL REFERENCES workflows(id),\n                attempt_id TEXT NOT NULL UNIQUE REFERENCES attempts(id), state TEXT NOT NULL, data TEXT NOT NULL)",
+      "verification_reservations": "CREATE TABLE verification_reservations (\n                        execution_id TEXT PRIMARY KEY REFERENCES verification_executions(id),\n                        workflow_id TEXT REFERENCES workflows(id),\n                        tool_reserved INTEGER NOT NULL CHECK(tool_reserved>=0),\n                        tool_spent INTEGER NOT NULL CHECK(tool_spent>=0),\n                        uncertain INTEGER NOT NULL CHECK(uncertain IN (0,1)))"
+    },
+    "note": "The public route deliberately edits owner source after successful integration. Historical materials stay readable; result freshness is invalidated. Browser scope errors are controlled responses, not actual project revocation.",
+    "workflows": [
+      {
+        "id": "45353ddb499b4193a6c39986580917be",
+        "revision": 25,
+        "budget": {
+          "max_model_calls": 60,
+          "max_tool_calls": 120,
+          "max_instances": 4,
+          "max_tasks": 64,
+          "max_attempts": 3,
+          "max_depth": 3,
+          "max_children": 8,
+          "wall_seconds": 1800.0,
+          "verification_fraction": 0.2
+        },
+        "state": "incomplete",
+        "deadline_at": 1792387900.692815
+      }
+    ],
+    "integrations": [
+      {
+        "id": "114ca5e6c676494e90bea2cb7aaabffd",
+        "state": "invalidated",
+        "error": "result_changed"
+      }
+    ],
+    "attempts": [
+      {
+        "state": "interrupted",
+        "count": 1
+      },
+      {
+        "state": "succeeded",
+        "count": 5
+      }
+    ],
+    "model_calls": [
+      {
+        "state": "completed",
+        "count": 4
+      }
+    ],
+    "tool_calls": [
+      {
+        "state": "completed",
+        "count": 36
+      }
+    ],
+    "attempt_model_calls": 3,
+    "probe_model_calls": 1,
+    "reservations": {
+      "model_reserved": 0,
+      "tool_reserved": 0,
+      "model_spent": 3,
+      "tool_spent": 36,
+      "uncertain": 0
+    },
+    "verification_reservations": {
+      "tool_reserved": 0,
+      "tool_spent": 0,
+      "uncertain": 0
+    }
+  },
+  "review": {
+    "status": "static independent review; findings fixed with native/browser RED and passing final package",
+    "findings": [
+      "stale old scope-error callbacks hide newer task/Stop",
+      "all-history physical dependency blocks intact retained material",
+      "independent reviewer completion changes author patch readset"
+    ]
+  },
+  "preparation_notes": [
+    "A plain node require probe could not find globally installed Playwright; reused existing explicit /private/tmp/flycode-ui-browser/node_modules/playwright, with installed Chrome. No dependency install.",
+    "Inline UI rewrite assertion failed before writes, but its dependent measurement was wrongly launched; retained ui-green exit1 reproduces unchanged UI, not another correction. AGENTS now requires separate preparation and measurement calls.",
+    "Initial Ruff found import ordering and fixture F811; only own imports and existing fixture suppression pattern were corrected. Full initial log remains archived.",
+    "Helper signature was read from the shared checkout rather than exact public snapshot. Local anchored reader removes dependency on the other agent modification; AGENTS now specifies the exact pinned source.",
+    "Archive preparation first rejected colliding flattened plan/report basenames before creating an archive. Document directory namespaces were preserved, then copying and full inventory/hash checks passed. No measurement or publication was launched after the failed preparation."
+  ],
+  "limits": [
+    "No full suite, live LM/graph smoke, neural benchmark/training/promotion or aggregate acceptance in this increment.",
+    "Native routes use real Host/subprocess/registered pytest with a bounded deterministic local model HTTP server and English objectives.",
+    "Downloads do not claim current completion. Legacy/manual records lacking exact historical bindings return unavailable, without directory discovery fallback.",
+    "Catalogue exposes unavailable record IDs alongside intact manifests; the selected file is checked when downloading.",
+    "Counts overlap across deltas/final wheel; do not sum them.",
+    "Parallel brain source202→combined203 is interoperability only and excluded from public package177."
+  ],
+  "archive": {
+    "root": "/Users/Administrator/.cache/flycode/validation/flycode-task-materials-checked-h4ex9sfm",
+    "regular_files": 26266,
+    "bytes": 224943210,
+    "manifest_sha256": "20635b612649dd7ee35af59eb2cb5710ee73af6c0691eb90a898d73433d295d1"
+  }
+}

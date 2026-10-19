@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from threading import Lock
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fastapi import Path as PathParam
 from fastapi.responses import StreamingResponse
 from pydantic import Field, ValidationError
@@ -31,6 +31,7 @@ from ..orchestration.attach import (
 from ..orchestration.projects import Projects
 from ..orchestration.store import Store, StoreError, default_state_path
 from ..tracker.commands import CommentCommand
+from ..tracker.materials import MaterialPage
 from ..tracker.projection import (
     AgentCard,
     TaskCard,
@@ -250,6 +251,26 @@ def task_router(manager) -> APIRouter:
     def task(identity: Annotated[str, PathParam(pattern=r'^[0-9a-f]{32}$')]) -> TaskCard:
         with access() as (_, tracker, scope):
             return tracker.task(scope, identity)
+
+    @router.get('/api/tasks/{identity}/materials')
+    def materials(identity: Annotated[str, PathParam(pattern=r'^[0-9a-f]{32}$')]) -> MaterialPage:
+        with access() as (_, tracker, scope):
+            return tracker.materials(scope, identity)
+
+    @router.get('/api/tasks/{identity}/materials/{material_id}')
+    def material(identity: Annotated[str, PathParam(pattern=r'^[0-9a-f]{32}$')],
+                 material_id: Annotated[str, PathParam(pattern=r'^[0-9a-f]{64}$')]) -> Response:
+        with access() as (_, tracker, scope):
+            try:
+                item, content = tracker.material(scope, identity, material_id)
+            except (OSError, ValueError) as error:
+                if isinstance(error, StoreError):
+                    raise
+                raise StoreError('material_changed') from error
+            return Response(content, media_type='application/octet-stream', headers={
+                'Content-Disposition': f'attachment; filename="{item.id}.bin"',
+                'Content-Security-Policy': "sandbox; default-src 'none'",
+                'X-Content-Type-Options': 'nosniff'})
 
     @router.get('/api/tasks/{identity}/events')
     def task_history(identity: Annotated[str, PathParam(pattern=r'^[0-9a-f]{32}$')],

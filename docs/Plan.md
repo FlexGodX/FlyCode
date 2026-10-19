@@ -3229,3 +3229,18 @@ unchanged inputs проходят. Frozen combined-brain199 source:3провер
 Safe result artifact drilldown, public owner approval/replan и combined Task4,
 controller/admission/matrix/research/final acceptance остаются открыты. Whole
 Task5 и полная цель не закрыты; full/live-LM/graph/training не запускались.
+
+Поставка материалов результатов,2026-10-19: общий CLI/API/Tasks каталог и
+скачивание точных исторических baseline/target patch и отчётов независимой/
+совместной/применённой проверки. Только server IDs; исторические привязки,
+права/хеши и bounded regular/no-follow directory-FD чтение вне SQL. Скачивание
+не расходует бюджет и не выдаёт pass. Утрата старого manifest не скрывает целые
+более поздние материалы; завершение реального review не отменяет чтение файла
+автора. Запоздалые scope errors не скрывают новую карточку/Stop. Final wheel7
+проходит127.33s, targeted compatibility14 —12.72s, браузер1440/390/320/keyboard/
+download/races и старый Tasks browser проходят. Ruff6/scoped mypy5/package177/
+UTF-8 README/CLI/315 unchanged inputs и frozen combined-brain203 source2 проходят.
+Все15 ранних границ сохранены в [отчёте](validation/2026-10-19-task-result-materials.md),
+счётчики пересекаются. Public owner approval/replan/live-Host/oracle bridge,
+combined Task4/controller/admission/neural/research/final acceptance остаются
+открыты. Full/live-LM/graph/training не запускались, полная цель не закрыта.

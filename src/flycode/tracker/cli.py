@@ -1,6 +1,7 @@
 """Trusted local operator access to the same canonical queue used by web."""
 
 import argparse
+import base64
 import json
 import os
 import re
@@ -36,6 +37,12 @@ def _identity(raw):
     return raw
 
 
+def _material_identity(raw):
+    if not re.fullmatch(r'[0-9a-f]{64}', raw):
+        raise argparse.ArgumentTypeError('expected a canonical material ID')
+    return raw
+
+
 def _cursor(raw):
     value = int(raw)
     if not 0 <= value <= 2**63 - 1:
@@ -56,12 +63,14 @@ def configure_parser(subparsers):
     commands = parser.add_subparsers(dest='task_action', required=True)
     service = commands.add_parser('service', help='Check or explicitly connect the shared coordinator')
     service.add_argument('service_action', choices=['status', 'attach'])
-    for name in ('register', 'create', 'list', 'show', 'command', 'comment', 'events', 'agents', 'stops', 'stop'):
+    for name in ('register', 'create', 'list', 'show', 'command', 'comment', 'events', 'agents', 'stops', 'stop', 'materials', 'material'):
         command = commands.add_parser(name)
         if name not in {'stops', 'stop'}:
             command.add_argument('--project', required=True, help='Explicit current local project folder')
-        if name in {'show', 'command', 'comment', 'stop'}:
+        if name in {'show', 'command', 'comment', 'stop', 'materials', 'material'}:
             command.add_argument('task_id', type=_identity)
+        if name == 'material':
+            command.add_argument('material_id', type=_material_identity)
         if name in {'create', 'comment', 'stop'}:
             command.add_argument('--key', required=True, help='Stable idempotency key; reuse for the same request')
         if name in {'create', 'command'}:
@@ -159,6 +168,11 @@ def tasks_command(args) -> int:
                 result = tracker.page(scope, after=args.after, limit=args.limit, state=args.state, q=args.query, archived=args.archived)
             elif action == 'show':
                 result = tracker.task(scope, args.task_id)
+            elif action == 'materials':
+                result = tracker.materials(scope, args.task_id)
+            elif action == 'material':
+                item, content = tracker.material(scope, args.task_id, args.material_id)
+                result = {'item': item.model_dump(mode='json'), 'content_base64': base64.b64encode(content).decode('ascii')}
             elif action == 'command':
                 assert isinstance(payload, TaskCommand)
                 tracker.command(scope, args.task_id, payload.model_dump())

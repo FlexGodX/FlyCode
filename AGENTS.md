@@ -200,7 +200,7 @@ When the user corrects your approach, append a one-line rule here before ending 
 - When compacting model context, preserve pinned artifact observations, workspace file reads and tool failure diagnostics; dropping known file text or an edit error can make a real model repeat invalid edits.
 - Derive child-process PYTHONPATH from the imported package location; pytest's pythonpath setting does not populate the PYTHONPATH environment variable.
 - Publish terminal run status only after source settlement and successful history persistence under the manager lock.
-- Inspect each prerequisite tool result before dependent checks, edits or publication; a failed preparation must not launch its measurement.
+- Run preparation and dependent measurements in separate tool calls; inspect successful preparation before launching a measurement, edit or publication.
 - When validating file stability across a read, compare identity/permissions/size/mtime; access time can change during an ordinary read.
 - Establish the reaper before spawning a detached child; a failed Thread.start must not leave a started child without its cleanup owner.
 - Write captured subject/oracle bytes through an owned directory descriptor; recheck saved staged identities after final reads before publication.
@@ -213,6 +213,7 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Before adding optional immutable-record fields, verify retained full-model and omitted-field hashes through their real consumers.
 
 - Use `Store.confirm_started` for assignment startup; `Store` has no `begin` method.
+- Read helper signatures from the exact pinned source being measured; parallel working-tree changes may add unavailable parameters.
 
 ## 12. How this file was built
 

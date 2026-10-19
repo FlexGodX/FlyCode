@@ -1,5 +1,34 @@
 # FlyCode handoff brief
 
+## Task result materials — checked,2026-10-19
+
+Task materials now share one scoped service across CLI/HTTP and lazy Tasks
+files disclosure. Download exact saved patch baseline/target and independent/
+combined/applied stdout/stderr/JUnit/case reports using server IDs only. Historical
+attempt/binding/scope pins, manifest/byte hashes and owned no-follow directory
+handles are checked outside SQL. No execution/budget spending or new pass claim.
+Missing older manifests leave unavailable record IDs alongside intact later
+materials. Source edits do not erase saved bytes. Late old scope errors preserve
+the newer task and Stop actions. Real reviewer completion cannot invalidate an
+unchanged author patch readset. Legacy/manual unbound records fail closed.
+
+Final extracted-wheel7 passes127.33s; relevant existing HTTP/CLI/download/security14
+passes12.72s; old Tasks browser4.38s has0 attempt/model/tool effects. Native real
+HTTP/worker/pytest feeds desktop1440/390/320 keyboard/downloads and delayed scope
+races. Ruff6/scoped mypy5/package177/UTF-8 README/CLI/315 unchanged inputs pass.
+Frozen parallel-brain203 source:2 interoperability routes pass40.29s. All15 earlier
+boundaries and preparation/static failures remain in the
+[report](validation/2026-10-19-task-result-materials.md). Counts overlap.
+
+Next owner adapter seams are explicit: typed owner commands must run on the
+existing live Host connection; ordinary CLI Store is not Host authority. Resolve
+source/runtime server-side, import a current registered oracle with expected-hash
+staging before runtime head activation, and pin registered profile SQL head in
+final approval CAS if promising that currentness. Public owner approval/replan,
+combined Task4 retry/replan/new-branch/restart/avalanche/Stop, controller/admission/
+research matrix and final full acceptance remain open. No full/live-LM/graph/
+training or scientific claim. Parallel brain changes remain separate.
+
 ## Shared result projections — checked,2026-10-19
 
 Tasks show/list, HTTP and board/list/detail/agents now share scoped completion,

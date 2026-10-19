@@ -171,12 +171,38 @@
     finally {refreshing=false;renderStops();}
   }
   function scheduleRefresh() {clearTimeout(refreshTimer);refreshTimer=setTimeout(refresh,150);}
+  function materialFiles(id,wasOpen) {
+    const box=node("details",undefined,"task-materials"),summary=node("summary","Файлы результата"),list=node("div"),status=node("p");
+    box.append(summary,status,list);box.open=Boolean(wasOpen);let loaded=false;
+    box.addEventListener("toggle",async()=>{
+      if(!box.open||loaded)return;loaded=true;status.textContent="Загружаем файлы…";
+      try {
+        const page=await api(`/api/tasks/${id}/materials`);
+        if(!box.isConnected||selected!==id)return;
+        status.textContent=page.unavailable?.length?"Часть файлов недоступна. Остальные можно скачать.":page.items.length?"Сохранённые материалы. Актуальность результата показана выше.":"Сохранённых файлов пока нет.";
+        for(const item of page.items) {
+          const title=item.kind==="patch"?(item.stage==="target"?"Изменённый файл":"Исходный файл"):item.kind==="review"?"Проверка":item.stage.startsWith("applied:")?"Применённый результат":"Объединённый результат";
+          const button=node("button",`Скачать ${title} · ${item.name}`);button.type="button";button.dataset.materialId=item.id;
+          button.onclick=async()=>{
+            button.disabled=true;try {
+              const response=await fetch(`/api/tasks/${id}/materials/${item.id}`,{headers:{"X-FlyCode-Token":token}});
+              if(!response.ok){if(response.status===403&&box.isConnected&&selected===id)hidePrivateDetail();throw new Error("Файл изменён или недоступен. Обновите список.");}
+              const blob=await response.blob(),url=URL.createObjectURL(blob),link=node("a");link.href=url;link.download=item.name.split("/").at(-1);link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+            } catch(error) {status.textContent=error.message;}
+            finally {button.disabled=false;}
+          };
+          list.append(button);
+        }
+      } catch(error) {if(box.isConnected&&selected===id&&error.code==="scope")hidePrivateDetail();status.textContent="Файлы изменены или недоступны. Обновите карточку.";}
+    });
+    return box;
+  }
   async function loadDetail(id) {
     const request=++detailRequest;let card;
     try {card=await api(`/api/tasks/${id}`);}catch(error){if(request===detailRequest&&selected===id&&error.code==="scope")hidePrivateDetail();throw error;}
     if(request!==detailRequest||selected!==id||!$("#taskDetail").open)return;
     $("#historySection").hidden=false;$("#commentForm").hidden=false;
-    detail=card;const task=card.task,body=$("#detailBody");$("#detailTitle").textContent=task.title;body.replaceChildren();
+    detail=card;const task=card.task,body=$("#detailBody"),materialsOpen=body.querySelector(".task-materials")?.open;$("#detailTitle").textContent=task.title;body.replaceChildren();
     for(const text of resultSummary(card))body.append(node("p",text,resultClass(card)));
     const dl=node("dl");
     const values={"Номер":task.short_id,"Проект":projectName(task.project_id),"Состояние":label(task.state)+(task.paused?" · Пауза":""),"Приоритет":task.priority,"Версия":task.revision,"Описание":task.objective||"—","Критерии":task.acceptance?JSON.stringify(task.acceptance,null,2):"Нет критериев","Разрешение":task.permissions?.approved?"Выдано":"Не выдано","Бюджет":task.budget?`${task.budget.model_calls} моделей / ${task.budget.tool_calls} инструментов`:"Не задан","Блокировки":card.blockers.map(value=>reasons[value]||value).join(" · ")||"—"};
@@ -195,6 +221,7 @@
       for(const [taskId,input] of Object.entries(lineage.inputs||{}))values.push(`Вход ${taskId}: ${input.id} · ${input.sha256}`);
       for(const text of values)evidence.append(node("p",text));body.append(evidence);
     }
+    if(lineage?.artifact_id||card.completion||card.integration)body.append(materialFiles(id,materialsOpen));
     const actions=node("div",undefined,"task-actions");
     const options=[];
     if(task.state==="planned"&&!card.lineage?.pipeline_id)options.push(["enqueue","Поставить в очередь"]);

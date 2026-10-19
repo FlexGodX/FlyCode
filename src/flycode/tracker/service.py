@@ -5,6 +5,7 @@ import json
 from ..domain.orchestration import AccessScope, QueueEvent, WorkflowDraft
 from ..orchestration.store import Store, StoreError, changed
 from .commands import CommentCommand, comment, execute
+from .materials import ResultMaterials
 from .projection import AgentCard, TaskCard, TaskEventPage, TaskPage, task_card
 from .results import ResultViews
 
@@ -18,6 +19,12 @@ class TrackerService:
 
     def command(self, scope: AccessScope, task_id: str, data: dict):
         return execute(self.store, scope, task_id, data)
+
+    def materials(self, scope, task_id):
+        return ResultMaterials(self.store).page(scope, task_id)
+
+    def material(self, scope, task_id, material_id):
+        return ResultMaterials(self.store).read(scope, task_id, material_id)
 
     def task(self, scope: AccessScope, task_id: str) -> TaskCard:
         self.store.refresh_results(scope, self.store.task(scope, task_id).workflow_id)

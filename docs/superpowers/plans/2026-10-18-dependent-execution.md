@@ -431,3 +431,23 @@ boundaries and both package rounds remain in the
 Safe result-artifact drilldown and public owner recipe/replan commands are still
 open, so Task5 aggregate checkboxes stay open. Combined Task4 acceptance and
 controller/neural/research/final acceptance stay open. No whole-goal completion.
+
+## Task5 saved-material checkpoint,2026-10-19
+
+Safe saved patch/report downloads now share CLI/HTTP/Tasks and exact scoped
+historical provenance. Selected reads tolerate later author bookkeeping/review;
+old missing manifests are reported beside intact later materials. Late old
+catalogue/download scope errors preserve a newer task/Stop. Seven feature cases
+pass from final extracted wheel127.33s; compatibility14, old Tasks browser,
+Ruff6/scoped mypy5/package177/315 unchanged inputs/UTF-8 README/CLI and frozen
+combined-brain2 pass. [Report](../../validation/2026-10-19-task-result-materials.md)
+retains15 earlier boundaries and preparation failures. Counts overlap.
+
+Task5 aggregate remains open for public owner recipe/replan adapters, together
+with combined Task4 acceptance. The owner command must run on the existing Host
+connection, resolve roots server-side, and import oracle bytes under expected
+hash before runtime head activation. Catalogue profile SQL pins belong in the
+final owner CAS if that authority is promised. No temporary CLI Host/recovery,
+client paths/argv/approval hashes or implicit grant through preview/UI. Ordinary
+TaskCommand retry already exists; exact rejected-review policies belong initial
+recipe approval. Controller/neural/research/final acceptance remain separate.
