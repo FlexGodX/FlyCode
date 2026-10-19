@@ -22,6 +22,7 @@ from ..domain.pipeline import (
 from ..domain.results import ReviewRecord
 from ..verification.plan import contract_hash
 from ..verification.snapshot import capture
+from .approval_profiles import ApprovalProfiles
 from .completions import Completions
 from .inputs import Inputs
 from .integration import Integration
@@ -108,13 +109,13 @@ class Pipelines:
             expected_revisions=expected_revisions, approval_hashes=approval_hashes, key=key, reruns=reruns, dependent=True)
 
     def approve_parent(self, scope, workflow_id, pairs, integrator_id, *, source,
-                       expected_revisions, approval_hashes, key, preparation_steps=1, reruns=0, retry_policies=None):
+                       expected_revisions, approval_hashes, key, preparation_steps=1, reruns=0, retry_policies=None, profile_pins=None):
         return self._approve_many(scope, workflow_id, pairs, integrator_id, source=source,
             expected_revisions=expected_revisions, approval_hashes=approval_hashes, key=key, reruns=reruns,
-            dependent=True, parent=True, preparation_steps=preparation_steps, retry_policies=retry_policies)
+            dependent=True, parent=True, preparation_steps=preparation_steps, retry_policies=retry_policies, profile_pins=profile_pins)
 
     def _approve_many(self, scope, workflow_id, pairs, integrator_id, *, source,
-                      expected_revisions, approval_hashes, key, reruns, dependent=False, parent=False, preparation_steps=1, retry_policies=None):
+                      expected_revisions, approval_hashes, key, reruns, dependent=False, parent=False, preparation_steps=1, retry_policies=None, profile_pins=None):
         store = self.store
         store._role(scope, ('owner',))
         store.workflow(scope, workflow_id)
@@ -122,6 +123,9 @@ class Pipelines:
         request = {('parent_pipeline' if parent else 'dependency_pipeline' if dependent else 'team_pipeline'): workflow_id, 'pairs': pairs, 'integrator': integrator_id,
             'revisions': expected_revisions, 'approvals': approval_hashes, 'source': str(source),
             'root': str(self.root), 'reruns': reruns}
+        registered = ApprovalProfiles(store, profile_pins)
+        if profile_pins is not None:
+            request['verification_profiles'] = registered.request()
         policies = TypeAdapter(dict[str, RetryPolicy]).validate_python(retry_policies) if retry_policies is not None else {}
         if parent:
             request['preparation_steps'] = preparation_steps
@@ -160,6 +164,7 @@ class Pipelines:
             raise StoreError('approval_scope')
         for identity, approval in approval_hashes.items():
             self.reviews.oracles.resolve(approval, tasks[identity].acceptance)
+        registered.prepare(scope, workflow.project_id, {identity: task.acceptance for identity, task in tasks.items()}, approval_hashes, reruns)
         with store.transaction():
             found, saved, request_hash = store._replay(scope, key, request)
             if found:
@@ -167,6 +172,7 @@ class Pipelines:
             if self._initial_many(scope, workflow_id, pairs, integrator_id, expected_revisions,
                     dependent=dependent, parent=parent) != (workflow, tasks, profiles, bindings):
                 raise StoreError('revision')
+            registered.current()
             recipe = model(id=uuid4().hex, owner_id=scope.actor_id, project_id=workflow.project_id,
                 workflow_id=workflow.id, workflow_semantic_revision=workflow.semantic_revision, workflow_budget=workflow.budget,
                 branches=tuple(PipelineBranch(writer_id=writer, reviewer_id=pairs[writer], worker_binding_id=bindings[writer].id,

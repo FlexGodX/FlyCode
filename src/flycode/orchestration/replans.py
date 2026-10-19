@@ -18,6 +18,7 @@ from ..domain.pipeline import (
 )
 from ..domain.results import ReviewRecord
 from ..verification.snapshot import capture, digest
+from .approval_profiles import ApprovalProfiles
 from .branching import Branching
 from .completions import Completions
 from .integration_bindings import record_hash
@@ -126,7 +127,7 @@ class Replans:
         for rejection in saved.rejections:
             Retries(self.store, self.root).evidence(scope, rejection, retired=retired)
 
-    def approve(self, scope, pipeline_id, *, changes, expected_revision, expected_revisions, key, new_branches=None):
+    def approve(self, scope, pipeline_id, *, changes, expected_revision, expected_revisions, key, new_branches=None, profile_pins=None):
         from .continuations import Continuations
         from .pipeline import Pipelines
 
@@ -135,6 +136,9 @@ class Replans:
         additions = TypeAdapter(Annotated[tuple[BranchAddition, ...], Field(max_length=30)]).validate_json(json.dumps(new_branches if new_branches is not None else (),
             default=lambda value: value.model_dump(mode='json', warnings='error'), allow_nan=False))
         request = {'replan': pipeline_id, 'changes': changes, 'revision': expected_revision, 'revisions': expected_revisions, 'root': str(self.root)}
+        registered = ApprovalProfiles(store, profile_pins)
+        if profile_pins is not None:
+            request['verification_profiles'] = registered.request()
         if additions:
             request['new_branches'] = [item.model_dump(mode='json') for item in additions]
         with store.transaction():
@@ -234,6 +238,12 @@ class Replans:
             raise StoreError('snapshot_changed')
         for identity, approval in recipe.approval_hashes.items():
             service.reviews.oracles.resolve(approval, tasks[identity].acceptance)
+        contracts = {identity: task.acceptance for identity, task in tasks.items()}
+        approvals = dict(recipe.approval_hashes)
+        for number, addition in enumerate(additions):
+            contracts[f'new:{number}'] = addition.writer.acceptance
+            approvals[f'new:{number}'] = addition.approval_hash
+        registered.prepare(scope, workflow.project_id, contracts, approvals, recipe.reruns)
         with store.transaction():
             store._host_sql()
             found, result, request_hash = store._replay(scope, key, request)
@@ -245,6 +255,7 @@ class Replans:
             for rejection in saved.rejections:
                 Retries(store, self.root).metadata(scope, rejection, retired=False)
             branching.current(new_profiles, templates)
+            registered.current()
             added, new_bindings, approvals, new_pairs, aliases = branching.allocate(scope, recipe, workflow, additions, templates)
             for identity, task in tuple(updated.items()):
                 resolved = changed(task, dependencies=tuple(aliases.get(dependency, dependency) for dependency in task.dependencies))

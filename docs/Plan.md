@@ -3253,3 +3253,14 @@ interoperability22 pass. Counts overlap; invalid acceptance-fixture RED and stat
 format correction are retained in [the report](validation/2026-10-19-owner-import-pins.md).
 This is not owner parent/replan final pin wiring, staging/RPC or public commands;
 combined Task4, aggregate/controller/neural/research/final gates remain open.
+
+Checked parent/replan profile pins,2026-10-19: trusted owner calls now verify
+exact registered criteria/trust/reruns outside SQL, then pin full profile/head/
+project in final CAS before publication or new branch ID allocation. Final wheel14
+pass38.14s, compatibility28 pass150.13s, frozen brain207 interoperability14
+pass43.25s, Ruff4/mypy3/package178/318 unchanged inputs/UTF-8 README/CLI pass.
+The actual stopped-parent→replan→fresh review→current integration route spends3
+model/36tool calls,6attempts, preserves deadline/dirty bytes and ends reserve-free.
+Counts overlap. [Report](validation/2026-10-19-owner-recipe-profiles.md) retains all six source boundaries.
+Safe staging, live owner transport/preparation and public controls remain open,
+as do combined Task4 and aggregate/controller/neural/research/final acceptance.

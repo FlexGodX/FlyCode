@@ -1,0 +1,325 @@
+{
+  "parent": "c74294c65fa6da799ad3abce361ed3670b7efc5d",
+  "status": "checked exact registered profile pins at parent/replan publication; public command transport remains open",
+  "boundaries": [
+    {
+      "exit_code": 1,
+      "seconds": 1.6360125000355765,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/orchestration/test_owner_recipe_profiles.py",
+        "-k",
+        "approval_profile_change and row",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-owner-recipe-pins-red-1_5hzy_p/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-owner-recipe-pins-red-1_5hzy_p/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-owner-recipe-pins-red-1_5hzy_p",
+      "label": "red",
+      "junit": {
+        "tests": "1",
+        "failures": "1",
+        "errors": "0",
+        "skipped": "0",
+        "time": "1.037"
+      },
+      "note": "Actual missing profile_pins API keyword, one case; no claim of a preexisting accepted race execution.",
+      "input_count": 314,
+      "input_manifest_sha256": "ac1c7e93f35587eb601c60576b13a32e4ab92f8e1c4e171002198a0e690436b4"
+    },
+    {
+      "exit_code": 0,
+      "seconds": 9.438329124997836,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/orchestration/test_owner_recipe_profiles.py",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-owner-recipe-pins-green-b7b_gez6/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-owner-recipe-pins-green-b7b_gez6/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-owner-recipe-pins-green-b7b_gez6",
+      "label": "green",
+      "junit": {
+        "tests": "10",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "8.944"
+      },
+      "note": "Initial ten feature cases pass, including real canonical Host and second-connection profile row/head races.",
+      "input_count": 315,
+      "input_manifest_sha256": "77e5b4e89769ce95caaefde600f63805b91bde1abff13daad3f292d1fa2c66af"
+    },
+    {
+      "exit_code": 0,
+      "seconds": 12.607664750015829,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/orchestration/test_owner_recipe_profiles.py",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-owner-recipe-pins-complete-vr7tofv1/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-owner-recipe-pins-complete-vr7tofv1/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-owner-recipe-pins-complete-vr7tofv1",
+      "label": "complete",
+      "junit": {
+        "tests": "13",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "11.888"
+      },
+      "note": "Thirteen cases pass after adding project-record races and exact replay after profile supersession.",
+      "input_count": 315,
+      "input_manifest_sha256": "90bbb3b4ff512d3a07e2f9ba0cb45966ddcaab1abeb3b89eecbab1f4cd00dcf8"
+    },
+    {
+      "exit_code": 0,
+      "seconds": 29.84940091695171,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/orchestration/test_owner_recipe_profiles.py::test_pinned_owner_replan_reaches_fresh_review_and_current_integration",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-owner-recipe-pins-delivery-m7fe1a0v/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-owner-recipe-pins-delivery-m7fe1a0v/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-owner-recipe-pins-delivery-m7fe1a0v",
+      "label": "delivery",
+      "junit": {
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "29.320"
+      },
+      "note": "One additional complete native route passes: pinned approval, stopped parent, owner replan, fresh checks and current integration.",
+      "input_count": 315,
+      "input_manifest_sha256": "a0adbece3d7e40bcde4b5c9442909f6361e677dace5fa2381386cb209d546199"
+    },
+    {
+      "exit_code": 0,
+      "seconds": 150.86447899998166,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/orchestration/test_parent_continuation.py::test_parent_releases_slot_restores_partial_bytes_and_resumes_after_exact_child_completion",
+        "tests/unit/orchestration/test_pipeline_retries.py::test_rejected_child_retries_exact_failed_bytes_and_feedback_before_fresh_verified_completion",
+        "tests/unit/orchestration/test_pipeline_replans.py::test_owner_replans_rejected_child_then_fresh_review_parent_and_integration",
+        "tests/unit/orchestration/test_pipeline_replans.py::test_replan_rolls_back_outbox_failure_and_replays_after_restart",
+        "tests/unit/orchestration/test_pipeline_branches.py::test_owner_adds_new_branch_with_server_ids_and_retains_original_completion",
+        "tests/unit/orchestration/test_pipeline_branches.py::test_addition_counter_bindings_integrator_and_outbox_rollback_together",
+        "tests/unit/verification/test_oracle_import_pins.py",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-owner-recipe-pins-compat-knsyu8u9/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-owner-recipe-pins-compat-knsyu8u9/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-owner-recipe-pins-compat-knsyu8u9",
+      "label": "compat",
+      "junit": {
+        "tests": "28",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "150.126"
+      },
+      "note": "Twenty-eight relevant existing parent/retry/replan/branch/outbox and previous import/profile cases pass; no-pin contracts remain unchanged.",
+      "input_count": 315,
+      "input_manifest_sha256": "90bbb3b4ff512d3a07e2f9ba0cb45966ddcaab1abeb3b89eecbab1f4cd00dcf8"
+    },
+    {
+      "exit_code": 0,
+      "seconds": 43.86602433398366,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/orchestration/test_owner_recipe_profiles.py",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-owner-recipe-pins-combined-_40y3z1e/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-owner-recipe-pins-combined-_40y3z1e/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-owner-recipe-pins-combined-_40y3z1e",
+      "label": "combined",
+      "junit": {
+        "tests": "14",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "43.249"
+      },
+      "note": "All14 feature cases pass against frozen207-source combined checkout; own public package excludes parallel brain changes.",
+      "input_count": 344,
+      "input_manifest_sha256": "d5f963a3c892fbdec64656039d3eafb55df4fb13c769669215b37ef47d68f453"
+    }
+  ],
+  "package": {
+    "source": "/private/tmp/flycode-owner-recipe-profiles-package-source-a99xqmw8",
+    "wheel": "/private/tmp/flycode-owner-recipe-profiles-wheel-output/flycode-0.1.0-py3-none-any.whl",
+    "sha256": "2337314a3ae18715ed06d54ee202b490c735bd35f5df8d4fa6e6b57e6f57d840",
+    "extract": "/private/tmp/flycode-owner-recipe-profiles-wheel-extracted",
+    "inputs": 318
+  },
+  "feature": {
+    "exit_code": 0,
+    "seconds": 38.44449262501439,
+    "collection": [
+      "tests/unit/orchestration/test_owner_recipe_profiles.py::test_approval_profile_change_after_registered_preflight_publishes_nothing[row]",
+      "tests/unit/orchestration/test_owner_recipe_profiles.py::test_approval_profile_change_after_registered_preflight_publishes_nothing[head]",
+      "tests/unit/orchestration/test_owner_recipe_profiles.py::test_approval_profile_change_after_registered_preflight_publishes_nothing[project]",
+      "tests/unit/orchestration/test_owner_recipe_profiles.py::test_replan_profile_change_after_registered_preflight_publishes_nothing[row]",
+      "tests/unit/orchestration/test_owner_recipe_profiles.py::test_replan_profile_change_after_registered_preflight_publishes_nothing[head]",
+      "tests/unit/orchestration/test_owner_recipe_profiles.py::test_replan_profile_change_after_registered_preflight_publishes_nothing[project]",
+      "tests/unit/orchestration/test_owner_recipe_profiles.py::test_exact_profile_pins_approve_and_replan_without_resetting_parent_spending",
+      "tests/unit/orchestration/test_owner_recipe_profiles.py::test_profile_refs_cannot_reduce_or_replace_registered_requirements[missing]",
+      "tests/unit/orchestration/test_owner_recipe_profiles.py::test_profile_refs_cannot_reduce_or_replace_registered_requirements[criteria]",
+      "tests/unit/orchestration/test_owner_recipe_profiles.py::test_profile_refs_cannot_reduce_or_replace_registered_requirements[reruns]",
+      "tests/unit/orchestration/test_owner_recipe_profiles.py::test_profile_refs_cannot_reduce_or_replace_registered_requirements[untrusted]",
+      "tests/unit/orchestration/test_owner_recipe_profiles.py::test_new_branch_pins_are_checked_before_server_id_allocation",
+      "tests/unit/orchestration/test_owner_recipe_profiles.py::test_exact_approval_replay_keeps_its_saved_receipt_after_profile_supersession",
+      "tests/unit/orchestration/test_owner_recipe_profiles.py::test_pinned_owner_replan_reaches_fresh_review_and_current_integration"
+    ],
+    "source_files": 178,
+    "inputs": 318,
+    "junit": {
+      "tests": "14",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "38.141"
+    }
+  },
+  "static": {
+    "ruff": {
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "src/flycode/orchestration/approval_profiles.py",
+        "src/flycode/orchestration/pipeline.py",
+        "src/flycode/orchestration/replans.py",
+        "tests/unit/orchestration/test_owner_recipe_profiles.py"
+      ],
+      "exit_code": 0
+    },
+    "mypy": {
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "mypy",
+        "--follow-imports=silent",
+        "src/flycode/orchestration/approval_profiles.py",
+        "src/flycode/orchestration/pipeline.py",
+        "src/flycode/orchestration/replans.py"
+      ],
+      "exit_code": 0
+    }
+  },
+  "accounting": {
+    "database": "/private/tmp/flycode-owner-recipe-profiles-wheel-cases/test_pinned_owner_replan_reach0/queue.sqlite",
+    "schema": {
+      "workflows": "CREATE TABLE workflows (\n                id TEXT PRIMARY KEY, project_id TEXT NOT NULL, slot INTEGER NOT NULL, data TEXT NOT NULL,\n                root_task_id TEXT NOT NULL REFERENCES tasks(id) DEFERRABLE INITIALLY DEFERRED)",
+      "attempts": "CREATE TABLE attempts (\n                id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL REFERENCES workflows(id),\n                task_id TEXT NOT NULL REFERENCES tasks(id), instance_id TEXT NOT NULL REFERENCES instances(id),\n                state TEXT NOT NULL, data TEXT NOT NULL)",
+      "reservations": "CREATE TABLE reservations (\n                attempt_id TEXT PRIMARY KEY REFERENCES attempts(id),\n                model_reserved INTEGER NOT NULL CHECK(model_reserved>=0),\n                tool_reserved INTEGER NOT NULL CHECK(tool_reserved>=0),\n                model_spent INTEGER NOT NULL CHECK(model_spent>=0),\n                tool_spent INTEGER NOT NULL CHECK(tool_spent>=0),\n                verification INTEGER NOT NULL, uncertain INTEGER NOT NULL DEFAULT 0)",
+      "model_calls": "CREATE TABLE model_calls (\n                id TEXT PRIMARY KEY, attempt_id TEXT REFERENCES attempts(id),\n                endpoint_ref TEXT NOT NULL, state TEXT NOT NULL, data TEXT NOT NULL)",
+      "tool_calls": "CREATE TABLE tool_calls (\n                id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL REFERENCES attempts(id),\n                state TEXT NOT NULL, data TEXT NOT NULL)",
+      "integrations": "CREATE TABLE integrations (\n                id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL REFERENCES workflows(id),\n                attempt_id TEXT NOT NULL UNIQUE REFERENCES attempts(id), state TEXT NOT NULL, data TEXT NOT NULL)",
+      "pipeline_receipts": "CREATE TABLE pipeline_receipts (pipeline_id TEXT NOT NULL REFERENCES pipelines(id), stage TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(pipeline_id,stage))",
+      "verification_reservations": "CREATE TABLE verification_reservations (\n                        execution_id TEXT PRIMARY KEY REFERENCES verification_executions(id),\n                        workflow_id TEXT REFERENCES workflows(id),\n                        tool_reserved INTEGER NOT NULL CHECK(tool_reserved>=0),\n                        tool_spent INTEGER NOT NULL CHECK(tool_spent>=0),\n                        uncertain INTEGER NOT NULL CHECK(uncertain IN (0,1)))"
+    },
+    "workflows": [
+      {
+        "id": "f56d092d87574be6a883656e0987a727",
+        "revision": 25,
+        "budget": {
+          "max_model_calls": 60,
+          "max_tool_calls": 120,
+          "max_instances": 4,
+          "max_tasks": 64,
+          "max_attempts": 3,
+          "max_depth": 3,
+          "max_children": 8,
+          "wall_seconds": 1800.0,
+          "verification_fraction": 0.2
+        },
+        "state": "succeeded",
+        "deadline_at": 1792389911.164874
+      }
+    ],
+    "integrations": [
+      {
+        "id": "36c269da9517437bbb6319654274dcb5",
+        "state": "completed",
+        "error": null
+      }
+    ],
+    "attempts": [
+      {
+        "state": "interrupted",
+        "count": 1
+      },
+      {
+        "state": "succeeded",
+        "count": 5
+      }
+    ],
+    "model_calls": [
+      {
+        "state": "completed",
+        "count": 4
+      }
+    ],
+    "tool_calls": [
+      {
+        "state": "completed",
+        "count": 36
+      }
+    ],
+    "attempt_model_calls": 3,
+    "probe_model_calls": 1,
+    "reservations": {
+      "model_reserved": 0,
+      "tool_reserved": 0,
+      "model_spent": 3,
+      "tool_spent": 36,
+      "uncertain": 0
+    },
+    "verification_reservations": {
+      "tool_reserved": 0,
+      "tool_spent": 0,
+      "uncertain": 0
+    },
+    "graph_revisions": [
+      {
+        "pipeline_id": "543b99c51b914cb2967b6ff3780a1dda",
+        "stage": "graph:1"
+      }
+    ]
+  },
+  "review": "Independent read-only review of the three-source delta found no blockers; tests and actual complete route verified separately. No source changes after review.",
+  "limits": [
+    "Trusted Python APIs take complete immutable profile snapshots; no new public HTTP/CLI/agent authority. New public adapters must resolve profiles server-side and always supply complete pins.",
+    "Current registered profile/project is inspected outside SQL. Final SQL repeats full record/head/project comparison before recipe/task/binding/event/ID writes; no physical inspection or inference under transaction.",
+    "Exact replay returns an existing receipt despite later profile supersession; it does not issue a new assignment. Profile selection hashes participate only when pins are supplied, preserving legacy omitted-field request and saved recipe/history hashes.",
+    "New branch pins use request-local new:N before server IDs exist; Branching still enforces shared writer/reviewer contract and explicit owner permissions/budget.",
+    "The complete pinned route uses real native subprocesses and registered pytest with deterministic English-objective HTTP model responses; it is not a live LM quality experiment.",
+    "Other cases deliberately stop at parent wait or alter metadata. Only the complete route is reported succeeded/reserve-free.",
+    "Safe oracle staging, typed live-Host owner transport, separate preparation/approval receipt, public CLI/HTTP/Tasks controls and combined retry/new-branch/restart acceptance remain open.",
+    "No UI edits, full suite, live LM/graph smoke, neural training/promotion or aggregate goal completion. Frozen parallel brain source206→207 is interoperability only, excluded public178 source/static package."
+  ],
+  "archive": {
+    "root": "/Users/Administrator/.cache/flycode/validation/flycode-owner-recipe-profiles-checked-qw1we2n3",
+    "regular_files": 10975,
+    "bytes": 99253480,
+    "manifest_sha256": "88a03a134482f68a0c3d1f0b77fb509e5bcf4a112772781ec9de7764affa0173"
+  }
+}

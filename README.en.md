@@ -160,6 +160,13 @@ task or reset its spending/attempts. The64-task bound includes existing history,
 and the integrator budget never increases automatically. Controller replan
 proposals remain unimplemented.
 
+Internal `approve_parent` and `replan` accept optional `profile_pins`: exact
+registered verification records for every task, plus `new:0` for a new pair.
+Criteria, approval, trust and reruns must match. Physical checks precede SQL;
+the full profile, active head and project are pinned again before publication
+and ID allocation. Command replay includes the selected profiles and returns
+the saved receipt without starting new work.
+
 `tasks show/list`, HTTP and the Tasks screen share one result projection.
 Verified task completion is separate from applying the entire workflow. Cards,
 list and active agents show currentness, child waits, graph revision, approved
