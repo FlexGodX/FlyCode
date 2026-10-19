@@ -1,5 +1,20 @@
 # Specification delivery Implementation Plan
 
+Checked Tasks owner controls,2026-10-19: separate preview/preparation/approval/
+stopped-parent replan/new-branch dialog, exact pending replay after reload and
+independent shared Stop are wired to the live owner API. Native browser failures
+also fixed catalogue cursor lifetime and stale completion-invalidation publication.
+Final wheel4 owner scenarios +3 old result/material browser regressions pass;
+frozen combined-brain219 source3 owner scenarios +3 old regressions pass. Counts
+overlap. Native7tasks/8attempts/4model/49tools +1 separate probe reaches current
+applied integration, preserves spending/deadline/owner bytes, then correctly revokes
+currentness after an explicit owner edit. Keyboard/1440/390/320, Ruff3/mypy2,
+JS3/package184/328 unchanged inputs/UTF-8 README/CLI pass. Only interface tests ran.
+All failures are retained in [the report](../../validation/2026-10-19-owner-tasks-controls.md).
+Automatic coordinator-process/UI/retry/restart combined acceptance, actual existing
+child→new prerequisite UI execution, a gated negative-read race, aggregate/controller/
+admission/neural/research/full/final gates remain open. No biological or live-LM claim.
+
 Checked live owner commands,2026-10-19: signed bounded requests use the existing
 Host and server-selected scope/roots/profiles. Preview has no grants, bindings,
 oracle activation or execution constructors. Explicit prepare supports partial

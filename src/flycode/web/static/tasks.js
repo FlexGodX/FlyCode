@@ -20,7 +20,7 @@
   }
   async function api(url,body) {
     const response=await fetch(url,{headers:{"X-FlyCode-Token":token,"Content-Type":"application/json"},...(body===undefined?{}:{method:"POST",body:JSON.stringify(body)})});
-    const data=await response.json();if(!response.ok){const error=new Error(errorText(data,response.status));error.code=data.detail?.code;error.status=response.status;error.revision=data.detail?.revision;throw error;}return data;
+    const data=await response.json();if(!response.ok){const error=new Error(errorText(data,response.status));error.code=data.detail?.code;error.status=response.status;error.revision=data.detail?.revision;error.result=data.detail?.result;throw error;}return data;
   }
   function mutationKey(slot,payload) {
     const serialized=JSON.stringify(payload),previous=pendingMutations.get(slot);
@@ -135,6 +135,7 @@
     const previous=pendingStops.get(id);if(previous?.busy)return;
     const pending=previous?.body.operation===operation?previous:{body:{operation,expected_revision:revision,idempotency_key:crypto.randomUUID()}};
     pending.busy=true;pendingStops.set(id,pending);stopMessages.delete(id);renderStops();
+    document.dispatchEvent(new CustomEvent("flycode-stop-change",{detail:{taskId:id}}));
     if(selected===id)for(const button of $("#detailBody").querySelectorAll("button"))button.disabled=true;
     try {
       await api(`/api/tasks/${id}/stop`,pending.body);pendingStops.delete(id);
@@ -147,6 +148,7 @@
       stopMessages.set(id,{text:error.message,error:true});
     } finally {
       pending.busy=false;
+      document.dispatchEvent(new CustomEvent("flycode-stop-change",{detail:{taskId:id}}));
       if(selected===id)$("#detailError").textContent=stopMessages.get(id)?.text||"";
       await refresh();renderStops();
     }
@@ -234,6 +236,7 @@
     if(["failed","retry_wait"].includes(task.state))options.push(["retry","Повторить"]);
     if(["succeeded","failed","cancelled"].includes(task.state))options.push(["reopen","Открыть заново"],["archive",task.archived?"Уже в архиве":"В архив"]);
     for(const [operation,title] of options){const button=node("button",title);button.disabled=Boolean(pending?.busy)||(operation==="archive"&&task.archived);button.onclick=()=>command(operation);actions.append(button);}body.append(actions);
+    const plan=node("button","План выполнения");plan.type="button";plan.onclick=()=>document.dispatchEvent(new CustomEvent("flycode-owner-open",{detail:{card,api,stopCommand,refresh,stopState:id=>({pending:pendingStops.get(id),message:stopMessages.get(id),handle:stopHandles.find(value=>value.task_id===id)})}}));actions.append(plan);
     await loadHistory(id,false);
   }
   async function openTask(id) {

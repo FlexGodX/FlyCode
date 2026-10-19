@@ -174,8 +174,13 @@ blockers and registered criteria. `preview` prepares nothing; explicit `prepare`
 binds source without attempts, `approve_parent` authorizes the route, and `replan`
 changes a stopped graph or adds writer/reviewer pairs. JSON supplies references
 and expected revisions; the server selects folders, roles and oracle approvals.
-Connect the service first with `tasks service attach`. Tasks-screen buttons for
-these commands remain pending. Exact-key retry preserves frozen intent, partial
+Connect the service first with `tasks service attach` or the Tasks-screen
+connect button. The execution-plan dialog exposes folder preparation, explicit
+approval, stopped-branch objective/dependency edits and new writer/reviewer pairs
+with registered criteria. Preview starts no work. Pause and cancel remain
+available while loading or sending owner commands. Lost replies and partial
+preparation offer an explicit retry of the saved request/revisions/key, including
+after a page reload. Exact-key retry preserves frozen intent, partial
 preparation and saved receipts across Host restart; changed input is rejected.
 Catalogue registration alone does not change an approved workflow: a separate
 owner command activates its runtime oracle version.

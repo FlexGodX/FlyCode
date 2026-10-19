@@ -216,6 +216,7 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Read helper signatures from the exact pinned source being measured; parallel working-tree changes may add unavailable parameters.
 - Acceptance plans require server-owned subject references; plain register_subject captures suite inputs without runtime provenance.
 - After bounded registered-profile capture, run `_project_sql` and `_profile_sql` together in a short transaction.
+- Pin task and workflow revisions before completion-currentness inspection; recheck both before applying a negative result after integration publication.
 
 ## 12. How this file was built
 

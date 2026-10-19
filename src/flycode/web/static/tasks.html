@@ -4,7 +4,8 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Задачи · FlyCode</title>
   <link rel="stylesheet" href="/static/styles.css" /><link rel="stylesheet" href="/static/tasks.css" />
-  <script src="/static/tasks.js" defer></script>
+  <link rel="stylesheet" href="/static/owner.css" />
+  <script src="/static/tasks.js" defer></script><script src="/static/owner.js" defer></script>
 </head>
 <body class="tasks-ui">
   <div class="tasks-shell">
@@ -45,6 +46,13 @@
     <div id="detailBody"></div><p id="detailError" role="alert"></p>
     <section id="historySection"><h3>История и комментарии</h3><div id="taskHistory"></div><button id="moreHistory" hidden>Следующие события</button></section>
     <form id="commentForm"><label>Комментарий<textarea id="commentText" maxlength="8000" rows="3" required></textarea></label><button type="submit">Добавить комментарий</button></form>
+  </dialog>
+  <dialog id="ownerDialog" aria-labelledby="ownerTitle">
+    <header class="dialog-header"><div><p class="eyebrow">ОБЩИЙ ПЛАН ЗАДАЧ</p><h2 id="ownerTitle">План выполнения</h2></div><button type="button" id="ownerClose" aria-label="Закрыть план выполнения">×</button></header>
+    <p id="ownerStatus" role="status"></p><p id="ownerReceipt" role="status"></p><p id="ownerError" role="alert" hidden></p>
+    <div class="owner-toolbar"><button type="button" id="ownerReload">Обновить план</button><button type="button" id="ownerRetry" hidden>Повторить сохранённый запрос</button><button type="button" id="ownerDiscard" hidden>Обновить план без повтора</button></div>
+    <section id="ownerStops" aria-label="Остановка задач"></section>
+    <div id="ownerBody"></div>
   </dialog>
 </body>
 </html>

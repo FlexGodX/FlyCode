@@ -26,11 +26,11 @@ recipe/history hashes and omitted-field behavior remain compatible.
    Explicit approval/replan resolves profile IDs/versions server-side; no grants
    or automatic binding creation through preview. Requests pin task/workflow
    revisions and retain exact idempotency semantics on lost replies/restart.
-4. [ ] Share adapters through CLI, protected HTTP and explicit Tasks confirmation.
+4. [x] Share adapters through CLI, protected HTTP and explicit Tasks confirmation.
    Check token/origin/scope, rejected fields, stale revisions, replay, keyboard,
    desktop/390/320 and Stop. Keep prior screens and saved materials usable.
-   CLI and protected HTTP now share checked live commands. Tasks controls and
-   their browser acceptance remain pending.
+   CLI, protected HTTP and Tasks controls share checked live commands.
+   Browser/package/parallel-source evidence is saved in the Tasks controls report.
 5. [ ] Execute real public parent preparation/wait, branch retry, separate owner
    replan/new branch, restart, fresh review, continuation and current integrated
    completion under original spending/deadline and max3/4pool/64tasks. Save all
@@ -109,3 +109,18 @@ configuration and report-preparation failures are retained in [the report](../..
 Tasks owner confirmation/browser controls and automatic coordinator-process/UI
 combined acceptance remain open, as do aggregate/controller/admission/neural/
 research/full/final gates. No live-LM/graph/training/scientific claim.
+
+Checked Tasks owner controls,2026-10-19: separate preview/preparation/approval/
+stopped-parent replan/new-branch dialog, exact pending replay after reload and
+independent shared Stop are wired to the live owner API. Native browser failures
+also fixed catalogue cursor lifetime and stale completion-invalidation publication.
+Final wheel4 owner scenarios +3 old result/material browser regressions pass;
+frozen combined-brain219 source3 owner scenarios +3 old regressions pass. Counts
+overlap. Native7tasks/8attempts/4model/49tools +1 separate probe reaches current
+applied integration, preserves spending/deadline/owner bytes, then correctly revokes
+currentness after an explicit owner edit. Keyboard/1440/390/320, Ruff3/mypy2,
+JS3/package184/328 unchanged inputs/UTF-8 README/CLI pass. Only interface tests ran.
+All failures are retained in [the report](../../validation/2026-10-19-owner-tasks-controls.md).
+Automatic coordinator-process/UI/retry/restart combined acceptance, actual existing
+child→new prerequisite UI execution, a gated negative-read race, aggregate/controller/
+admission/neural/research/full/final gates remain open. No biological or live-LM claim.

@@ -63,7 +63,7 @@ def verification_router(access, actor):
         with authorized(project_id) as (store, scope):
             registry = VerificationRegistry(store)
             for project in sorted(scope.project_ids):
-                for row in store.db.execute('SELECT id FROM verification_subjects WHERE project_id=? ORDER BY rowid', (project,)):
+                for row in store.db.execute('SELECT id FROM verification_subjects WHERE project_id=? ORDER BY rowid', (project,)).fetchall():
                     try:
                         subject = registry.subject(scope, row['id'])
                         registry.subject_root(scope, subject.id)
@@ -75,7 +75,7 @@ def verification_router(access, actor):
                             'stage': subject.origin.stage if subject.origin else 'target'})
                     except (OSError, ValueError):
                         continue
-                for row in store.db.execute('SELECT id FROM verification_profiles WHERE project_id=? ORDER BY rowid', (project,)):
+                for row in store.db.execute('SELECT id FROM verification_profiles WHERE project_id=? ORDER BY rowid', (project,)).fetchall():
                     try:
                         profile = registry.profile(scope, row['id'])
                         profiles.append({'id': profile.id, 'project_id': project, 'version': profile.version,

@@ -430,7 +430,10 @@ class Completions:
     def refresh(self, scope, identity):
         if self.store.db.in_transaction:
             raise RuntimeError('Completion evidence inspection cannot run in a transaction')
-        record = self.get(scope, identity)
+        with self.store.transaction():
+            record = self.get(scope, identity)
+            task = self.store.task(scope, record.task_id)
+            workflow = self.store.workflow(scope, record.workflow_id)
         if not self.current(scope, identity):
             try:
                 if next(self._applying(scope, record), None) is not None:
@@ -440,7 +443,9 @@ class Completions:
             except (OSError, ValueError):
                 pass
             with self.store.transaction():
-                self.invalidate(scope, identity, 'completion_not_current', expected=record)
+                if (self.store.task(scope, record.task_id) == task
+                        and self.store.workflow(scope, record.workflow_id) == workflow):
+                    self.invalidate(scope, identity, 'completion_not_current', expected=record)
         return record
 
     def complete(self, scope, artifact_id, review_id, *, expected_revision, key):
