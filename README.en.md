@@ -856,7 +856,10 @@ The internal `VerificationRegistry` stores server-owned subjects and profiles in
 the shared SQLite database (schema21), with captured bytes in a pinned private
 directory. Registration runs no subject code or model. Acceptance profiles use
 independent oracle bytes; their current approval is selected atomically with
-profile publication. The internal `VerificationControl` registers immutable plans
+profile publication. Plan publication rechecks the complete saved profile record
+and its project. Trusted oracle import can pin an expected hash: changed bytes,
+modes, criteria or checks prevent approval writes and active-head changes.
+The internal `VerificationControl` registers immutable plans
 and handles start/cancel/rerun with revisions, command idempotency and cumulative
 shared budgets. `Host` executes them in the same four-slot pool as agent tasks;
 after a crash it reconciles exact process ownership before releasing capacity

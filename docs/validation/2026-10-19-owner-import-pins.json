@@ -1,0 +1,278 @@
+{
+  "parent": "0d7bbe6a11ab186d926d7aba1d111cb6857d88d8",
+  "status": "checked oracle import and registered-plan profile pins; public owner command transport remains open",
+  "boundaries": [
+    {
+      "exit_code": 1,
+      "seconds": 0.5006239999784157,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/verification/test_oracle_import_pins.py",
+        "-k",
+        "bytes or exact_import",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-owner-import-red-igvxzb5o/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-owner-import-red-igvxzb5o/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-owner-import-red-igvxzb5o",
+      "label": "owner-import-red",
+      "junit": {
+        "tests": "4",
+        "failures": "4",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.319"
+      },
+      "note": "Missing expected_hash keyword; four actual expected-import paths fail before implementation.",
+      "input_count": 313,
+      "input_manifest_sha256": "1c7cb6ac95c73635d5b0c10a7d436152204c2c658bb86360a3631de2722db703"
+    },
+    {
+      "exit_code": 0,
+      "seconds": 0.46912825002800673,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/verification/test_oracle_import_pins.py",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-owner-import-green-jg7h_5ga/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-owner-import-green-jg7h_5ga/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-owner-import-green-jg7h_5ga",
+      "label": "owner-import-green",
+      "junit": {
+        "tests": "13",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.276"
+      },
+      "note": "Thirteen import cases pass after pre-write expected hash guard.",
+      "input_count": 313,
+      "input_manifest_sha256": "d440f77e84a06fdc4a5f3397d024a36b559d2c3e84c9d9fd5093009c18d1696b"
+    },
+    {
+      "exit_code": 1,
+      "seconds": 0.9638241250067949,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/verification/test_oracle_import_pins.py",
+        "-k",
+        "plan_publication or guard_uses",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-owner-profile-red-p1nahiwy/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-owner-profile-red-p1nahiwy/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-owner-profile-red-p1nahiwy",
+      "label": "owner-profile-red",
+      "junit": {
+        "tests": "8",
+        "failures": "6",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.827"
+      },
+      "note": "Three actual suite publication races incorrectly accepted; three acceptance fixture failures are invalid setup (missing server-owned subject refs), not feature RED; two SQL-only cases pass.",
+      "input_count": 313,
+      "input_manifest_sha256": "4fe649d8ab6c67323e28fad240d3bc210087c07fb3286d510ae253ce7c96360a"
+    },
+    {
+      "exit_code": 1,
+      "seconds": 0.6878554170252755,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/verification/test_oracle_import_pins.py",
+        "-k",
+        "plan_publication or SQL_guard or guard_uses",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-owner-profile-corrected-red-linhe5tk/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-owner-profile-corrected-red-linhe5tk/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-owner-profile-corrected-red-linhe5tk",
+      "label": "owner-profile-corrected-red",
+      "junit": {
+        "tests": "9",
+        "failures": "6",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.551"
+      },
+      "note": "Three actual create_plan suite races and three direct acceptance row-pin cases fail; current acceptance head rejection and two SQL-only checks pass.",
+      "input_count": 313,
+      "input_manifest_sha256": "bcd3652df183500f0e482d80a57e519d79e995fca955baaf9254fe94c562f535"
+    },
+    {
+      "exit_code": 0,
+      "seconds": 0.7033382499939762,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/verification/test_oracle_import_pins.py",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-owner-profile-green-s7_22c47/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-owner-profile-green-s7_22c47/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-owner-profile-green-s7_22c47",
+      "label": "owner-profile-green",
+      "junit": {
+        "tests": "22",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.568"
+      },
+      "note": "All22 final feature cases pass against native frozen source.",
+      "input_count": 313,
+      "input_manifest_sha256": "5600dd031b7a6a2ed26b1a54b53313bc1181f633845f6dcc45d5271bc0ebd34b"
+    },
+    {
+      "exit_code": 0,
+      "seconds": 4.01304616604466,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/verification/test_control_registry.py",
+        "tests/unit/verification/test_plan.py",
+        "tests/unit/verification/test_verification_execution.py::test_registered_native_execution_charges_every_check_without_fake_agent_attempts",
+        "tests/unit/verification/test_registered_plan_engine.py::test_registered_suite_keeps_plan_targets_and_every_diagnostic_rerun",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-owner-import-compat-0nj18cbw/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-owner-import-compat-0nj18cbw/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-owner-import-compat-0nj18cbw",
+      "label": "owner-import-compat",
+      "junit": {
+        "tests": "43",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "3.819"
+      },
+      "note": "Forty-three relevant existing registry/plan cases and real registered execution/rerun scenarios pass.",
+      "input_count": 313,
+      "input_manifest_sha256": "5600dd031b7a6a2ed26b1a54b53313bc1181f633845f6dcc45d5271bc0ebd34b"
+    },
+    {
+      "exit_code": 0,
+      "seconds": 0.8981113340123557,
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit/verification/test_oracle_import_pins.py",
+        "-q",
+        "--junitxml=/private/tmp/flycode-replan-owner-import-combined-depjmf44/junit.xml",
+        "--basetemp=/private/tmp/flycode-replan-owner-import-combined-depjmf44/cases"
+      ],
+      "root": "/private/tmp/flycode-replan-owner-import-combined-depjmf44",
+      "label": "owner-import-combined",
+      "junit": {
+        "tests": "22",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.728"
+      },
+      "note": "All22 cases pass against204-source frozen current parallel checkout with own two-source override; interoperability only, excluded public package.",
+      "input_count": 340,
+      "input_manifest_sha256": "453541c5b394c446120309a4976c9a5c7cc4edc71926811c93e69f82f12d9457"
+    }
+  ],
+  "package": {
+    "source": "/private/tmp/flycode-owner-import-package-source-j85zqjan",
+    "wheel": "/private/tmp/flycode-owner-import-wheel-output/flycode-0.1.0-py3-none-any.whl",
+    "sha256": "6bc97f4280c1f60c2b0d9b369308585b9c672c01f7d2fada420021c820851eed",
+    "extract": "/private/tmp/flycode-owner-import-wheel-extracted",
+    "inputs": 316
+  },
+  "feature": {
+    "exit_code": 0,
+    "seconds": 0.49757604202022776,
+    "collection": [
+      "tests/unit/verification/test_oracle_import_pins.py::test_changed_import_cannot_replace_the_active_head[bytes-False]",
+      "tests/unit/verification/test_oracle_import_pins.py::test_changed_import_cannot_replace_the_active_head[bytes-True]",
+      "tests/unit/verification/test_oracle_import_pins.py::test_changed_import_cannot_replace_the_active_head[mode-False]",
+      "tests/unit/verification/test_oracle_import_pins.py::test_changed_import_cannot_replace_the_active_head[mode-True]",
+      "tests/unit/verification/test_oracle_import_pins.py::test_changed_import_cannot_replace_the_active_head[contract-False]",
+      "tests/unit/verification/test_oracle_import_pins.py::test_changed_import_cannot_replace_the_active_head[contract-True]",
+      "tests/unit/verification/test_oracle_import_pins.py::test_changed_import_cannot_replace_the_active_head[checks-False]",
+      "tests/unit/verification/test_oracle_import_pins.py::test_changed_import_cannot_replace_the_active_head[checks-True]",
+      "tests/unit/verification/test_oracle_import_pins.py::test_changed_import_cannot_replace_the_active_head[invalid_hash-False]",
+      "tests/unit/verification/test_oracle_import_pins.py::test_changed_import_cannot_replace_the_active_head[invalid_hash-True]",
+      "tests/unit/verification/test_oracle_import_pins.py::test_exact_import_preserves_registered_bytes_checks_and_modes[False]",
+      "tests/unit/verification/test_oracle_import_pins.py::test_exact_import_preserves_registered_bytes_checks_and_modes[True]",
+      "tests/unit/verification/test_oracle_import_pins.py::test_expected_hash_does_not_bypass_contract_supersession",
+      "tests/unit/verification/test_oracle_import_pins.py::test_plan_publication_pins_the_exact_profile_row[data]",
+      "tests/unit/verification/test_oracle_import_pins.py::test_plan_publication_pins_the_exact_profile_row[project_column]",
+      "tests/unit/verification/test_oracle_import_pins.py::test_plan_publication_pins_the_exact_profile_row[missing]",
+      "tests/unit/verification/test_oracle_import_pins.py::test_profile_publication_guard_uses_only_SQL[False]",
+      "tests/unit/verification/test_oracle_import_pins.py::test_profile_publication_guard_uses_only_SQL[True]",
+      "tests/unit/verification/test_oracle_import_pins.py::test_acceptance_SQL_guard_rejects_changed_profile[data]",
+      "tests/unit/verification/test_oracle_import_pins.py::test_acceptance_SQL_guard_rejects_changed_profile[project_column]",
+      "tests/unit/verification/test_oracle_import_pins.py::test_acceptance_SQL_guard_rejects_changed_profile[missing]",
+      "tests/unit/verification/test_oracle_import_pins.py::test_acceptance_SQL_guard_rejects_changed_profile[head]"
+    ],
+    "source_files": 177,
+    "inputs": 316,
+    "junit": {
+      "tests": "22",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.434"
+    }
+  },
+  "static": {
+    "ruff": {
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "src/flycode/verification/oracle.py",
+        "src/flycode/verification/registry.py",
+        "tests/unit/verification/test_oracle_import_pins.py"
+      ],
+      "exit_code": 0
+    },
+    "mypy": {
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "mypy",
+        "--follow-imports=silent",
+        "src/flycode/verification/oracle.py",
+        "src/flycode/verification/registry.py"
+      ],
+      "exit_code": 0
+    }
+  },
+  "review": "Independent read-only two-source review found no blockers; complete parent/replan pin wiring and RPC are outside this increment.",
+  "preparation_notes": [
+    "Initial acceptance create_plan test used plain captured suite subjects without server-owned references; three failures are invalid fixture setup. Corrected tests keep actual create_plan races for suites and exercise acceptance SQL guard directly with valid registered profiles. No fake subject refs or production bypass was introduced.",
+    "Initial Ruff found two import-format issues in the new test; fixed only those imports. Initial mypy passed. Original static output is retained in the tool transcript; final static logs are saved."
+  ],
+  "limits": [
+    "Expected hash is a trusted Python keyword, absent from browser/agent inputs. Legacy calls with no keyword keep existing behavior.",
+    "Fingerprint includes contract, check settings, file bytes and modes; mismatch is checked before approval files, fd writes, existing-key activation or heads. OracleRegistry construction may create its empty storage directory.",
+    "This guard does not harden existing source traversal, make runtime head activation and subsequent SQL commit atomic, or install a registered profile into Host by itself.",
+    "Full immutable profile row/project-column pin is now used by existing registered-plan publication, plus prior approval-head check. Parent/replan final pin wiring and live owner RPC remain open.",
+    "Acceptance SQL guard cases are not claimed as acceptance create_plan e2e. Native existing execution/rerun routes use real subprocesses. No UI source changed in this increment.",
+    "No full suite, live LM/graph smoke, neural training/promotion or aggregate completion. Parallel brain source is excluded public package; no scientific claim."
+  ],
+  "archive": {
+    "root": "/Users/Administrator/.cache/flycode/validation/flycode-owner-import-checked-f0m0ahbe",
+    "regular_files": 4571,
+    "bytes": 71985368,
+    "manifest_sha256": "601c9c5aa68bba4ebb71892f2f246c9f67754ab8189c1a71b98a772a396d2b3c"
+  }
+}

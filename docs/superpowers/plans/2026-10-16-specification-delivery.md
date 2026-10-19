@@ -1,5 +1,15 @@
 # Specification delivery Implementation Plan
 
+Checked owner-import prerequisite,2026-10-19: expected oracle fingerprint is
+compared before approval/head writes; existing registered-plan final SQL pins the
+full profile row/project column. Final wheel22, native feature22, compatibility43,
+Ruff3/mypy2, package177/316 unchanged inputs/UTF-8 README/CLI and frozen brain204
+interoperability22 pass. Counts overlap; invalid acceptance-fixture RED and static
+format correction are retained in [the report](../../validation/2026-10-19-owner-import-pins.md).
+This is not owner parent/replan final pin wiring, staging/RPC or public commands;
+combined Task4, aggregate/controller/neural/research/final gates remain open.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Реализовать изменения §§100–103 с проверяемыми результатами, общей очередью задач и явным отделением исследовательских допусков.

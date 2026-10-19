@@ -3244,3 +3244,12 @@ UTF-8 README/CLI/315 unchanged inputs и frozen combined-brain203 source2 про
 счётчики пересекаются. Public owner approval/replan/live-Host/oracle bridge,
 combined Task4/controller/admission/neural/research/final acceptance остаются
 открыты. Full/live-LM/graph/training не запускались, полная цель не закрыта.
+
+Checked owner-import prerequisite,2026-10-19: expected oracle fingerprint is
+compared before approval/head writes; existing registered-plan final SQL pins the
+full profile row/project column. Final wheel22, native feature22, compatibility43,
+Ruff3/mypy2, package177/316 unchanged inputs/UTF-8 README/CLI and frozen brain204
+interoperability22 pass. Counts overlap; invalid acceptance-fixture RED and static
+format correction are retained in [the report](validation/2026-10-19-owner-import-pins.md).
+This is not owner parent/replan final pin wiring, staging/RPC or public commands;
+combined Task4, aggregate/controller/neural/research/final gates remain open.

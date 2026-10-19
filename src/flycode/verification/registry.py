@@ -574,6 +574,15 @@ class VerificationRegistry:
         return record
 
     def _profile_sql(self, profile):
+        row = self.store.db.execute('SELECT project_id,data FROM verification_profiles WHERE id=?', (profile.id,)).fetchone()
+        if row is None or row['project_id'] != profile.project_id:
+            raise StoreError('verification_profile_changed')
+        try:
+            current = RegisteredVerificationProfile.model_validate_json(row['data'])
+        except ValueError as error:
+            raise StoreError('verification_profile_changed') from error
+        if current != profile:
+            raise StoreError('verification_profile_changed')
         if profile.draft.acceptance is not None:
             row = self.store.db.execute('SELECT approval_hash FROM verification_profile_heads WHERE project_id=? AND contract_id=?',
                 (profile.project_id, profile.draft.acceptance.id)).fetchone()

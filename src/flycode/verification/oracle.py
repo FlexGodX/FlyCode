@@ -38,7 +38,8 @@ class OracleRegistry:
         if directory_fd is None:
             self.directory.mkdir(parents=True, exist_ok=True)
 
-    def approve(self, contract: AcceptanceContract, checks: list[CheckSpec], root: Path) -> str:
+    def approve(self, contract: AcceptanceContract, checks: list[CheckSpec], root: Path, *,
+                expected_hash: str | None = None) -> str:
         """Trusted registration only; deliberately absent from agent tools/API commands."""
         registered = registered_checks(checks, contract)
         files, _ = input_files(root.resolve(strict=True))
@@ -51,6 +52,8 @@ class OracleRegistry:
             files={name: hashlib.sha256(data).hexdigest() for name, data in files.items()},
             modes={name: stat.S_IMODE((root / name).stat().st_mode) for name in files})
         key = approved.fingerprint()
+        if expected_hash is not None and key != expected_hash:
+            raise ValueError('Imported approval differs from the expected approval')
         if self.directory_fd is not None:
             payloads = {f'{key}/files/{name}': data for name, data in files.items()}
             payloads[f'{key}/approval.json'] = approved.model_dump_json().encode()

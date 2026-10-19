@@ -214,6 +214,7 @@ When the user corrects your approach, append a one-line rule here before ending 
 
 - Use `Store.confirm_started` for assignment startup; `Store` has no `begin` method.
 - Read helper signatures from the exact pinned source being measured; parallel working-tree changes may add unavailable parameters.
+- Acceptance plans require server-owned subject references; plain register_subject captures suite inputs without runtime provenance.
 
 ## 12. How this file was built
 
