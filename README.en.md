@@ -177,7 +177,9 @@ and expected revisions; the server selects folders, roles and oracle approvals.
 Connect the service first with `tasks service attach` or the Tasks-screen
 connect button. The execution-plan dialog exposes folder preparation, explicit
 approval, stopped-branch objective/dependency edits and new writer/reviewer pairs
-with registered criteria. Preview starts no work. Pause and cancel remain
+with registered criteria. Replanning is also available after a rejected independent
+child review once all attempts have stopped. The service continues the confirmed
+plan while retaining earlier rejection evidence and spending. Preview starts no work. Pause and cancel remain
 available while loading or sending owner commands. Lost replies and partial
 preparation offer an explicit retry of the saved request/revisions/key, including
 after a page reload. Exact-key retry preserves frozen intent, partial

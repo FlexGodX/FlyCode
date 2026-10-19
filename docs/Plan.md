@@ -3313,3 +3313,17 @@ All gates/failures are retained in [the report](validation/2026-10-19-owner-brow
 Next: real automatic no-policy negative-review checkpoint and replan affordance,
 then automatic retry/restart combined acceptance. Full/controller/admission/neural/
 research/final gates stay open; no biological or live-LM claim.
+
+Checked automatic owner replan,2026-10-19: actual browser attach starts the
+detached coordinator; no-policy failed independent review reaches a stable stopped
+checkpoint. The dialog now admits failed-child replan and hides it for any paused
+task; actual parent/child pause/resume is checked. Explicit objective revision
+continues through fresh review, parent continuation and current applied integration.
+Final extracted184-file wheel automatic79.56s plus3 old owner browser
+cases pass; frozen combined221 source81.95s passes, retaining parallel
+MaleCNS controls. Each automatic run5tasks/8attempts/5model/39tools +1 separate
+probe, no reserve/uncertainty, original deadline/owner bytes/rejection evidence
+retained; later source edit revokes currentness. Counts overlap. Ruff2/mypy1/JS2/package/
+CLI checks pass. All RED/preparation failures are retained in [the report](validation/2026-10-19-owner-automatic-review.md).
+Automatic combined retry/new-branch/restart/avalanche/Stop and full/controller/
+admission/neural/research/final gates remain open. No new live-LM/biological claim.

@@ -2,7 +2,7 @@
 (() => {
   const $=selector=>document.querySelector(selector),dialog=$("#ownerDialog");
   const states={planned:"Черновик",ready:"В очереди",assigned:"Назначена",running:"В работе",awaiting_review:"На проверке",succeeded:"Готово",blocked:"Ожидание",retry_wait:"Ожидает повтора",failed:"Ошибка",cancelled:"Отменена"};
-  const blockers={missing_objective:"Добавьте описание результата",missing_criteria:"Выберите критерии",missing_permission:"Требуется разрешение",missing_budget:"Задайте бюджет",missing_agent_profile:"Выберите профиль исполнителя",missing_source_binding:"Подготовьте папку",waiting_children:"Ожидает дочерние задачи",paused:"Приостановлена"};
+  const blockers={missing_objective:"Добавьте описание результата",missing_criteria:"Выберите критерии",missing_permission:"Требуется разрешение",missing_budget:"Задайте бюджет",missing_agent_profile:"Выберите профиль исполнителя",missing_source_binding:"Подготовьте папку",waiting_children:"Ожидает дочерние задачи",child_review_failed:"Проверка дочерней задачи не пройдена",child_failed:"Дочерняя задача не завершена",paused:"Приостановлена"};
   const stages={baseline:"До изменений",target:"После изменений",regression:"Проверка регрессий",integration:"Общая проверка"};
   let context=null,request=0,fieldId=0;
   function node(tag,text,className){const value=document.createElement(tag);if(text!==undefined)value.textContent=text;if(className)value.className=className;return value;}
@@ -115,7 +115,7 @@
   function replanForm(saved,preview,catalogue,writers,root){
     const form=node("form",undefined,"owner-form"),edits=new Map(),additions=[];
     let nextBranch=0;
-    form.append(node("h3","Изменение остановленного плана"),node("p","Изменения доступны после подтверждённой остановки родителя перед ожиданием ветвей. Уже потраченный бюджет и срок сохраняются. Сервер повторно проверит состояние всех попыток."));
+    form.append(node("h3","Изменение остановленного плана"),node("p","Изменения доступны, когда родитель ожидает ветви, а все попытки подтверждённо остановлены. Уже потраченный бюджет и срок сохраняются. Сервер повторно проверит состояние всех попыток."));
     const children=writers.filter(task=>task.id!==root.id),full=id=>saved.fullTasks.get(id);
     const check=(title,parent)=>{const input=node("input");input.type="checkbox";parent.append(field(title,input));return input;};
     const text=(value,max,area=false)=>{const input=node(area?"textarea":"input");input.value=value;input.maxLength=max;input.required=true;return input;};
@@ -215,7 +215,7 @@
     const writers=preview.tasks.filter(task=>task.kind!=="review"&&task.profile_ids.length),root=preview.tasks.find(task=>task.parent_id===null);
     if(!preview.pipeline_id){if(writers.length)body.append(prepareForm(saved,preview,writers));if(root&&writers.length>=2)body.append(approvalForm(saved,preview,writers,root));}
     else {body.append(node("p",`План разрешён · версия графа ${preview.graph_revision}. Привязки закреплены выбранным планом.`));
-      if(root?.state==="blocked"&&root.blockers.includes("waiting_children")&&!root.blockers.includes("paused")&&preview.graph_revision<2)body.append(replanForm(saved,preview,catalogue,writers,root));}
+      if(root?.state==="blocked"&&root.blockers.some(reason=>["waiting_children","child_review_failed","child_failed"].includes(reason))&&!preview.tasks.some(task=>saved.fullTasks.get(task.id)?.paused)&&preview.graph_revision<2)body.append(replanForm(saved,preview,catalogue,writers,root));}
     const tasks=node("details");tasks.append(node("summary",`Задачи и условия (${preview.tasks.length})`));
     for(const task of preview.tasks){
       const box=node("article",undefined,"owner-task");box.dataset.ownerTask=task.id;

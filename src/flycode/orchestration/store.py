@@ -717,6 +717,23 @@ class Store:
             self._save_instance(changed(instance, state='reconciling', revision=instance.revision + 1))
         return changed(task, fence=task.fence + 1)
 
+    def _published_output(self, task):
+        if task.state != 'awaiting_review' or task.current_attempt_id is None:
+            return False
+        attempt = self._attempt(task.current_attempt_id)
+        return (attempt.state == 'awaiting_review' and attempt.stop_confirmed
+            and attempt.task_id == task.id and attempt.workflow_id == task.workflow_id
+            and task.fence == attempt.fence + 1 and task.semantic_revision == attempt.semantic_revision
+            and task.contract_hash == attempt.contract_hash
+            and self.db.execute("SELECT 1 FROM artifacts WHERE attempt_id=? AND json_extract(data,'$.task_id')=? "
+                "AND json_extract(data,'$.workflow_id')=? AND json_extract(data,'$.fence')=? "
+                "AND json_extract(data,'$.contract_hash')=? AND json_extract(data,'$.semantic_revision')=?",
+                (attempt.id, task.id, task.workflow_id, attempt.fence, task.contract_hash, task.semantic_revision)).fetchone() is not None)
+
+    def _pause(self, task):
+        # Keep already-published stopped output available for review or replan.
+        return task if self._published_output(task) else self._stop(task)
+
     def _reopen(self, scope, task, workflow):
         if task.state not in {'succeeded', 'blocked', 'failed', 'cancelled', 'retry_wait'}:
             raise StoreError('state', 'Only completed or stopped work can be reopened')
@@ -790,14 +807,14 @@ class Store:
             elif op in {'pause', 'resume'}:
                 if values:
                     raise StoreError('command', 'Unexpected change fields')
-                if op == 'resume' and task.current_attempt_id:
+                if op == 'resume' and task.current_attempt_id and not self._published_output(task):
                     raise StoreError('ownership', 'Stop is not yet confirmed')
-                task = changed(self._stop(task) if op == 'pause' else task, paused=op == 'pause')
+                task = changed(self._pause(task) if op == 'pause' else task, paused=op == 'pause')
                 if task.id == workflow.root_task_id and workflow.active_slot:
                     if op == 'pause':
                         for child in self.tasks(scope, workflow.id):
                             if child.id != task.id and child.current_attempt_id:
-                                self._save_task(changed(self._stop(child), revision=child.revision + 1))
+                                self._save_task(changed(self._pause(child), revision=child.revision + 1))
                         active = any(a.state in ACTIVE for a in self.attempts(scope, workflow.id))
                         workflow = changed(workflow, state='pausing' if active else 'paused')
                     else:

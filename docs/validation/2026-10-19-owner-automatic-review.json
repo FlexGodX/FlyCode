@@ -1,0 +1,1331 @@
+{
+  "date": "2026-10-19",
+  "parent": "586365f6fb3457cd0b911b86017b47ff3c5cb148",
+  "scope": "Owner replan after failed child review, paused visibility and preservation of settled published output",
+  "wheel_sha256": "a8bfd86784616fe0092ac1410b3ac873ed4d74f7b3675e08a1da60494f437a8a",
+  "package_files": 184,
+  "matrix": {
+    "root": "/private/tmp/flycode-owner-automatic-wheel-browser-1px2a35r",
+    "source": "/private/tmp/flycode-owner-automatic-final-source-vuprp7wt",
+    "wheel": "/private/tmp/flycode-owner-automatic-wheel-zs6xs72_/flycode-0.1.0-py3-none-any.whl",
+    "wheel_sha256": "a8bfd86784616fe0092ac1410b3ac873ed4d74f7b3675e08a1da60494f437a8a",
+    "cases": [
+      {
+        "case": "automatic",
+        "launchers": 1,
+        "returncode": 0,
+        "seconds": 80.12516262504505
+      },
+      {
+        "case": "preview",
+        "launchers": 1,
+        "returncode": 0,
+        "seconds": 3.09802687499905
+      },
+      {
+        "case": "commands",
+        "launchers": 1,
+        "returncode": 0,
+        "seconds": 4.022062542033382
+      },
+      {
+        "case": "recovery",
+        "launchers": 1,
+        "returncode": 0,
+        "seconds": 3.506731875007972
+      }
+    ],
+    "passed": true,
+    "unchanged": true
+  },
+  "automatic": {
+    "passed": true,
+    "preparation_succeeded": true,
+    "root": "/private/tmp/flycode-owner-automatic-wheel-browser-1px2a35r/automatic",
+    "before": {
+      "attempts": 0,
+      "model_calls": 1,
+      "tool_calls": 0,
+      "commands": 15,
+      "worker_bindings": 3,
+      "pipelines": 0
+    },
+    "database": "/private/tmp/flycode-owner-automatic-wheel-browser-1px2a35r/automatic/queue.sqlite",
+    "daemon": {
+      "pid": 82404,
+      "sid": 82404
+    },
+    "exit_code": 0,
+    "after": {
+      "attempts": 8,
+      "model_calls": 6,
+      "tool_calls": 39,
+      "commands": 119,
+      "worker_bindings": 7,
+      "pipelines": 1
+    },
+    "seconds": 79.56342158297775,
+    "checkpoint": {
+      "budget": {
+        "limit": {
+          "model_calls": 60,
+          "tool_calls": 120
+        },
+        "spent": {
+          "model_calls": 3,
+          "tool_calls": 4
+        },
+        "reserved": {
+          "model_calls": 0,
+          "tool_calls": 0
+        },
+        "free": {
+          "model_calls": 57,
+          "tool_calls": 116
+        },
+        "uncertain": false
+      },
+      "deadline": 1792399257.568366,
+      "attempts": [
+        {
+          "id": "8b4eb1b2466049d98222445dd3b6a13f",
+          "task_id": "50acee38d627439a974de7390e848824",
+          "state": "interrupted",
+          "fence": 1,
+          "semantic_revision": 3,
+          "contract_hash": "3ab51cef63f4d67810adf57ead04889e6ef180dc4c3e97c60ac761f18f3428c3",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 1,
+            "tool_calls": 1
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        },
+        {
+          "id": "acff09f7fe104c9ab1c1389d129256d2",
+          "task_id": "4b3838f5adaa45b8b4abed8b96cab201",
+          "state": "awaiting_review",
+          "fence": 1,
+          "semantic_revision": 3,
+          "contract_hash": "c543d28a08bc61c91b31aca5e0dc28af1f5d9cb638ab75598bb9fd8f89f04e02",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 2,
+            "tool_calls": 1
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        },
+        {
+          "id": "4f3d7521401948459b2533ce251f569e",
+          "task_id": "33d85e98d439436a970010144c44e0cb",
+          "state": "failed",
+          "fence": 1,
+          "semantic_revision": 3,
+          "contract_hash": "2fef669d6dadc94a29c5d3d45cec336c86adff90b64045abe0a21026495530a2",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 0,
+            "tool_calls": 2
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        }
+      ],
+      "review": {
+        "id": "11bce34c9fb94c7fb23147a4e65a75b1",
+        "artifact_id": "fde85d861cb8419a84cf43c03bc78ab9",
+        "patch_hash": "cafebf27a2263d93731d62aa1aa0f62c92b6166e3b2e7744e71d83eb07fcd321",
+        "reviewer_attempt_id": "4f3d7521401948459b2533ce251f569e",
+        "status": "changes_requested",
+        "approval_hash": "0b8f429df28b422aab94c0023d3fe05e494f03e7ca37a872492eae4f389dec4f",
+        "verdict": {
+          "status": "failed",
+          "evidence_id": "dc7221a613894d63b22253ab78824f71",
+          "plan_hash": "c86c40c3c8feb1c0eb4e3371263f7ec58863e05364025d71a73021142b1452cc"
+        }
+      }
+    },
+    "delivery": {
+      "budget": {
+        "limit": {
+          "model_calls": 60,
+          "tool_calls": 120
+        },
+        "spent": {
+          "model_calls": 5,
+          "tool_calls": 39
+        },
+        "reserved": {
+          "model_calls": 0,
+          "tool_calls": 0
+        },
+        "free": {
+          "model_calls": 55,
+          "tool_calls": 81
+        },
+        "uncertain": false
+      },
+      "attempts": [
+        {
+          "id": "8b4eb1b2466049d98222445dd3b6a13f",
+          "task_id": "50acee38d627439a974de7390e848824",
+          "state": "interrupted",
+          "fence": 1,
+          "semantic_revision": 3,
+          "contract_hash": "3ab51cef63f4d67810adf57ead04889e6ef180dc4c3e97c60ac761f18f3428c3",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 1,
+            "tool_calls": 1
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        },
+        {
+          "id": "acff09f7fe104c9ab1c1389d129256d2",
+          "task_id": "4b3838f5adaa45b8b4abed8b96cab201",
+          "state": "interrupted",
+          "fence": 1,
+          "semantic_revision": 3,
+          "contract_hash": "c543d28a08bc61c91b31aca5e0dc28af1f5d9cb638ab75598bb9fd8f89f04e02",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 2,
+            "tool_calls": 1
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        },
+        {
+          "id": "4f3d7521401948459b2533ce251f569e",
+          "task_id": "33d85e98d439436a970010144c44e0cb",
+          "state": "failed",
+          "fence": 1,
+          "semantic_revision": 3,
+          "contract_hash": "2fef669d6dadc94a29c5d3d45cec336c86adff90b64045abe0a21026495530a2",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 0,
+            "tool_calls": 2
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        },
+        {
+          "id": "aae9442f40b0451bb98b466acfcc0174",
+          "task_id": "4b3838f5adaa45b8b4abed8b96cab201",
+          "state": "succeeded",
+          "fence": 4,
+          "semantic_revision": 4,
+          "contract_hash": "2394e8563e2aec063979b0fea96f99a049e7e822e50214c362c2ea3edea52052",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 1,
+            "tool_calls": 1
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        },
+        {
+          "id": "d696b33cf2ca4ac8bfd6e119d842e94b",
+          "task_id": "33d85e98d439436a970010144c44e0cb",
+          "state": "succeeded",
+          "fence": 3,
+          "semantic_revision": 5,
+          "contract_hash": "bba410ce706bedf9132192686988dc155067c6996a85201732b228690f7ee998",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 0,
+            "tool_calls": 4
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        },
+        {
+          "id": "1e43f8183f494c7ea8881341f8c8109c",
+          "task_id": "50acee38d627439a974de7390e848824",
+          "state": "succeeded",
+          "fence": 4,
+          "semantic_revision": 4,
+          "contract_hash": "b41bb15c7fc0890fd826ee158203d6d5d44ad60f6d7102db20ae7bf88b1d8881",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 1,
+            "tool_calls": 1
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        },
+        {
+          "id": "66aa7cb7fbdc4a73a65c5d58fe964233",
+          "task_id": "6d6323437d89451fbcc25fb439700acc",
+          "state": "succeeded",
+          "fence": 1,
+          "semantic_revision": 2,
+          "contract_hash": "3f35b63b6cfadd4f285341a9c6069e7590b3ca6170cdc1ebf615592bbf8607e6",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 0,
+            "tool_calls": 4
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        },
+        {
+          "id": "0802b913985940c4aac1566555fb901a",
+          "task_id": "03d2515d096a4a4b8dae27bda85ded40",
+          "state": "succeeded",
+          "fence": 1,
+          "semantic_revision": 5,
+          "contract_hash": "4472ac925fb88521b216010ec467c75dc8a28734d7a1f52680324d71bd7bb86c",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 0,
+            "tool_calls": 25
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        }
+      ],
+      "event_kinds": {
+        "workflow_created": 1,
+        "task_created": 4,
+        "worker_binding_created": 5,
+        "task_revise": 6,
+        "task_completion_invalidated": 1,
+        "task_reopen": 1,
+        "pipeline_approved": 1,
+        "task_enqueue": 1,
+        "workflow_selected": 1,
+        "attempt_assigned": 8,
+        "worker_dispatched": 8,
+        "workspace_created": 4,
+        "execution_admitted": 8,
+        "attempt_started": 8,
+        "agent_activity": 37,
+        "budget_spent": 44,
+        "model_start": 5,
+        "model_end": 5,
+        "tool_start": 39,
+        "tool_end": 39,
+        "worker_stopped": 4,
+        "artifact_published": 4,
+        "parent_suspended": 1,
+        "pipeline_materialized": 4,
+        "check_process_admitted": 34,
+        "review_completed": 3,
+        "attempt_stopped": 1,
+        "parent_continuation_blocked": 1,
+        "task_pause": 2,
+        "task_resume": 2,
+        "pipeline_replanned": 1,
+        "attempt_heartbeat": 9,
+        "verified_task_completed": 5,
+        "task_completion_published": 2,
+        "pipeline_task_completed": 2,
+        "parent_continuation_ready": 1,
+        "integration_started": 1,
+        "verified_task_revalidated": 2,
+        "integration_completed": 1
+      }
+    }
+  },
+  "combined": {
+    "passed": true,
+    "preparation_succeeded": true,
+    "root": "/private/tmp/flycode-owner-automatic-settled-final-browser-20261019",
+    "before": {
+      "attempts": 0,
+      "model_calls": 1,
+      "tool_calls": 0,
+      "commands": 15,
+      "worker_bindings": 3,
+      "pipelines": 0
+    },
+    "database": "/private/tmp/flycode-owner-automatic-settled-final-browser-20261019/queue.sqlite",
+    "daemon": {
+      "pid": 82178,
+      "sid": 82178
+    },
+    "exit_code": 0,
+    "after": {
+      "attempts": 8,
+      "model_calls": 6,
+      "tool_calls": 39,
+      "commands": 126,
+      "worker_bindings": 7,
+      "pipelines": 1
+    },
+    "seconds": 81.94630387501093,
+    "checkpoint": {
+      "budget": {
+        "limit": {
+          "model_calls": 60,
+          "tool_calls": 120
+        },
+        "spent": {
+          "model_calls": 3,
+          "tool_calls": 4
+        },
+        "reserved": {
+          "model_calls": 0,
+          "tool_calls": 0
+        },
+        "free": {
+          "model_calls": 57,
+          "tool_calls": 116
+        },
+        "uncertain": false
+      },
+      "deadline": 1792399250.027356,
+      "attempts": [
+        {
+          "id": "83ba9d07713b4f179d52f078cb1404c1",
+          "task_id": "65141189a64c489bae4c604fb535d1aa",
+          "state": "interrupted",
+          "fence": 1,
+          "semantic_revision": 3,
+          "contract_hash": "39880955930c12e21d8962f24d0ac708856aabd842a27d9ea0ce1d028c534c70",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 1,
+            "tool_calls": 1
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        },
+        {
+          "id": "e3ad874fd30a493088cadefec57dcce3",
+          "task_id": "136d371865104e2ba9c048a601b4864a",
+          "state": "awaiting_review",
+          "fence": 1,
+          "semantic_revision": 3,
+          "contract_hash": "b97f6145e649016abe827df2de3b3b210064a79ef795386f419da9a1c35878d7",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 2,
+            "tool_calls": 1
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        },
+        {
+          "id": "213429423a6f490ab5388224b394fc8f",
+          "task_id": "c668383a035648e7a62154b92fb254de",
+          "state": "failed",
+          "fence": 1,
+          "semantic_revision": 3,
+          "contract_hash": "8161c69f391d2bd4bdf14b6b2fd6311f809a63f9ad737dc575ff23e97940bb6c",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 0,
+            "tool_calls": 2
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        }
+      ],
+      "review": {
+        "id": "8163fd7fd4a0459fa939bcc6115d2b5c",
+        "artifact_id": "eb0270c349734683bf60b806b4a071da",
+        "patch_hash": "68076f8f50f8b2c9c7f7f27cc87c6d62465af051baa47edf4073c2f4b8373f1a",
+        "reviewer_attempt_id": "213429423a6f490ab5388224b394fc8f",
+        "status": "changes_requested",
+        "approval_hash": "0b8f429df28b422aab94c0023d3fe05e494f03e7ca37a872492eae4f389dec4f",
+        "verdict": {
+          "status": "failed",
+          "evidence_id": "9469379510bf4f46b8525d347c4a7cac",
+          "plan_hash": "222c1643d3df98ddbf122aee3e03b4491cea88d6659aa4518362fcf73c6a5286"
+        }
+      }
+    },
+    "delivery": {
+      "budget": {
+        "limit": {
+          "model_calls": 60,
+          "tool_calls": 120
+        },
+        "spent": {
+          "model_calls": 5,
+          "tool_calls": 39
+        },
+        "reserved": {
+          "model_calls": 0,
+          "tool_calls": 0
+        },
+        "free": {
+          "model_calls": 55,
+          "tool_calls": 81
+        },
+        "uncertain": false
+      },
+      "attempts": [
+        {
+          "id": "83ba9d07713b4f179d52f078cb1404c1",
+          "task_id": "65141189a64c489bae4c604fb535d1aa",
+          "state": "interrupted",
+          "fence": 1,
+          "semantic_revision": 3,
+          "contract_hash": "39880955930c12e21d8962f24d0ac708856aabd842a27d9ea0ce1d028c534c70",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 1,
+            "tool_calls": 1
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        },
+        {
+          "id": "e3ad874fd30a493088cadefec57dcce3",
+          "task_id": "136d371865104e2ba9c048a601b4864a",
+          "state": "interrupted",
+          "fence": 1,
+          "semantic_revision": 3,
+          "contract_hash": "b97f6145e649016abe827df2de3b3b210064a79ef795386f419da9a1c35878d7",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 2,
+            "tool_calls": 1
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        },
+        {
+          "id": "213429423a6f490ab5388224b394fc8f",
+          "task_id": "c668383a035648e7a62154b92fb254de",
+          "state": "failed",
+          "fence": 1,
+          "semantic_revision": 3,
+          "contract_hash": "8161c69f391d2bd4bdf14b6b2fd6311f809a63f9ad737dc575ff23e97940bb6c",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 0,
+            "tool_calls": 2
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        },
+        {
+          "id": "32af9a6cccd74b0f978deaad05c0ecd6",
+          "task_id": "136d371865104e2ba9c048a601b4864a",
+          "state": "succeeded",
+          "fence": 4,
+          "semantic_revision": 4,
+          "contract_hash": "cfa35ae7d2eb3c2ec73a0bc3786f11b304992233230a2f3e30f0f30d48e36ccb",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 1,
+            "tool_calls": 1
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        },
+        {
+          "id": "9e08f35a41f848b882cad3bdf9f92f0a",
+          "task_id": "c668383a035648e7a62154b92fb254de",
+          "state": "succeeded",
+          "fence": 3,
+          "semantic_revision": 5,
+          "contract_hash": "8cec7a943fd96aca2ee1b8a7d3221aca75afd529451f47fbf050f4c601095b78",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 0,
+            "tool_calls": 4
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        },
+        {
+          "id": "d3df86c2663e49e38ab098cc12214da2",
+          "task_id": "65141189a64c489bae4c604fb535d1aa",
+          "state": "succeeded",
+          "fence": 4,
+          "semantic_revision": 4,
+          "contract_hash": "28615836da58f1fc7e182e2951654eadfe3824ae9440bfd3d4fafe32e24b252f",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 1,
+            "tool_calls": 1
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        },
+        {
+          "id": "5a059eefcaa24368b13fd8cb9d1856b5",
+          "task_id": "272d392aaffe42769943780d39754e69",
+          "state": "succeeded",
+          "fence": 1,
+          "semantic_revision": 2,
+          "contract_hash": "3e7bfaa8999f558e3e5575cc1f18dedb982ad98e6c1053e3c2188dd71eaeeeae",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 0,
+            "tool_calls": 4
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        },
+        {
+          "id": "3f2ea539af5244a399b533bfa6050e60",
+          "task_id": "4beb54289973481684ea3aa003829668",
+          "state": "succeeded",
+          "fence": 1,
+          "semantic_revision": 5,
+          "contract_hash": "d927ee1d4e6a1e46403ffd96f0234610e7f54983e765b127e4d725a2edb867d6",
+          "stop_confirmed": true,
+          "spent": {
+            "model_calls": 0,
+            "tool_calls": 25
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          }
+        }
+      ],
+      "event_kinds": {
+        "workflow_created": 1,
+        "task_created": 4,
+        "worker_binding_created": 5,
+        "task_revise": 6,
+        "task_completion_invalidated": 1,
+        "task_reopen": 1,
+        "pipeline_approved": 1,
+        "task_enqueue": 1,
+        "workflow_selected": 1,
+        "attempt_assigned": 8,
+        "worker_dispatched": 8,
+        "workspace_created": 4,
+        "execution_admitted": 8,
+        "attempt_started": 8,
+        "agent_activity": 37,
+        "budget_spent": 44,
+        "model_start": 5,
+        "model_end": 5,
+        "tool_start": 39,
+        "tool_end": 39,
+        "worker_stopped": 4,
+        "artifact_published": 4,
+        "parent_suspended": 1,
+        "pipeline_materialized": 4,
+        "check_process_admitted": 34,
+        "review_completed": 3,
+        "attempt_stopped": 1,
+        "parent_continuation_blocked": 1,
+        "task_pause": 2,
+        "task_resume": 2,
+        "pipeline_replanned": 1,
+        "verified_task_completed": 5,
+        "task_completion_published": 2,
+        "pipeline_task_completed": 2,
+        "parent_continuation_ready": 1,
+        "attempt_heartbeat": 9,
+        "integration_started": 1,
+        "verified_task_revalidated": 2,
+        "integration_completed": 1
+      }
+    }
+  },
+  "combined_source_files": 221,
+  "failures": {
+    "red": {
+      "passed": false,
+      "preparation_succeeded": true,
+      "root": "/private/tmp/flycode-owner-automatic-red-20261019",
+      "before": {
+        "attempts": 0,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "commands": 14,
+        "worker_bindings": 3,
+        "pipelines": 0
+      },
+      "database": "/private/tmp/flycode-owner-automatic-red-20261019/queue.sqlite",
+      "daemon": {
+        "pid": 53389,
+        "sid": 53389
+      },
+      "exit_code": 1,
+      "after": {
+        "attempts": 0,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "commands": 20,
+        "worker_bindings": 5,
+        "pipelines": 0
+      },
+      "seconds": 11.081579459016211
+    },
+    "red2": {
+      "passed": false,
+      "preparation_succeeded": true,
+      "root": "/private/tmp/flycode-owner-automatic-red2-20261019",
+      "before": {
+        "attempts": 0,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "commands": 15,
+        "worker_bindings": 3,
+        "pipelines": 0
+      },
+      "database": "/private/tmp/flycode-owner-automatic-red2-20261019/queue.sqlite",
+      "daemon": {
+        "pid": 53770,
+        "sid": 53770
+      },
+      "exit_code": 1,
+      "after": {
+        "attempts": 3,
+        "model_calls": 4,
+        "tool_calls": 4,
+        "commands": 39,
+        "worker_bindings": 5,
+        "pipelines": 1
+      },
+      "seconds": 8.734357249981258,
+      "checkpoint": {
+        "budget": {
+          "limit": {
+            "model_calls": 60,
+            "tool_calls": 120
+          },
+          "spent": {
+            "model_calls": 3,
+            "tool_calls": 4
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          },
+          "free": {
+            "model_calls": 57,
+            "tool_calls": 116
+          },
+          "uncertain": false
+        },
+        "deadline": 1792398420.753412,
+        "attempts": [
+          {
+            "id": "8d8a4a836ebb46dea84cc4572a25295d",
+            "task_id": "c779cc618b3f4e5888f86b23357731d2",
+            "state": "interrupted",
+            "fence": 1,
+            "semantic_revision": 3,
+            "contract_hash": "36dfc16be1aac3cea9edfa597088d548bc56c34825fa5486d07c3c9a76acda9a",
+            "stop_confirmed": true,
+            "spent": {
+              "model_calls": 1,
+              "tool_calls": 1
+            },
+            "reserved": {
+              "model_calls": 0,
+              "tool_calls": 0
+            }
+          },
+          {
+            "id": "e8c445506333427e9ef19d80232336b9",
+            "task_id": "df2e5baaebe1478990eaf410883b9131",
+            "state": "awaiting_review",
+            "fence": 1,
+            "semantic_revision": 3,
+            "contract_hash": "1246c6d5d3c0fe56126bda3fc1e84e85bd3984f5b8fcc0b889a36b000e46554f",
+            "stop_confirmed": true,
+            "spent": {
+              "model_calls": 2,
+              "tool_calls": 1
+            },
+            "reserved": {
+              "model_calls": 0,
+              "tool_calls": 0
+            }
+          },
+          {
+            "id": "88bfd4560abc42b2b98feafdd943f28a",
+            "task_id": "7dcf98936e8648a39d0822d1b0432a58",
+            "state": "failed",
+            "fence": 1,
+            "semantic_revision": 3,
+            "contract_hash": "2777f1140a8ad371802f79c7bb04ec93c6bb2ea5502dae142dbaba4f7a110467",
+            "stop_confirmed": true,
+            "spent": {
+              "model_calls": 0,
+              "tool_calls": 2
+            },
+            "reserved": {
+              "model_calls": 0,
+              "tool_calls": 0
+            }
+          }
+        ],
+        "review": {
+          "id": "25becf57c6144cfd852406a433fef644",
+          "artifact_id": "9eba77bf7c494477a0bcc7e04fdaa05b",
+          "patch_hash": "29163ccad50c075f4ae883ca4533425a80b7ac364601e5d50812b08fb52b42c4",
+          "reviewer_attempt_id": "88bfd4560abc42b2b98feafdd943f28a",
+          "status": "changes_requested",
+          "approval_hash": "0b8f429df28b422aab94c0023d3fe05e494f03e7ca37a872492eae4f389dec4f",
+          "verdict": {
+            "status": "failed",
+            "evidence_id": "4924e287566549beba3174fb130972fa",
+            "plan_hash": "f2ee8ecb9789938555cd975d90c3e3d0060d1d4bda363f8bbc37304e4fabfefb"
+          }
+        }
+      }
+    },
+    "pause-red": {
+      "passed": false,
+      "preparation_succeeded": true,
+      "root": "/private/tmp/flycode-owner-automatic-pause-red-20261019",
+      "before": {
+        "attempts": 0,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "commands": 15,
+        "worker_bindings": 3,
+        "pipelines": 0
+      },
+      "database": "/private/tmp/flycode-owner-automatic-pause-red-20261019/queue.sqlite",
+      "daemon": {
+        "pid": 79079,
+        "sid": 79079
+      },
+      "exit_code": 1,
+      "after": {
+        "attempts": 3,
+        "model_calls": 4,
+        "tool_calls": 4,
+        "commands": 42,
+        "worker_bindings": 5,
+        "pipelines": 1
+      },
+      "seconds": 8.817692667013034,
+      "checkpoint": {
+        "budget": {
+          "limit": {
+            "model_calls": 60,
+            "tool_calls": 120
+          },
+          "spent": {
+            "model_calls": 3,
+            "tool_calls": 4
+          },
+          "reserved": {
+            "model_calls": 0,
+            "tool_calls": 0
+          },
+          "free": {
+            "model_calls": 57,
+            "tool_calls": 116
+          },
+          "uncertain": false
+        },
+        "deadline": 1792398850.359902,
+        "attempts": [
+          {
+            "id": "f5e4ef897d794b5a847055fda2b3e212",
+            "task_id": "5399fd97badd426ea708369ce5dfe87e",
+            "state": "interrupted",
+            "fence": 1,
+            "semantic_revision": 3,
+            "contract_hash": "cbf8b36a1f99ff39654d64845903d765dc1c0f62431e9f270b641f1836b8995f",
+            "stop_confirmed": true,
+            "spent": {
+              "model_calls": 1,
+              "tool_calls": 1
+            },
+            "reserved": {
+              "model_calls": 0,
+              "tool_calls": 0
+            }
+          },
+          {
+            "id": "278b938cb0c3405ab7e2824047381516",
+            "task_id": "142e16f222a7432ba2529d14a155ba4d",
+            "state": "awaiting_review",
+            "fence": 1,
+            "semantic_revision": 3,
+            "contract_hash": "bd12614a383aa755ef6026832c8190fdebae060abb1e58435e34b06c4ebc4896",
+            "stop_confirmed": true,
+            "spent": {
+              "model_calls": 2,
+              "tool_calls": 1
+            },
+            "reserved": {
+              "model_calls": 0,
+              "tool_calls": 0
+            }
+          },
+          {
+            "id": "9a8b966decbe461ca575efa109e35fa3",
+            "task_id": "8e52d3f7787c447ba0955fd38d3a60d4",
+            "state": "failed",
+            "fence": 1,
+            "semantic_revision": 3,
+            "contract_hash": "090ce23a948fa8073c9932ed854cb196fa47fe77729bdd8ac3292c4a4320dfbb",
+            "stop_confirmed": true,
+            "spent": {
+              "model_calls": 0,
+              "tool_calls": 2
+            },
+            "reserved": {
+              "model_calls": 0,
+              "tool_calls": 0
+            }
+          }
+        ],
+        "review": {
+          "id": "e521ae7b32f247c79fb6bf7fe0459b54",
+          "artifact_id": "bb73a735b6b84bbf83ae4089999f4b48",
+          "patch_hash": "121680c40bf4481d1fdfc7b5ec279232892f6550b8855e46b37871fa00dd1aef",
+          "reviewer_attempt_id": "9a8b966decbe461ca575efa109e35fa3",
+          "status": "changes_requested",
+          "approval_hash": "0b8f429df28b422aab94c0023d3fe05e494f03e7ca37a872492eae4f389dec4f",
+          "verdict": {
+            "status": "failed",
+            "evidence_id": "ef8c58b4b8be4ceab8d225f7df2dfa16",
+            "plan_hash": "66202e49077d284719301e9441c592d19831ba9ff809cb6f016da1536be18a61"
+          }
+        }
+      }
+    }
+  },
+  "static": {
+    "checks": [
+      {
+        "args": [
+          "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+          "-m",
+          "ruff",
+          "check",
+          "src/flycode/orchestration/store.py",
+          "tests/browser/owner_automatic_runner.py"
+        ],
+        "returncode": 0,
+        "stdout": "All checks passed!\n",
+        "stderr": ""
+      },
+      {
+        "args": [
+          "/Users/Administrator/.local/bin/node",
+          "--check",
+          "src/flycode/web/static/owner.js"
+        ],
+        "returncode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "args": [
+          "/Users/Administrator/.local/bin/node",
+          "--check",
+          "tests/browser/owner-automatic.cjs"
+        ],
+        "returncode": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    ],
+    "passed": true,
+    "unchanged": true,
+    "mypy": {
+      "args": [
+        "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+        "-m",
+        "mypy",
+        "src/flycode/orchestration/store.py",
+        "--follow-imports=silent"
+      ],
+      "returncode": 0,
+      "stdout": "Success: no issues found in 1 source file\n"
+    }
+  },
+  "archive": {
+    "root": "/Users/Administrator/.cache/flycode/validation/flycode-owner-automatic-review-checked-o7dsahdc",
+    "files": 11338,
+    "bytes": 125269391,
+    "skipped": 0,
+    "manifest_sha256": "1be99262577a97bc605eadf4a58e733e38f90c8612c181fe62662430f37b4305"
+  },
+  "inputs": {
+    "README.en.md": "adea536e8bc7379b17e2a5d1d0873341a55c8f72c063363cee768376abc82608",
+    "pyproject.toml": "a59576ce99141fb0d6a11214dc7ccad6f572a90776b6181f219f567ef23b292d",
+    "README.md": "388434be379f54a5b6455eb6cd8b27a35b86c466f50a2624f938cd8a62a7bc14",
+    "tests/conftest.py": "80304f56cad445c01d163caec663aa40415011c5fa10a7948a177bf2adf4f3ca",
+    "tests/unit/test_cli.py": "0b796db461917b8658600e34d238b1c540a6f2141c259581cf87e7c7c62f30d4",
+    "tests/integration/test_shadow.py": "89bb902c5dbf91ce64e978f45497f8f5f1acf823ac00d41b439deca46d71de47",
+    "tests/integration/test_full_connectome.py": "0c4f685eace403f0c5041aceb3219b22426e70af391130751e273efca92ca43a",
+    "tests/integration/test_local_cortex.py": "5c28cd2b5daebc877e819533d6d0679cf96a93724c157f44678acafedf9ad326",
+    "tests/integration/test_acceptance_verification.py": "27b9c29fb25eb62c21e68d652dab71456ef882bde1daebec52c53918eb605013",
+    "tests/integration/test_agent_loop.py": "de7b829e6176064bf693a4249716537724691a8ebd7a270eb9c699240cb47c39",
+    "tests/integration/test_tracker.py": "23f7786657a3bbf0f6f9dbba27821787a3d3f1c551920e12e1d9d26e7c313493",
+    "tests/integration/test_constrained_training.py": "d764202acc75b043b2f1ac4a795e9fa99dc297a3ea6114e748973ca6108ef4f0",
+    "tests/integration/test_agent_events.py": "fd9c3cd1b240bcfe4de1462da333e6b74ebf5e8a0f5533518554da191300fdd2",
+    "tests/integration/test_autonomy_execution.py": "96094ac7ea219ce3da0b7f52633d14d0444b4df3ef13de5527478fcac95f644d",
+    "tests/integration/test_online_learning.py": "88f0997431eb87ae977d774b67f764d557904da42860296c4a82d829a27fb99b",
+    "tests/integration/test_verification.py": "555fcce03a633f512ac88e8e087e54b0097e882020ce089c1c573bebe44765ff",
+    "tests/integration/test_rollout_execution.py": "f23d2b4be49c62646bc01db4e42ae6b91498dcb61b4acf6ba2626da0eba340c9",
+    "tests/browser/journal.cjs": "ae4f3dd673a4c9bb2c9e311a4cb6188337d392717f61592b9a03401098ba2758",
+    "tests/browser/task-results.cjs": "be3e1d991508479518920cf073861fd8bc300b4876bfd7823f5db6394f693187",
+    "tests/browser/owner-controls.cjs": "1899aa7e1761e5e473b57d9d2a7bfa06f8c96ab987a85ab0720f23b1cd6ffeb7",
+    "tests/browser/owner_race.py": "a4eeaf2d5908ccd3583d5fe8c3a14d024e2e1140b0df83bab0e665d50b7b290c",
+    "tests/browser/task-materials.cjs": "f62405dd11d630865693b687390a2339990a8b0ad982a2532fd35db1ade18f52",
+    "tests/browser/verification.cjs": "56920ba50a8193939d9fbeead154abb16dde0e040f3fe3eb0b24323450cb6794",
+    "tests/browser/coordinator.cjs": "194c1988567a8f245c16ca6038f2fec953c02a66027452524bbcc699a2d5b62d",
+    "tests/browser/owner_runner.py": "52872481f4122b40af014d57b31134150eec6aed011626cb3136e143c42cea80",
+    "tests/browser/coordinator_runner.py": "c20563fba76b6212098a71f2269299d62c732a3c9272bac2c9a27835e946eadf",
+    "tests/browser/desktop.cjs": "1609459dec78288d8c1720cd06d7301da5bd9f3970b9b0dda29a62cbd1fb84af",
+    "tests/browser/projects.cjs": "624db566212b93fdce64d64a1989a15a728666ccc89645fc97082f8548184000",
+    "tests/browser/unassigned-chats.cjs": "1af2d77908f2a4cec3a61ed08188bbdc8ed4b74bdde69d9011af2dd0035fdafd",
+    "tests/browser/verification_runner.py": "94c83f08ed70a5abe40c1eac883d8abbc63b3af3c5a053fd43c6f1c1aefdb2b8",
+    "tests/browser/agent-ui.cjs": "25a8ac89b8953b6227c66f36eac9caccd4b41f741b482cf5f9e93e308f08d42d",
+    "tests/browser/tasks.cjs": "bffee1c8f304e1f3f3214d9e01c9428f7ec775a44a60e95f502a70ab0d15d9bd",
+    "tests/browser/owner-automatic.cjs": "348ad6bcb49d09c1bbc35c1fd78dfc05b81118f3e29a5a52a14f906c7a40a9e0",
+    "tests/browser/owner_automatic_runner.py": "8bacac27764e3ed70985a907cb098742781df96e8d4338d6a700d406dd8754fd",
+    "tests/fixtures/environment_fixtures.py": "19cab5373f58addff3335f1b641d129e1d3b84c22c25f84c92b9e4e6c30d1658",
+    "tests/e2e/test_lmstudio.py": "ef350f84abdefe01d35fade7624d81bb7e9b9b0ec26b73e3f38af007e70326c2",
+    "tests/e2e/test_environment_autonomy.py": "e53a6965fb5c7195adfe7d227986239b3c5b899601e75fdb9484c3f97826f212",
+    "tests/e2e/test_real_connectome.py": "e7306699e0e101d4abc4a0f531f5815ac65e458db72bb7132efb8cb4131f3139",
+    "tests/unit/research/test_shadow_analysis.py": "13bf60ecf5fa4c90e57fa66fb3bb330dc056fdcee1943c0009120d80cca8f1c5",
+    "tests/unit/research/test_validation.py": "dab59155c37bf8436accc924bc8e5f5f62d964499290b590e9c53f0b24f7582c",
+    "tests/unit/research/test_perturbation.py": "64d64ce1761822d3f3d044cb3f323bbce9061b9230b15de87b226daf211eca9c",
+    "tests/unit/research/test_benchmark.py": "5680346a301aa526500f05f863465f66f8e195b121b3983263b559a7412831b8",
+    "tests/unit/research/test_experiment_cortex.py": "86d33fa469b162a52e2d042980fb7b59d9bcbc9a2f03ded9c7b165648944c219",
+    "tests/unit/research/test_identity.py": "cbddac531538f4962d38fcb492c6a32066a8fe92e6ea12d2213251812a9ce12f",
+    "tests/unit/research/test_repeated_families.py": "b9bac613534f3c3d0e930a23430f73a0575eb791cd45691f2ccb46c5f5c4268c",
+    "tests/unit/tools/test_environment_readiness.py": "57ea87eb20608bf0cef38d45978633d51edd694da8baddce62c88e948ef2c9f4",
+    "tests/unit/tools/test_tools.py": "6be394c0f1e03d5a3727930a684d8a1a53799c29ef9bb1ce47f0337514e7036e",
+    "tests/unit/tools/test_environment_tools.py": "463347857e34fd2feaa4f10f7cc20f393fba875761aae87f4be1b69743969158",
+    "tests/unit/llm/test_candidate_generator.py": "b867119336da1fe6c72148775de9dcedb6ae09a3bfe7e68ce7752c59cca29a1c",
+    "tests/unit/llm/test_catalogue.py": "b3f53879ac6a7e7213e811877b03db85eea8f6b1d1eb8afa47f01174c80323c4",
+    "tests/unit/llm/test_local_models.py": "0f97075aa59f68f7a847334c972e223b7e51095faf1d8a698096af1943d1247d",
+    "tests/unit/llm/test_environment_candidates.py": "6f55badc91a6695f3a649750b4d5b11a42563cf1e6b9660158437fa5627726ac",
+    "tests/unit/memory/test_memory.py": "864db78d0e0b362d5207613e31817fe4fbc57307e89e03be63e068ac9b9343dd",
+    "tests/unit/cognition/test_adaptation.py": "3af935506aca6aee816554a815cadabaea9d0df1609978296f489a2bae847726",
+    "tests/unit/cognition/test_pinned_habituation.py": "87b906a8f603ed0ccc7d280e42bc2073c802719a63371c7f8a92bd7afa635f4d",
+    "tests/unit/cognition/test_cognition.py": "2675d090df15c7692c75e3349b52c9b0cf4272fabc5741040604b5f062a2d1f4",
+    "tests/unit/web/test_journal.py": "d40fb3d5458f968784b78363f35fa5203a53275345a840e1638e8212051814df",
+    "tests/unit/web/test_model_catalogue_persistence.py": "245e8d1ef8bcc91ba3589e3b81b2301eedd88ba9985b7f469e5172e0aebe2bae",
+    "tests/unit/web/test_canonical_tasks_api.py": "033a3000b21a799621afbfd8fc57700cd36c09a9b5cdd5dfa36df1b66b14b998",
+    "tests/unit/web/test_verification_api.py": "f3345f09dcc4ff39ee9f587b33ffdb98213726cf0d96547c4049c6b6df8ed861",
+    "tests/unit/web/test_legacy_source_custody.py": "fb700f2e8c0957382fc9512956471eec6aba0d25bf3b8a9884d4b823fd1df422",
+    "tests/unit/web/test_artifacts.py": "8607db28b11825ff711f6ff068e4c8415cccb3a17542d6d3ada56c15e4574287",
+    "tests/unit/web/test_projects.py": "a0fcf8623091e082dadabfe63107860f2260a474e581a45f0a68fc095a94e7bb",
+    "tests/unit/web/test_desktop.py": "b5602e06fd8e3bf7c7b6401f967ca7f6e59b6fbd27417b0524890107804dfd5f",
+    "tests/unit/web/test_app.py": "aa6d3c7c1d9285fd88f1525b6878396d07aaa00c6e26b0d5e2f9dfc26b75a140",
+    "tests/unit/training/test_distillation.py": "073421d6171edd1a91a5f36baceab9f643a49c478388ee96b7fe84ebe78d2bdd",
+    "tests/unit/training/test_constrained.py": "e84b403766a8a80dfbfab4811607d1e59592d672ec5f2ae1105c67b9083de68d",
+    "tests/unit/safety/test_safety.py": "9824320441bc848eaec562b21acad5b65a206f02b40a6e21caa4d00402b0ae7e",
+    "tests/unit/verification/test_verification_execution.py": "63c70612e288ca11fd2c21d760fa350a3f0e3b3a328e69065ccb561eafaed8de",
+    "tests/unit/verification/test_verification_scope_races.py": "5f1d922b29864e6f6d4aee3827f0db7896f94324c9877a7b6b1527af2bce5d39",
+    "tests/unit/verification/test_oracle_import_pins.py": "c894e75f510d290be4c1521ad528cb5a09589abc04a0c0e6aed693a3dc8f2578",
+    "tests/unit/verification/test_recovery_ancestor_restoration.py": "bcb89a5c3c5e9d65eae820871ee07dde58269d023e1e0351115f1e69cb1c0cea",
+    "tests/unit/verification/test_plan.py": "78e3fc265caa246482352c59274fe191e64b3c09134593c8b4204f312a4f4ab9",
+    "tests/unit/verification/test_verification_commands.py": "5695dcb6cf8fb649efcb09d96c92636555cc37cf4999c77dc0bedde149174f6d",
+    "tests/unit/verification/test_custody_receipt_reads.py": "a2a8e0472d9f36577a11d6299f659af6c3f062b8cedc2f6d96a162451eaf17e5",
+    "tests/unit/verification/test_registered_plan_engine.py": "bc9302b9a6d205ad1f8750d5fa578304c611794d32113c9a8bfa230c1e905789",
+    "tests/unit/verification/test_control_registry.py": "74c0da757aad1db7a016c2d6e8175a064f4705a81190ae4d633e74b0cfa1fe2e",
+    "tests/unit/verification/test_process_cleanup.py": "1365c0fda867e4eac528598c16535468a5f398809b198c987267c503e1aafa0f",
+    "tests/unit/verification/test_registered_coordinator.py": "48b99f1526e8bb13ead596d3bdf305ff5f338ce053b40e90e14377c457a9d399",
+    "tests/unit/verification/test_snapshot.py": "416e68d43cfcdd33119881dc783d05e8d53eea30631e3f17d3490d8d5a358303",
+    "tests/unit/verification/test_registered_verification_cli.py": "a4aacc3800116bb0496723f7a95954554942a8847f59c31f600a8ce6db2b2547",
+    "tests/unit/verification/test_custody.py": "8bbad804a9492f4df86a79e8e8b718db2d4f593aa9e87795a110f77ed5be751f",
+    "tests/unit/verification/test_verification_evidence_reads.py": "df0f8507467fc2f5bc62708692a00603a6110cf332511245db1d7f2668925fa1",
+    "tests/unit/verification/test_active_verification_owner.py": "d3eeaeaf6f959c7a390fe9101998c3481bf4b6d08584870b26e4c89ca01a5b2b",
+    "tests/unit/verification/test_verification_recovery.py": "58dba53a40d88e99117cb0dc2d395993a6e7de219450128de308b70835bdaea3",
+    "tests/unit/verification/test_runner_receipt_fallback.py": "0414f3ea1a71c48156f354771792d3b091ae9cb52a970bd91fba7f73163b8ada",
+    "tests/unit/orchestration/test_durable_model_catalogue.py": "361641a9af61039391f2c2e56f83ffe138a98b7c4e135579c302912d031f0fa6",
+    "tests/unit/orchestration/test_contracts.py": "c6ca061db3638940125af15447109a966c9b66ae6d327b6c86f6602e2f653dd6",
+    "tests/unit/orchestration/test_resources.py": "f20abe622bb567564c925a6d54653d83a9ed23d7b979633a6d71b72e73b02756",
+    "tests/unit/orchestration/test_dependency_recipe.py": "14c68e754ece86b19dc23c49a10b8c7e8ee232ffb61099165316baafbad6f0d6",
+    "tests/unit/orchestration/conftest.py": "e20057a34d449d960fce9357743f1d13d10fe3a1fda8eac5d66e00b64a6286ea",
+    "tests/unit/orchestration/test_atomic_application.py": "9204256a29719fa1d6efad38b1054dbb57f8ece85554f5443b88e3d86907d307",
+    "tests/unit/orchestration/test_workspaces.py": "3ef168c05ff9327ebada135481fa6a77e0882232df9948dd7c820da7bec3d7a9",
+    "tests/unit/orchestration/test_owner_command_attachment.py": "439d2d52dbf8d005a78d9f10a752a430213be5a59e6550e06e89ff8eae692184",
+    "tests/unit/orchestration/test_verification_subject_imports.py": "029b6e75d8621c2eb18e46e8d6ff4d632fce545baf81cf4a2708a450f74dd059",
+    "tests/unit/orchestration/test_agent_messages.py": "71fd9c741ce84873e1d984c129997a17f8e0abe79dbe0c6f9f276145fe12ba09",
+    "tests/unit/orchestration/test_host_leadership.py": "46a56639515b60ced9a6754f84b79597e319c4e871a96940956902fa8ab38828",
+    "tests/unit/orchestration/test_owner_recipe_profiles.py": "7b2900904409fc0b9506a21da9a2f10855a55f6b5797673937f6a5d2fdafb01c",
+    "tests/unit/orchestration/test_dependent_workspaces.py": "5d8bf2a5ef9dd71f3ceb4ece92633f4fb2e77857185ba1d2ebe38e4712b24401",
+    "tests/unit/orchestration/test_tracker_cli.py": "d1d33ce7ec0888ee0a36cdc0bf05ca27810816c703a48d98b3ad1b5f71f2ca3f",
+    "tests/unit/orchestration/test_coordinator_launcher.py": "0754a9878ec88b2f1cee6af24899a863f46cef9ea838ca98a1e9b70623f43376",
+    "tests/unit/orchestration/test_hierarchical_recipe.py": "c555dbdd124b51794e155a7508414b2e5d5e9ab51ca4ebb94d2a4bcca7fd4f5d",
+    "tests/unit/orchestration/test_source_rollback.py": "57836d0ea7430ff9a253d98f192b394f4de4b6a2c8f53a44f4e55be7b7bb2509",
+    "tests/unit/orchestration/test_attempt_tools.py": "5e5d9c2b21079f14cbf07dbe69ce4b4a5e64586d9f92495a34e267a859bd5e9d",
+    "tests/unit/orchestration/test_source_final_move.py": "269d343459925983d5d3fb513abef192c0e2981df0f58d866fedd37386d76f1e",
+    "tests/unit/orchestration/test_runtime_worker_custody.py": "202341af7890ba79f63d363b369ecfe9118e19fd85214ef958da4b16f128a5c9",
+    "tests/unit/orchestration/test_review_dispatch.py": "e645b96f954ea461a2239f6e30c2f17cad61537b4978ad1550806c6c421c4a91",
+    "tests/unit/orchestration/test_pipeline_replans.py": "0c6a99872549b245a44ebc13cbda4d8930736cadc34c5659c366428f9548e306",
+    "tests/unit/orchestration/test_store.py": "9da1eda95efd0c8df6d6938d195b47ded4b1f35850c357b0c19d7600ea46eee8",
+    "tests/unit/orchestration/test_task_result_materials.py": "7f2ec93387a69ae44033c884b3140f42c0681c98f98b4e6b56da431ff816435a",
+    "tests/unit/orchestration/test_task_completions.py": "ea474040027612893820cc9e415a9806897ec9274267f79e550a44083a4a9dc6",
+    "tests/unit/orchestration/test_pipeline_branches.py": "256dddca7679551135f5d3e0115cb1150c9fe435217da798c05f3a3c290faef9",
+    "tests/unit/orchestration/test_project_stop_grants.py": "7c6cef5a6801c2c063714815736e6fbfb9df423c08f4cfc0b9f2d1b63d248b36",
+    "tests/unit/orchestration/test_application_coordinator.py": "2806f7672f7b5e6a80c24ef50c534d4d26cb063f97e3cd29fdf4f4339436505b",
+    "tests/unit/orchestration/test_managed_coordinator.py": "da3765718d83fd4c3b0c338c9197ba5f151a8483b59fb69582ee37ae91e841f0",
+    "tests/unit/orchestration/test_owner_oracle_transfer.py": "8fef0d0cf1e70108369a51aa38308fc81810de3c3fa57440207db16618ea5ba3",
+    "tests/unit/orchestration/test_task_completion_reads.py": "e3a4f7ebb5168e37a7fc8fbf9ae9b4e636e5ff014d33791a0fe7f5c839482ac2",
+    "tests/unit/orchestration/test_result_delivery.py": "fe1cdf7f7bfa8f904f481487a46026a2dfc74c7db6eceaf35a6d9480624f6126",
+    "tests/unit/orchestration/test_pipeline_retries.py": "9996c34ad5a139fc228e65b889e1a744569c09be9a4d153ed172f1221c3bf431",
+    "tests/unit/orchestration/test_integration_dispatch.py": "545752ec72f4a99d641d68967562149ba609a523d8758523ba5c527ead99e325",
+    "tests/unit/orchestration/test_tracker_results.py": "3705e215c2ffe17877f5a006a5c4b54ce0c89e6c24efc010094ade86cc9a9a3c",
+    "tests/unit/orchestration/test_runtime_process.py": "e72c92ee1196dc108544be3e5718f184bfca4b77307c09ddb45256382c1708bb",
+    "tests/unit/orchestration/test_dispatcher.py": "273843a2b0018af44b6570890f5f2cf410eb38c86151b7db318a7267e9a0245c",
+    "tests/unit/orchestration/test_coordinator_attachment.py": "ed3437e98c4dd7a18de1c8d129b41523fc31c1615f9bda2071cff7947384d67f",
+    "tests/unit/orchestration/test_registered_project_execution.py": "abab2b367c1dd44b3cca20ee3d83f510040a1d9c56dfa3f757851645ac13abb2",
+    "tests/unit/orchestration/test_durable_probe_envelopes.py": "c1082718f616a045206737be5f1082bba5501a7e47288d9a80709e76aac4885f",
+    "tests/unit/orchestration/test_parent_continuation.py": "14eb994586c5e3194b62359510dec65951e5092b88d5cff1af488b002ca6b700",
+    "tests/unit/orchestration/test_canonical_project_registry.py": "9820bbda155256d82d2c00ac18949f91a350541983d5403beb4e119e0fa066c5",
+    "tests/unit/orchestration/test_team_pipeline.py": "ebfc37071453cdf948eb9c2033f44a206561bd544a24a62e26a0f3c81de2e780",
+    "tests/unit/orchestration/test_auto_claim_capacity.py": "f4e476ac489c8eced5f7caf9acec9b2080f9e1b14c10edc0919daafaaaa8d1bf",
+    "tests/unit/orchestration/test_pipeline_dispatch.py": "a3985da377092ee4f0cba8ec6608affbd63a0058039d5e0a68c4b785d9ba84c7",
+    "tests/unit/orchestration/test_source_admission.py": "fb2c806fb07138d7f20a97a3511dfe8885f70bcd58e4bf6cccf0cd83d78bdc3c",
+    "tests/unit/environment/test_research_fixtures.py": "a3cddf5ac3169130fe97d3fadb937b6d2f2c5a9d255a8936205b43cdd15c32ef",
+    "tests/unit/environment/test_software_gym.py": "38fff655b8b0f0d6034ac330b47a0d919044ce6e4e2b0001133d6d8c9224b113",
+    "tests/unit/brain/test_fsm_recovery.py": "e1a1ea78b612a0b67676e5a5b723efd6688d1bb299eeb56c61236fd97928c566",
+    "tests/unit/brain/test_backends.py": "979f1ec92433a87f93271985a2ddf037e90ed640fd1f7e09a6ee34d3f1a77bea",
+    "tests/unit/domain/test_models.py": "d9d79bed2b448bced11baaa13a69d9199d2bfa4fab33fcef152e391b377e83a9",
+    "tests/unit/policy/test_model_routing.py": "df495632863eea267a55f3b22d7507bac52bddc002ef6af3e97f67cf81788ebe",
+    "tests/unit/policy/test_autonomy.py": "6aae2ca7d98f5910c013665b5e679c613b034f5e4fe19b776c2b05341af53ab1",
+    "tests/unit/policy/test_rollout.py": "1c6b7d375d019f9c1e8d158bfc87f1b61ca484f289dc010a65eb976bedd5340e",
+    "tests/unit/policy/test_policy.py": "57f4a3e602c7ba153f68e4aaaf438fe24d8fa9201e83bd72a1059297f85a000f",
+    "tests/unit/cognition/recovery/test_recovery.py": "9c38d808451f94bd1b6a58b88c8dbb82f4af5e219bad0dbdb25efef39f7bc48f",
+    "tests/unit/brain/full_connectome/test_importer.py": "5f97e8a28954a179a06f9520de967c8a0d74cfa93e8b6454e737c4d13bb80ea7",
+    "tests/unit/brain/full_connectome/test_reduction.py": "869d1ba05c90c566290cf57541d5561b63ad6c33281120c1edb3e9c1f67b0958",
+    "tests/unit/brain/full_connectome/test_frozen_full_connectome.py": "c222bad4ffc5f0408bfed189a336c6477f1fc5c6383981bdc52ab4c7b85dd9c0",
+    "tests/unit/brain/full_connectome/test_sparse_backend.py": "ce7902ec240534aa500740720d8ec4ada54a3b77c0d278dca9ada70649c60b65",
+    "tests/unit/brain/full_connectome/test_graph.py": "a6a2b0a70b80cb7f1b61c20732cabc05e265ecfb7b11877a98436ade0d62387e",
+    "src/flycode/__init__.py": "3a36c182e9a8f5492fdb040f9c297ff87e03444ebaa467aede1b4ea85e112415",
+    "src/flycode/cli.py": "9488924a8e8ae01d1f43677d1bc81dfe234f76a11f4e580dff48079ecd4cbd97",
+    "src/flycode/agent.py": "4f3420df5a74d69fd66b814cf4d1e6bf90338cee5dba9184b3a670d4faa6b398",
+    "src/flycode/research/benchmark.py": "cadb0e97e520743b494d5bba153b3248af01ffd0686d41b624a53002c36f9bec",
+    "src/flycode/research/cortex.py": "aa4f3e8aea678da91b0b1ca07251c473a8f204629f4b937d8c0535d9e65821cc",
+    "src/flycode/research/__init__.py": "32b150012c9187ffc282712c9b6650ab9b0a229f30d3368fca0dba43158aa05e",
+    "src/flycode/research/shadow.py": "ee5f48575b741d93513aceb6135569cf9447671c536ae881f320c827dd794c3a",
+    "src/flycode/research/adaptation.py": "d85412abe3ed3d04e8c37f6fc750e5e18fff318a742e2477ce0da85cc6460416",
+    "src/flycode/research/identity.py": "d5454954976afd8e4c3121764bfc58860a730fc84a3a821d27191edefe987aa7",
+    "src/flycode/research/tournament.py": "21e6ef00d47819a245d3869e1707160f31451d90605b87e2dfedfbc3eea59d2f",
+    "src/flycode/research/perturbation.py": "e1e40627491e4179847d8bec579c04635174bcf372aafc880228a6a24f6585dd",
+    "src/flycode/research/validation.py": "9cf0a87d40f22c1ddfd5be80820f3be5f22039ff06aabad598c3f208ed6343b8",
+    "src/flycode/tools/git.py": "966c5fee94e3fd1cab0daec9773cf01e21716becaee568123061d694523aeb05",
+    "src/flycode/tools/filesystem.py": "9a8ba95bcc93ca613b671b2ea5d886adb5b1ae2bfd29204d1b7f77c693243301",
+    "src/flycode/tools/environment_tools.py": "422ea55dc75555164f9819bfa42bf84fafed65aafd41f1a37bcb30b27c203a6f",
+    "src/flycode/tools/__init__.py": "bbe2378acfa87701800cf6c26b6983dc5f8e686694529d1acd2b79e761ad2b80",
+    "src/flycode/tools/search.py": "0819c04785145e2da47435e3e1f0278247e0cbc2f2ab0f7761fda95254aef2c2",
+    "src/flycode/tools/editor.py": "75f3b11d04bd82e2d42141607e07538c6fc676930adbea3b05fd7788b338168c",
+    "src/flycode/tools/tests.py": "6d5c043d45f3dc1678ec0fa7cf3b8394504ead653e11ffb718ed825949ea106f",
+    "src/flycode/llm/lmstudio.py": "f6105c21108ac9d02e3c189dc2c72edc4650517c6622ee330f45f25dfce83abc",
+    "src/flycode/llm/protocol.py": "055ee54930e4c92eba2f6c2b19efb58ab0ef8fb18bb0ce0b281f7f29fa1805b5",
+    "src/flycode/llm/candidate_generator.py": "3a884be8d2c0fbe9f3f5ec3d5fd6574217954b665b8f18ae88f4da0c895b4826",
+    "src/flycode/llm/openai_compatible.py": "e3da30bcf6346f558d063c15f992392f905121f1c7862fdc79ef0783c3286054",
+    "src/flycode/llm/environment_candidates.py": "41b21b15213922bff6a9305a43cb1880f7849fa59d1c4cb0095d859183defd8c",
+    "src/flycode/llm/__init__.py": "13c1fe8ec97c537e17ddce78f4485ffe107756b7be1021af18676426bf2160fb",
+    "src/flycode/llm/decision.py": "8eef0721775f3751a57ac79fd5ec71e88bc24a5935c89ebc93a0247e0b9cf04b",
+    "src/flycode/llm/prompts.py": "d29e5f8dbfe3aa1dc20f2f38d63abaad60f53b05e46eac8c402cfcd2adb149bf",
+    "src/flycode/llm/catalogue.py": "d267ce769c9bb455fe6f1651168d45d716e9a5853304879fce3b5e38ae8cc6ec",
+    "src/flycode/memory/consolidation.py": "57f5fc58d71884412054684f6f0d529dffbcd567c27083d17ff6312feb512121",
+    "src/flycode/memory/__init__.py": "57cff35c2b31600b1ca22d4f8a0e75a362a49fb1713c94a8b2ae616b2713c919",
+    "src/flycode/memory/working.py": "fe2d819e7631fa0a9e9966abd54e234467196c7b64afb4a6ba05d9618d3b0d3d",
+    "src/flycode/memory/episodic.py": "b8ba5cdd88861775538c197c489cff48fca9b37eab740abe06a4f43034e71994",
+    "src/flycode/cognition/recovery.py": "afd57f74618412158aa0499723091181e96fe44f467fe8d16c02b19a515c8a7c",
+    "src/flycode/cognition/rpe.py": "7e95c0cb14cf997e5d728939e3a2fe70e31919b7a95b73ca643653fa1c1a7914",
+    "src/flycode/cognition/habituation.py": "a650894458e3b5fbc0c813738783db968b87bbc3408721ea483140134fb86981",
+    "src/flycode/cognition/__init__.py": "361b11546863f7c0513378753269359ecb8c36bb4a8e8c2031ccabe5c8e9c112",
+    "src/flycode/cognition/mushroom_body.py": "43df93b45fa793c5efce098a20c80c3115d1e85ec5fbba4d159ddf70d9428078",
+    "src/flycode/cognition/novelty.py": "0ecf3e3b873eb5f9efe5bcfddd9f7bc78f89a3f98f34d0a691dec399eea28a8b",
+    "src/flycode/cognition/adaptation.py": "5469cb19409e0027914dfc86571d6cff15870f7686000bb75507d979b6badd9d",
+    "src/flycode/cognition/drives.py": "ab2a7fa6225a9bd7c29c2d5cf8a09577fd4d376309a5c896f26f5001beaa454f",
+    "src/flycode/cognition/valence.py": "c105e1fc7c9660bf30a10ce405ef8e2f7a3ed6054440fefa56449990bea2fe88",
+    "src/flycode/cognition/task_compass.py": "f47bb7a1a7eea327984a197496207b87f165cbddf202d814723cfecfc9451424",
+    "src/flycode/web/verification.py": "11a50f4fa97f3170a2a8c631d134a1eb128cedd8be27a34a27a758997eb6f794",
+    "src/flycode/web/execution.py": "6d8cb4fea79fc57b406f2754c88481236b53ff270ba7c3670ce28725ce7edb89",
+    "src/flycode/web/tasks.py": "54ed016ef87ba844cbb4343c89733a548440f6dd9a8335b6affe0c8ff7caac43",
+    "src/flycode/web/__init__.py": "3ea1a220aa088db5ff15c0a746f3fc98fe02417f6355072dac712e99a0ae3700",
+    "src/flycode/web/owner.py": "9c58986b3d2343470e932eb4eb3e93fc23382959beaa737831901d7656c86bd1",
+    "src/flycode/web/app.py": "fa12ea13674a4de1fbfe93d4d357bb4688648f7bd1b25c1dc38848e389d04cbc",
+    "src/flycode/web/tool_worker.py": "2bb4fc3417ac916fef4ac18979feb7768305569a7a9c430da470e68e87252253",
+    "src/flycode/web/artifacts.py": "2744b0714da160fa6091fc3991d33af84253496176d42e52f4a3405b1c82072c",
+    "src/flycode/web/projects.py": "022f41ccaf7dcd99bc5d3e8d5b02758493b61190a1ce1f14f2b6ce32beb32c61",
+    "src/flycode/web/folders.py": "e3929a98a3cbd6c492fa609162a8ce37c2d9806f7d299625633387852bbcd7c0",
+    "src/flycode/web/runs.py": "a25fdcd2db97afcff2eed54a6d33b5af221fbd456cef6e348ec5d452e540e78a",
+    "src/flycode/training/checkpoint.py": "f4776e67dd4dcf235eca1d1fbfd9d40dffb087bf382779e4072cf6de808061fb",
+    "src/flycode/training/__init__.py": "9c30310733b5bd605a6e28b5e4cea729479be0c5b9e42062a86a44111cbf7fe4",
+    "src/flycode/training/constrained.py": "029bdb5dda8b306828e94d31bd29187ca642e3980f057f08c6091c0e8f316e82",
+    "src/flycode/training/student.py": "24c14d179c4819fca81bd945c97443b1e8227e24cbe8a70e5787f60ae7f428e6",
+    "src/flycode/training/trajectories.py": "ef0ae1f914419e53d1d9b24af6e976cacbcafb45747c750286c25491a30414d0",
+    "src/flycode/training/distillation.py": "adb9aa5d543461a09fe996a7a1b0369c69ada8eeac7693a89f8be836dee343f0",
+    "src/flycode/tracker/service.py": "6538c652491d1300ea1b6e4d766d2f34790ba5fa1f1bb084791ee8ddd737e11b",
+    "src/flycode/tracker/results.py": "d35721ac7aceed670e731bc639e8dabc2de37a9802e21d0fc0b2d59897b658df",
+    "src/flycode/tracker/materials.py": "03f91c693e9e365df0e9794cd0f0da60de91bda396479b6bc794abbc1d6ff2d9",
+    "src/flycode/tracker/__init__.py": "3038270358dd93015e480bf47d027282e7d4c18d60686a6d4a63ece2c141477d",
+    "src/flycode/tracker/cli.py": "062c982eef65b17820cd25e0b7e0257aae799b929fd0d2a57c6cbd53bbb52f04",
+    "src/flycode/tracker/projection.py": "53e7f7cfa5301b1b0a6702bdaf0967905fd668f3b882e7ed42cef75f694c1682",
+    "src/flycode/tracker/commands.py": "2cd71e6d2ea1ec58a3bed24924046f2db452e73e9b5d0b9303dbbbec489b2a27",
+    "src/flycode/safety/command_policy.py": "25e2b4e64096e8634791afe32526c476c3730f1fb668a4447b6edfce1225d96d",
+    "src/flycode/safety/__init__.py": "209d32a29dce69eeeda5e1a6421008099b744c0615287dc7246cd1fff201db83",
+    "src/flycode/safety/risk.py": "6a39e7f14d96f8f9163d52c60d3cb4c244d32b06138a96e313b4d1b6a01da422",
+    "src/flycode/verification/plan.py": "d59c785e1dc97364e3ec5786c6e8c6ac2886b145854d101dee8b6e01b80bc44b",
+    "src/flycode/verification/runner.py": "74cafde3fa11c6358111d7cfc517fe39f76abee297efaa1a342af5b917d23e51",
+    "src/flycode/verification/execution.py": "8fef249765419f91117109c725e3bfe90d77109fe9f32fe5501702de88591e8b",
+    "src/flycode/verification/registry.py": "57dc4b8d92140f061dd0a9d88245ef7fc1ffbb8219b28265d0776c87b8fcd7a0",
+    "src/flycode/verification/pytest_observer.py": "a8f7939b410b06188f3828096a19c699b27c7bc7ef36aee5b99490b36f526a11",
+    "src/flycode/verification/acceptance.py": "049acfeed36d7ff9414906188ee11c9cb53136fc8bb95a32a40a015905055130",
+    "src/flycode/verification/control.py": "31a91dd76412e11f197626bb9d1dff3459010bed8448416b5433fe2fa1e18a39",
+    "src/flycode/verification/__init__.py": "6cbd18af62708002b19555e78095b8570dc1705cb44d72e45f1b96ee8dceeb5a",
+    "src/flycode/verification/engine.py": "c8c4a560c6c8bbbdbe05797b3e598a8e4070b28f06ffb86df8e06fd06e5ee740",
+    "src/flycode/verification/cli.py": "989dcaa8b32f93295e46983fcf77403feb6d82bd8e91af823c742a3c2b28ef3b",
+    "src/flycode/verification/oracle_transfer.py": "fad7a3a4d2a99839f0fc966408324334d4ec1a9248559ade9c633fd22ed3d150",
+    "src/flycode/verification/oracle.py": "08c8c34f7854a0da33815be6e60e98a22f634a9abc7d2ee9c03a63e09cfc2f89",
+    "src/flycode/verification/projection.py": "9f8239d8c2a8917fa7f330a2507cb2de1072829c38144282be9e2468fc5c3029",
+    "src/flycode/verification/evidence.py": "19e12d681335136238638a90853598fe9400d080530eca7b49a04f67f918e604",
+    "src/flycode/verification/snapshot.py": "b7f54ba1399970061d371946e0ee1b627da40d00b8f74f9d7a90a62a09029e5d",
+    "src/flycode/verification/custody.py": "6cd9bd538335294ca64fae4a1c48c19070b06983ec868018807c46ef3b53c474",
+    "src/flycode/verification/verdict.py": "6ab63ffaf916218505bad8b7a66154af5e197f59e49187547151b2be71654f03",
+    "src/flycode/orchestration/worker.py": "fdb88b78609333b5eadc0a30aec7e8c8261a2123524a4d657ed0e4c0afbbb93e",
+    "src/flycode/orchestration/retries.py": "4cdc52f07a2df77d2efae19d988c3b5215217c7dac1dca2a39bbe5aa7192c86c",
+    "src/flycode/orchestration/store.py": "a1766f3b37020c166cbba0417d6770fae0cde43f4d252cce48736df4c1231e58",
+    "src/flycode/orchestration/coordinator.py": "f2ed8eb1b5257ace78b841f70fc68f5a7fac7e7ec6eef4cd1c368327333a7ccb",
+    "src/flycode/orchestration/verification.py": "8ad262dae1ab8298e373aa7ea27c3971dfd77052e7a66778de90fc42ff91457b",
+    "src/flycode/orchestration/review_bindings.py": "723962700b85391a8b38f96f7bb3032e7019c38ae02e7c5e91cfc9f8d712b5c7",
+    "src/flycode/orchestration/cortex.py": "cbb0be68745a7dd277ad0a17cd3853db034b63ed7e593db42dd7636f04b3f7e3",
+    "src/flycode/orchestration/rename.py": "5aec86ce27b0cd6703f5a14b070599406246d7dc358394151d6342142550f279",
+    "src/flycode/orchestration/transport.py": "bb95a4dc2617de1e80049861a39f0788acd5ef75cb28e499072b5e425ff6a4bb",
+    "src/flycode/orchestration/continuations.py": "ec961f2404e7dcc275dc42ec7443c26240a259726a396b0d4b03bc65bc64f145",
+    "src/flycode/orchestration/host.py": "fe83d9894374d510a570c789b939c0ebe2a5ef6a8047c2d6710600828ad9a5c2",
+    "src/flycode/orchestration/dispatch.py": "81292c1f15fa946a42145cf51f07b39c4bc86907dac98bc3b39aba6998bafc12",
+    "src/flycode/orchestration/tools.py": "fcba6ed53cf10d39d43a03f5c245f8125248501d6d49d69eec91560dd08a8c67",
+    "src/flycode/orchestration/replans.py": "805541c028d357b372dd1943c157d5707d90865fb39f38efe73302887edaa833",
+    "src/flycode/orchestration/attach.py": "6a1f65fc620b347c5b65925bee65a41c481b7de5d92ec08913353264a550b7c3",
+    "src/flycode/orchestration/model_catalogue.py": "e8b758e20ca367e1aadf83dd442b691f09b42ada6eb641af9837a35841901b87",
+    "src/flycode/orchestration/__init__.py": "2cf4bb4870cd401670dc5619a0001e1fe2efc9269fb4af682a9f6ac1442c8573",
+    "src/flycode/orchestration/review.py": "280bedee8e5707ab24be813c6a43263a0a5c507452041a629cd1923500ccde23",
+    "src/flycode/orchestration/runtime.py": "26af712c6e9ad76abcdf63519c66975e6b78f664b5559c04a7569bf0862023c8",
+    "src/flycode/orchestration/integration.py": "22942cf87f271451ff9847a8835f6ebed0e2540b71ae054c836e0e32c5abcdfc",
+    "src/flycode/orchestration/application.py": "db6338de438ebd926fe7cb875462a9230737910e25fb0ebb5da0ce792477f370",
+    "src/flycode/orchestration/wire.py": "6484423eed1c8799c336518ee0d84359b24a0b10957be6c287d49187b99804f9",
+    "src/flycode/orchestration/completions.py": "10463f02861d4d8caa44071d659fed481479f027a4ffd71452756e24523ee2a6",
+    "src/flycode/orchestration/integration_bindings.py": "ef7a35245e2e8f7fd6111f228d0104a045c12c1f9e4228a65f9a587346dd5ef5",
+    "src/flycode/orchestration/sources.py": "571509a3687ec1422c4289fc91b28a040dfb9df5f68dcaa8830d7663c63a4d6d",
+    "src/flycode/orchestration/inputs.py": "6a7cd346c605b40e81b769a63af184aaed60d8d0e07124a8d269d746f8d683aa",
+    "src/flycode/orchestration/approval_profiles.py": "f6766d4284b1e2079006a6b32a9a35552e711281b7a15ace23de5b2edaa35582",
+    "src/flycode/orchestration/pipeline.py": "e6cc315a5d4672d46a6d756cd866bad46085f5c97ff5a1a7b4e80f20305a05c3",
+    "src/flycode/orchestration/messages.py": "f9e46dae52da5bbac38115f271f16b3ea3e6b77e476a28c73aa0d1ef6e615083",
+    "src/flycode/orchestration/environment.py": "0291dfa43791f52ecd68647b0e16e649d709e8cfcbf1a9515ba7e3c1d63b9bae",
+    "src/flycode/orchestration/resources.py": "c30c407745a5fe90efc148e1e5b1568631e8b54a9fc65bf42d98d30cb5aedc5b",
+    "src/flycode/orchestration/scheduler.py": "58809effe3926ea2e57c650669a7ac01f7e2cdceeed465fc1e597ade7fb9c6f6",
+    "src/flycode/orchestration/artifacts.py": "09cd5105e3f3c9dd747aa9df6e0a5fb227a808d3d96c0a8e0753b3a87dbb1198",
+    "src/flycode/orchestration/composition.py": "3577071b82689b230bcdf6a8cc4336950fab4d35b0d78e9c6edb632e27d1f776",
+    "src/flycode/orchestration/branching.py": "300613d4a095fe80f3b37e74fcf43a8a8226d3a5d74bb1439e12c247c8767bc3",
+    "src/flycode/orchestration/projects.py": "120ff8a46d07d916b48b5ccfa6ae109d54143a201c9fe92844835895af4837a0",
+    "src/flycode/orchestration/owner_requests.py": "bee1522003207de884100aee0ef1a9a393dfdb1ce9743fb64cc753f84cbad5f5",
+    "src/flycode/orchestration/owner_commands.py": "f226bf21cfde08e7a973eaa0ded0bb888ed038d088f7a202857233d4f613dbb5",
+    "src/flycode/orchestration/workspaces.py": "5f738d59f239c79e5275dfb5d65f49c93961451a28e040a0a3c039645d887eed",
+    "src/flycode/environment/observer.py": "dc7d832c5628de5b4d6214a3aa46a27da977105e08ec00728f667f3971d5fe96",
+    "src/flycode/environment/__init__.py": "bcd8a54a9c7da0436cbdf9df7e94ffb8c171b3c428f9bee422d2833169cc9848",
+    "src/flycode/environment/software_gym.py": "8e6371b86b131840c107c0370d896f91b4768564bdda06c2d5e279563903585b",
+    "src/flycode/environment/fixtures.py": "b56dfcba9aa8d313f0e442388b95bc32a9fe185a517b70f436ca2217b739be60",
+    "src/flycode/brain/protocol.py": "e799ee798b3ea609bbdb0b064c1b38da47494756b47e87e4388a6f0c9567ee85",
+    "src/flycode/brain/__init__.py": "c7b19fdfd12e5b4710b36543dfb915af5bab4e3d128da1586af3a64e4c4ae857",
+    "src/flycode/brain/heuristic_fsm.py": "0420d801402f45cd235ce9a636355b179dda82f5fddefcf5a0572116632301e0",
+    "src/flycode/brain/functional_fly.py": "d7acc59ffdc6518897b78b98118dbeed1feb86d9bfe6095dd32c8a0aad5beade",
+    "src/flycode/brain/random_reservoir.py": "25f326cab50adffa7242d3863c57d799b1e5f0fe729801574fbb4ad17980ed48",
+    "src/flycode/brain/generic_rnn.py": "21c05ee5cbea4cae948ae6a7cd9ccdea21d5315d808cfbbfd993ece4ef54deca",
+    "src/flycode/brain/shadow.py": "2255c9f88367ebf6585155ceb553aa818af59149295f247193ae7f45896c52be",
+    "src/flycode/brain/reduced_connectome.py": "71df9fcf579d1b8349063c84660485405bba393a85230212ce11b6f39dc4b348",
+    "src/flycode/brain/mock.py": "5070ed89fc7b62a54be81fcff2237a1efeab62c76b5c5be2e3fea8a69b542101",
+    "src/flycode/telemetry/events.py": "2b82fd2fa29077d2faf493469030403b62374f60e786b8c6fe32d3209c730f58",
+    "src/flycode/telemetry/__init__.py": "d97f24ec5dc7ef5d59a217e9d7472b2e51092df5a3b3d50f08bcee3f7ccd5412",
+    "src/flycode/telemetry/logger.py": "5eafc4a25000c9769647504fb15fa9f45c883ba58d15a954127412650aab8f16",
+    "src/flycode/telemetry/schema.py": "8a0ec3349414f9c425d170a95b3f35ae84bf484735220669767f9bd0f501c5db",
+    "src/flycode/domain/observation.py": "f70d55646d4c1f5f946cdc26820d34a8069dc2d03d1a53e9dffbb3b1f87f4850",
+    "src/flycode/domain/task.py": "5276925bc13c131a04b2bc12e3ddc45861b8d5dca590b0430536e7e5ea467774",
+    "src/flycode/domain/verification.py": "29a5bb33dc7201de9dd70bc105251638a942c291efe386e25341be9506299b87",
+    "src/flycode/domain/neural.py": "ccbb0389982cf4b22c76ac5328964b4824d7622807d1ca4cc4940b627c7c43e7",
+    "src/flycode/domain/results.py": "820f4b568426cc688f21bf5ca244c3f97dd151a755baf8c5345fcf0ab4f52b74",
+    "src/flycode/domain/transition.py": "814c6713efddc6fcc9e3d90b379ac25605f2625c5caa44bdb613e0fc86691547",
+    "src/flycode/domain/__init__.py": "a5a443ab39ef1e7a7d357716ddd821b4f35dd917d7132327d371aa6cddf5286c",
+    "src/flycode/domain/action.py": "cf219ec9d227e2b98100a0da439b78ac5f21c3d7a0ff2b710373dd1487b207d7",
+    "src/flycode/domain/orchestration.py": "364e5d0fe2465dc9599b3aa7b8b566cd76f96b68434d45edd1c6726b17b946d3",
+    "src/flycode/domain/pipeline.py": "3d52464ea30723bdb450906df66618a922ac6e7170b9fc0919e0ab765263395a",
+    "src/flycode/domain/verification_control.py": "97f89ad4470c046f4263b3a0ba1981c11f4039919b9a008b7cd0ddf8d3390889",
+    "src/flycode/domain/source.py": "7d0c859cda1ec9f468f410cd4f2c3354c0578e7a2459043ffd5792f3de8b9b87",
+    "src/flycode/domain/project.py": "5e898652823e3b038efefdba2918414246bb380ce98c48fbd252f78e56883b82",
+    "src/flycode/policy/behavior.py": "4723549b288bb0e2e5ffb9d02e134f8377556bd345fc2887caf8ea099e61958e",
+    "src/flycode/policy/model_routing.py": "e8d622a01449a7adc1f54c55f44fbde681306bdc7762ac33b46a67d53227d0f7",
+    "src/flycode/policy/autonomy.py": "b13a6dd7eff7cb4af0888066e8a6608f6c184b49f9473966336fec02ce347154",
+    "src/flycode/policy/__init__.py": "334f1bacf6b1dc1f5bb15c76c37f934ce13f8137af9c7c7d74dda814bc7cf24c",
+    "src/flycode/policy/hard_control.py": "0d6e408e5931b732c5e311fb61623b67008255bb545e18fee48be1478818db50",
+    "src/flycode/policy/rollout.py": "b5cee045ac5dfdf858605cdcd588c8573377c0a815a14d48d3bf6667f1db42af",
+    "src/flycode/policy/candidate_tournament.py": "3d49a81cc64486d39a2ea44d28a7326ad8077c9e02529a2679a61040e7c85222",
+    "src/flycode/policy/bias_control.py": "af2b5e2f27393128a020b82e25d59128c95f0af69a4517650b734af2bf5117c7",
+    "src/flycode/policy/heuristic.py": "c1d7263220ba365de2f7b056a2465085fca3ed6ede035d5cf2bdd334dce521f7",
+    "src/flycode/web/static/tasks.css": "06b0b029187a89d4afc948f1fe2e49fbf3377ba30539ebdbb7336efaeb92d8ea",
+    "src/flycode/web/static/index.html": "ea09c371a9e92aff88c743943d1e1b74a10ac494b13dd0ba491743d94f7fb06a",
+    "src/flycode/web/static/owner.js": "55a01e7bf0e7a629dd8d2fe99268c58054ca29ed06bd8df4cb2c8a7d6af441bf",
+    "src/flycode/web/static/tasks.html": "3c132d4d6570d2547d6a077d02b790c8ba0e1416ff9b541600e0ecb86da1d8d7",
+    "src/flycode/web/static/styles.css": "bb065ee9a284ebcb871728ff2a7faca17b1e51417415c60c48962985ead3b9e4",
+    "src/flycode/web/static/verification.html": "fad96fa9ca11183e29acd580173f374e55a4a47831278b3e2d74503135798e16",
+    "src/flycode/web/static/verification.css": "e29045feb93066b7ebc12cc129c20eb81b4b265d5bc72d5f281c07400fdd486f",
+    "src/flycode/web/static/owner.css": "63a31f95239b27214021310561150a04ca6a578044e79819912a607e979d3ad5",
+    "src/flycode/web/static/desktop.css": "78d21d398f0be6f881df9755e74fc703b138b947665bf39618973612211a6c82",
+    "src/flycode/web/static/verification.js": "8f7f1e3fbd8141e3c1bbb9459b3134c1eee234c39e0576e41eca9d8abfa4324a",
+    "src/flycode/web/static/tasks.js": "3ae82720998f719367324c2bafb6e108c040779cfc47f5b5cdb11746476c7851",
+    "src/flycode/web/static/journal.js": "c50e680535d483750d7c8af9be7e51152dc552bdd81aaebba6813163bbdfc4d0",
+    "src/flycode/web/static/desktop.js": "b6722a80596f2d196c03ca77cfa2dbd9fead78e7b5ed6a8ad307592dd0fdcf6a",
+    "src/flycode/web/static/app.js": "20de9d2cc181b8c2d3ef4807b810b712bf8c7f12611c91796c557977c274ca53",
+    "src/flycode/web/static/favicon.svg": "90561b2255ce82d6d495255a0c785e3729c657412b22028262c4d5ddbef6046f",
+    "src/flycode/brain/full_connectome/sparse_backend.py": "73f167ef4b3a5bb571ea1d200a2cdca00ddab838ccc1ebe30165bdf2acae26fb",
+    "src/flycode/brain/full_connectome/importer.py": "174d06bf5baa77e2a3252e30530998caba29f866209260effcb5fb245b110aff",
+    "src/flycode/brain/full_connectome/reduction.py": "3c1dc038a81e81bcb50937827b2754b82a9426e1f1c30284f881f3e3523bc17a",
+    "src/flycode/brain/full_connectome/graph.py": "8ce88e96bc3b763a76f543f936cdda1fc48304da188338d4776fac79989a2260",
+    "src/flycode/brain/full_connectome/frozen_full_connectome.py": "0d86a92257987a8a01df41d3fadea83d67a5900fcea599ffc910b21219f237ed"
+  },
+  "remaining": [
+    "combined automatic retry/new-branch/restart/avalanche/Stop acceptance",
+    "controller/admission/neural/research/full/final aggregate gates"
+  ],
+  "detail_location": "Full run results, events, exact source and all failure outputs are retained in archive inputs; this public report contains identifiers, counters and hashes."
+}
