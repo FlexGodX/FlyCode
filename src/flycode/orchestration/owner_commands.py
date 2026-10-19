@@ -14,8 +14,12 @@ from ..verification.snapshot import digest
 from .dispatch import Dispatcher
 from .message_routes import MessageRoutes
 from .owner_requests import (
+    AgentRequestStatus,
+    AgentRequestTask,
+    OwnerAgentContextResult,
     OwnerApprove,
     OwnerCommand,
+    OwnerIssueAgentContext,
     OwnerMessageRoutes,
     OwnerMessageRoutesPreview,
     OwnerOutcome,
@@ -25,6 +29,7 @@ from .owner_requests import (
     OwnerReplan,
     OwnerResult,
     OwnerTask,
+    OwnerTaskRequestResult,
     owner_request,
 )
 from .pipeline import Pipelines
@@ -62,7 +67,24 @@ class OwnerCommands:
         try:
             self.store._host_guard()
             project = self._project(command)
+            if isinstance(command, (AgentRequestTask, AgentRequestStatus)):
+                from .agent_admission import AgentTaskRequests
+
+                service = AgentTaskRequests(self.store)
+                context = service.identities.authorize(command.instance_id, command.credential)
+                if context.project_id != project.id:
+                    raise StoreError('scope')
+                receipt = (service.submit(command.instance_id, command.credential, command.request)
+                    if isinstance(command, AgentRequestTask) else
+                    service.get(command.instance_id, command.credential, command.request_id))
+                return OwnerOutcome(result=OwnerTaskRequestResult(receipt=receipt))
             scope = AccessScope(actor_id=ACTOR, project_ids={project.id}, role='owner')
+            if isinstance(command, OwnerIssueAgentContext):
+                from .agent_requests import AgentRequests
+
+                issued = AgentRequests(self.store).issue(scope, project, instance_id=command.instance_id,
+                    expected_revision=command.expected_instance_revision, key=command.idempotency_key)
+                return OwnerOutcome(result=OwnerAgentContextResult(issued=issued))
             if isinstance(command, OwnerPreview):
                 return OwnerOutcome(result=self._preview(scope, project, command.workflow_id))
             if isinstance(command, OwnerMessageRoutesPreview):

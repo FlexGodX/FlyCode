@@ -338,6 +338,7 @@ class Store:
                 raise
         try:
             self._message_routes_schema()
+            self._agent_requests_schema()
         except BaseException:
             self.db.close()
             raise
@@ -376,6 +377,33 @@ class Store:
                 message_id TEXT PRIMARY KEY REFERENCES messages(id),
                 grant_id TEXT NOT NULL REFERENCES message_route_grants(id), grant_hash TEXT NOT NULL)""")
             self.db.execute("INSERT INTO counters VALUES ('message_routes_schema',1)")
+
+    def _agent_requests_schema(self):
+        row = self.db.execute("SELECT value FROM counters WHERE name='agent_requests_schema'").fetchone()
+        if row is not None:
+            if row['value'] != 1:
+                raise StoreError('schema_version', 'agent_requests')
+            return
+        with self.transaction():
+            row = self.db.execute("SELECT value FROM counters WHERE name='agent_requests_schema'").fetchone()
+            if row is not None:
+                if row['value'] != 1:
+                    raise StoreError('schema_version', 'agent_requests')
+                return
+            if self.db.execute("""SELECT 1 FROM sqlite_master WHERE type='table'
+                    AND name IN ('agent_request_contexts','agent_request_heads','agent_task_requests')""").fetchone():
+                raise StoreError('schema_version', 'Unversioned agent requests')
+            self.db.execute("""CREATE TABLE agent_request_contexts (
+                id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES canonical_projects(id),
+                instance_id TEXT NOT NULL REFERENCES instances(id), data TEXT NOT NULL)""")
+            self.db.execute("""CREATE TABLE agent_request_heads (
+                instance_id TEXT PRIMARY KEY REFERENCES instances(id),
+                context_id TEXT NOT NULL REFERENCES agent_request_contexts(id))""")
+            self.db.execute("""CREATE TABLE agent_task_requests (
+                id TEXT PRIMARY KEY, context_id TEXT NOT NULL REFERENCES agent_request_contexts(id),
+                key TEXT NOT NULL, state TEXT NOT NULL, request_hash TEXT NOT NULL, data TEXT NOT NULL,
+                UNIQUE(context_id,key))""")
+            self.db.execute("INSERT INTO counters VALUES ('agent_requests_schema',1)")
 
     def _host_guard(self):
         if self.db.in_transaction:
@@ -1271,21 +1299,49 @@ class Store:
             raise StoreError('completion_scope')
         return Completions(self, roots.pop())._inputs(scope, task, {}, frozenset())
 
-    def dispatch_bound(self, scope, *, runtime_root, binding_ids, key, blocked_reasons=()):
+    def dispatch_bound(self, scope, *, runtime_root, binding_ids, key, blocked_reasons=(), agent_request_id=None,
+                       finalize_request=True):
         self._role(scope, ('runtime',))
         self._host_guard()
         self.refresh_results(scope)
         from .pipeline import Pipelines
         pipelines = Pipelines(self, runtime_root)
+        request = {'dispatch_bound': runtime_root}
+        service, receipt = None, None
+        if agent_request_id is not None:
+            request['agent_request'] = agent_request_id
+            key = 'agent-dispatch:' + agent_request_id
         with self.transaction():
             self._host_sql()
-            found, result, digest = self._replay(scope, key, {'dispatch_bound': runtime_root})
+            if agent_request_id is not None:
+                from .agent_admission import AgentTaskRequests
+
+                service = AgentTaskRequests(self)
+                receipt = service.admission(scope, agent_request_id)
+                scope = AccessScope(actor_id='agent-context:' + receipt.context_id,
+                    project_ids={receipt.project_id}, role='runtime')
+                if receipt.state != 'queued':
+                    return receipt.result or ClaimResult(reasons=(receipt.error_code or 'agent_request_closed',))
+            found, result, digest = self._replay(scope, key, request)
             if found:
                 return ClaimResult.model_validate(result)
             rejected = list(blocked_reasons)
             selected_workflow = None
             attempt = None
-            instances = sorted(self.instances(scope), key=lambda item: item.id)
+            instances = ([self._instance(receipt.instance_id)] if receipt is not None
+                else sorted(self.instances(scope), key=lambda item: item.id))
+            hints = {}
+            if receipt is not None:
+                if not receipt.request.available:
+                    instances = []
+                    rejected.append('agent_unavailable')
+                hints[receipt.instance_id] = receipt
+            elif self.host is not None:
+                from .agent_admission import AgentTaskRequests
+
+                hints = {instance.id: AgentTaskRequests(self).hint(instance) for instance in instances}
+                instances = [instance for instance in instances if hints[instance.id] is None
+                    or (hints[instance.id].state != 'queued' and hints[instance.id].request.available)]
             for workflow in self.workflows(scope):
                 if not workflow.active_slot:
                     continue
@@ -1337,6 +1393,10 @@ class Store:
                     for instance in instances:
                         profile = self._profile(instance.profile_id)
                         reasons = self._eligibility(scope, workflow, task, instance, profile, reserve, tasks, attempts, ledger)
+                        hint = hints.get(instance.id)
+                        if (hint is not None and hint.request.capabilities is not None
+                                and not set(task.capabilities) <= set(hint.request.capabilities)):
+                            reasons.append('capabilities')
                         if isinstance(binding, ReviewBinding) and instance.id == binding.author_instance_id:
                             reasons.append('review_independence')
                         if not reserve.model_calls + reserve.tool_calls:
@@ -1353,15 +1413,22 @@ class Store:
                         reserve = reservations[task.id]
                         return max(reserve.model_calls / max(ledger.free.model_calls, 1),
                             reserve.tool_calls / max(ledger.free.tool_calls, 1))
-                    task = ordered(eligible, self.clock(), workflow.dispatch_count, cost=cost)[0]
+                    task = ordered(eligible, self.clock(), workflow.dispatch_count, cost=cost,
+                        preferred_id=receipt.request.preferred_task_id if receipt is not None else None)[0]
                     instance, profile, binding = pairs[task.id]
                     attempt = self._assign(scope, workflow, task, instance, profile, reservations[task.id], binding.id)
                     self._event(scope, workflow, 'worker_dispatched', task=task, attempt=attempt,
-                        binding_id=binding.id, candidate_id=task.id + ':' + instance.id)
+                        binding_id=binding.id, candidate_id=task.id + ':' + instance.id,
+                        **({'agent_request_id': receipt.id} if receipt is not None else {}))
                     selected_workflow = workflow
                     break
             result = ClaimResult(attempt=attempt, reasons=() if attempt else tuple(sorted(set(rejected))) or ('no_eligible_task',))
-            self._remember(scope, key, selected_workflow.project_id if selected_workflow else None, digest, result)
+            if receipt is not None:
+                if attempt is None and not finalize_request:
+                    return result
+                service.finish(receipt, result)
+            self._remember(scope, key, receipt.project_id if receipt is not None else
+                selected_workflow.project_id if selected_workflow else None, digest, result)
             return result
 
     def _owned(self, scope, attempt_id, fence, *, running=False):

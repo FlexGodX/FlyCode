@@ -2678,6 +2678,18 @@ MOD-01..07 и MS-01..12 задают поведение и приёмку. Эт�
 
 # 104. Сводный план поставки обновлённых спецификаций
 
+Срез TRK-05 request_task,2026-10-19: Host-issued credential300s, durable
+заявка и общий атомарный dispatcher проходят actual HTTP/отдельный Host/worker/
+review/current integration. Exact extracted189 файлов:83 scoped checks84.41s;
+frozen merge241 файла:94 checks105.97s, включая pull→configured neural worker и
+reward при4занятых stage slots. Один official-graph case отдельно исключён;
+fixture compatibility не является научным допуском. Старые owner UI/Stop/
+keyboard/1440/390/320, Ruff/mypy12 проходят. Native flow3attempts/2models+1probe/
+31tools сохраняет deadline/owner bytes; reserve0/uncertaintyfalse. Все approved
+runtime roots проверяются до no-work/backoff. task_request остаётся данными
+сообщения. RED и ошибки harness сохранены. AC-14, научные и итоговые критерии
+открыты. [Отчёт](validation/2026-10-19-agent-task-requests.md).
+
 Исполняемый [план работ](superpowers/plans/2026-10-16-specification-delivery.md)
 объединяет §§100–103. Требования спецификаций сохраняются; прежняя оговорка
 «только спецификация» описывает предыдущую поставку, а не текущий запрет реализации.

@@ -17,6 +17,7 @@ from ..verification.acceptance import input_identity
 from ..verification.control import VerificationControl
 from ..verification.evidence import read_regular
 from ..verification.execution import VerificationExecutor
+from .agent_admission import AgentTaskRequests
 from .attach import AttachmentServer
 from .dispatch import Dispatcher
 from .host import Host
@@ -55,7 +56,8 @@ class Coordinator:
             'review_bindings', 'pipelines', 'pipeline_receipts', 'artifacts', 'reviews', 'integrations',
             'model_admissions', 'model_calls', 'tool_calls', 'canonical_projects', 'source_claims',
             'workers', 'review_executions', 'execution_lanes', 'verification_plans', 'verification_subjects',
-            'verification_profiles', 'verification_profile_heads', 'verification_storage', 'verification_reservations')
+            'verification_profiles', 'verification_profile_heads', 'verification_storage', 'verification_reservations',
+            'agent_request_contexts', 'agent_request_heads', 'agent_task_requests')
         data = {table: [tuple(row) for row in store.db.execute('SELECT * FROM ' + table + ' ORDER BY rowid')]
             for table in tables}
         data['queue_paused'] = store._counter('queue_paused')
@@ -92,6 +94,21 @@ class Coordinator:
             scope = self._scope(store, current=True)
             signature, roots = self._inputs(store, scope)
             if signature != previous:
+                requests = AgentTaskRequests(store)
+                for identity in requests.pending(scope):
+                    try:
+                        receipt, requested_scope = requests.prepare(scope, identity)
+                        for root in roots:
+                            result = Dispatcher(store, Path(root)).select(requested_scope,
+                                key='agent-dispatch:' + receipt.id, agent_request_id=receipt.id,
+                                finalize_request=root == roots[-1])
+                            if result.attempt is not None:
+                                return signature, (root, requested_scope, result.attempt.id, 'agent')
+                    except (OSError, ValueError) as error:
+                        if isinstance(error, StoreError) and error.code.startswith('host_'):
+                            raise
+                        requests.deny(scope, identity, getattr(error, 'code', type(error).__name__))
+                        continue
                 for root in roots if store.workflows(scope) else []:
                     key = hashlib.sha256((signature + ':' + root).encode()).hexdigest()
                     result = Dispatcher(store, Path(root)).select(scope, key='host-select:' + key)

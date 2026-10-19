@@ -1,6 +1,7 @@
 """Loopback-only HTTP API and packaged browser interface."""
 
 import asyncio
+import re
 import secrets
 import time
 from contextlib import asynccontextmanager
@@ -60,7 +61,14 @@ def create_app(workspace: Path | None = None, data_dir: Path | None = None,
         if ((origin and urlparse(origin).netloc != request.url.netloc)
                 or request.headers.get("sec-fetch-site") == "cross-site"):
             return JSONResponse({"detail": "Foreign origin rejected"}, status_code=403)
-        if (request.method not in {"GET", "HEAD"} or request.url.path.startswith(("/api/tasks", "/api/agents", "/api/verification"))) and not secrets.compare_digest(
+        agent_route = ((request.method == 'POST' and re.fullmatch(r'/api/agents/[0-9a-f]{32}/task-requests', request.url.path))
+            or (request.method == 'GET' and re.fullmatch(r'/api/agents/[0-9a-f]{32}/task-requests/[0-9a-f]{32}', request.url.path)))
+        if agent_route:
+            credentials = request.headers.getlist('x-flycode-agent-credential')
+            if (len(credentials) != 1 or len(credentials[0]) != 97
+                    or re.fullmatch(r'[0-9a-f]{32}\.[0-9a-f]{64}', credentials[0]) is None):
+                return JSONResponse({'detail': {'code': 'agent_identity'}}, status_code=403)
+        if not agent_route and (request.method not in {"GET", "HEAD"} or request.url.path.startswith(("/api/tasks", "/api/agents", "/api/verification"))) and not secrets.compare_digest(
             request.headers.get("x-flycode-token", ""), token,
         ):
             return JSONResponse({"detail": "Missing session token; reload FlyCode"}, status_code=403)

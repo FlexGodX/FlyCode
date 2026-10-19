@@ -222,6 +222,10 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Check the owner result kind before accessing variant-specific fields in shared UI success handlers; exercise existing success flows after adding a result variant.
 - Mark a verification report passed only after required browser, HTTP and process cleanup succeeds.
 
+- Bind request credentials to their full canonical context and the latest issuance across all projects of an instance; an observed expiry must survive clock rollback.
+- Capture workflow deadline after `confirm_started`; assignment alone does not set `started_at` or `deadline_at`.
+- Add an extracted wheel to pytest pythonpath only once; duplicate PYTHONPATH entries duplicate distributions and invalidate parent/child environment identity.
+
 ## 12. How this file was built
 
 This boilerplate synthesizes:

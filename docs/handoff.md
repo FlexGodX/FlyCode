@@ -1,5 +1,22 @@
 # FlyCode handoff brief
 
+Checked agent pull entry,2026-10-19: scoped300s Host-issued credentials,
+durable request_task and atomic common bound dispatch reach actual HTTP, an
+owned separate Host, worker/review/current integration. Exact189-file extracted
+wheel83 scoped checks pass84.41s; frozen merged241-file controller94 checks
+pass105.97s, including an automatic pull→configured neural worker and four busy
+stage slots with independent reward progress. One official-graph case is explicitly
+excluded; fixture software compatibility is not scientific admission. Old owner
+commands/Stop/keyboard/1440/390/320 pass on both packages. Scoped Ruff and mypy12
+pass. All roots are checked before no-work/backoff; replay/status remain live
+during held model HTTP and an independent SQLite writer can commit. The native
+flow uses3attempts/2workflow models+1probe/31tools; deadline/owner bytes remain,
+reserve0/uncertaintyfalse, no idle command churn. Host restart closes the old
+queue gate without changing its raw audit bytes. task_request message text
+does not create tasks. Initial REDs and package/PYTHONPATH/merge-harness failures
+are retained. AC-14 avalanche, scientific and aggregate/full/final goal gates
+remain open. [Report](validation/2026-10-19-agent-task-requests.md).
+
 Owner-approved task routes,2026-10-19: explicit directed grants/head CAS and
 revocation now connect the owner API/Tasks form to dynamic exact worker endpoints.
 A peer started later is discovered on the next request; grant/endpoint/candidate

@@ -143,12 +143,21 @@ class Dispatcher:
             self.launch(scope, result.attempt.id)
         return result
 
-    def select(self, scope, *, key) -> ClaimResult:
+    def select(self, scope, *, key, agent_request_id=None, finalize_request=True) -> ClaimResult:
         store = self.store
         store._role(scope, ('runtime',))
         store._host_guard()
+        request = {'dispatch_bound': str(self.root)}
+        if agent_request_id is not None:
+            from .agent_admission import AgentTaskRequests
+
+            receipt, scope = AgentTaskRequests(store).prepare(scope, agent_request_id)
+            if receipt.state != 'queued':
+                return receipt.result or ClaimResult(reasons=(receipt.error_code or 'agent_request_closed',))
+            key = 'agent-dispatch:' + receipt.id
+            request['agent_request'] = receipt.id
         with store.transaction():
-            found, saved, _ = store._replay(scope, key, {'dispatch_bound': str(self.root)})
+            found, saved, _ = store._replay(scope, key, request)
         if found:
             result = ClaimResult.model_validate(saved)
         else:
@@ -201,7 +210,8 @@ class Dispatcher:
                 except (OSError, ValueError) as error:
                     reasons.append(getattr(error, 'code', 'review_binding_unavailable'))
             result = store.dispatch_bound(scope, runtime_root=str(self.root), binding_ids=tuple(approved),
-                blocked_reasons=tuple(reasons), key=key)
+                blocked_reasons=tuple(reasons), key=key, agent_request_id=agent_request_id,
+                finalize_request=finalize_request)
         return result
 
     def _source(self, scope, binding):

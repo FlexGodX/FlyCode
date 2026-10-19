@@ -1,0 +1,82 @@
+{
+  "date": "2026-10-19",
+  "parent": "31b71f6a4248aac694d1aa908267a3572ba78886",
+  "feature": "TRK-05 authenticated idle-instance request_task",
+  "goal_complete": false,
+  "wheel": {
+    "wheel": "/private/tmp/flycode-agent-request-package-asi06qa8/wheel/flycode-0.1.0-py3-none-any.whl",
+    "wheel_sha256": "9920cb8d608e8338a310ec91cadaf127f02732c74b734a3b49807fdf5b31f170",
+    "package_files": 189,
+    "package_byte_parity": true,
+    "utf8_readme_parity": true,
+    "cli_help": true
+  },
+  "checks": {
+    "source": {
+      "passed": 82,
+      "seconds": 82.55
+    },
+    "extracted": {
+      "passed": 83,
+      "seconds": 84.41,
+      "log": "/private/tmp/flycode-agent-request-package-asi06qa8/unit-retry.log"
+    },
+    "merged": {
+      "passed": 94,
+      "seconds": 105.97,
+      "deselected_official_graph": 1,
+      "package_files": 241,
+      "unchanged_source_test_files": 467,
+      "log": "/private/tmp/flycode-agent-request-merged-uayihl4f/unit.log"
+    },
+    "public_browser": {
+      "passed": true,
+      "seconds": 4.584794291993603
+    },
+    "merged_browser": {
+      "passed": true,
+      "seconds": 5.087667917017825
+    },
+    "scoped_ruff": true,
+    "mypy_sources": 12
+  },
+  "native": {
+    "attempts": 3,
+    "workflow_model_calls": 2,
+    "separate_probe": 1,
+    "tool_calls": 31,
+    "reserved_model_calls": 0,
+    "reserved_tool_calls": 0,
+    "uncertain": false,
+    "verified_integration": true,
+    "preserved_dirty_bytes_and_deadline": true,
+    "status_replay_during_model_under_seconds": 2,
+    "independent_sql_writer_during_model": true,
+    "client_close_keeps_host_alive": true,
+    "idle_command_count_stable": true
+  },
+  "archive": {
+    "root": "/Users/Administrator/.cache/flycode/validation/flycode-agent-requests-checked-y3gkdaw_",
+    "files": 4985,
+    "skipped": 105,
+    "manifest_sha256": "e1334fc7fa4b95b7f79833d04794e8bd56d4c7f8886798ebcb38c00bf4b43c97",
+    "public_checks": 83,
+    "merged_checks": 94
+  },
+  "limits": [
+    "Controlled local HTTP and fixture circuit prove software behavior only.",
+    "The public bootstrap retains existing local-client trust; this is not hostile-local-client isolation.",
+    "AC-14 combined avalanche/retry/replan pressure, scientific/admission and aggregate/full/final gates remain open."
+  ],
+  "retained_failures": [
+    "Missing identity/schema/request, immutable-pin and preference REDs.",
+    "Missing coordinator/HTTP, early JSON parsing, credential reflection and body-size REDs.",
+    "Separate approved runtime root initially returned no-work before normal push assigned.",
+    "Two worker harness assertions captured deadline before confirm_started.",
+    "First package helper expected uppercase CLI display name; actual help is lowercase.",
+    "First extracted run:82 passed/1 failed before assignment; duplicate extracted PYTHONPATH added a distribution to environment identity. Corrected83 pass without product changes.",
+    "Merge preparation assumed a single conflict exit code; initial resolver regex collapsed conflict spans. Both corrected before merged checks; bad bytes/logs retained.",
+    "Initial ModelCatalogue race shared an artificial nonblocking lock; actual connection ownership harness corrected.",
+    "Exact-line documentation preparation failed without launching dependent checks."
+  ]
+}

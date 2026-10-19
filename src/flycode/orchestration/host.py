@@ -2,6 +2,7 @@
 
 import hashlib
 import os
+import secrets
 import sqlite3
 import stat
 import time
@@ -80,6 +81,8 @@ class Host:
         self._used = False
         self._lock = None
         self.descriptor = None
+        self._agent_request_secret = secrets.token_bytes(32)
+        self._agent_request_deadlines: dict[str, float] = {}
 
     def __enter__(self):
         if self._used:

@@ -4,6 +4,11 @@ from typing import Annotated, Literal
 
 from pydantic import Field, TypeAdapter, model_validator
 
+from ..domain.agent_requests import (
+    AgentRequestCredential,
+    AgentTaskRequest,
+    AgentTaskRequestReceipt,
+)
 from ..domain.message_routes import MessageRouteEdge
 from ..domain.orchestration import BudgetAmount, QueueModel, TaskDraft
 from ..domain.pipeline import RetryPolicy
@@ -106,8 +111,31 @@ class OwnerMessageRoutes(OwnerBase):
         return self
 
 
+class OwnerIssueAgentContext(OwnerBase):
+    operation: Literal['issue_agent_context']
+    instance_id: CatalogueID
+    expected_instance_revision: Revision
+    idempotency_key: CommandKey
+
+
+class AgentCredentialCommand(OwnerBase):
+    instance_id: CatalogueID
+    credential: str = Field(repr=False, pattern=r'^[0-9a-f]{32}\.[0-9a-f]{64}$')
+
+
+class AgentRequestTask(AgentCredentialCommand):
+    operation: Literal['request_task']
+    request: AgentTaskRequest
+
+
+class AgentRequestStatus(AgentCredentialCommand):
+    operation: Literal['task_request_status']
+    request_id: CatalogueID
+
+
 OwnerCommand = Annotated[OwnerPreview | OwnerPrepare | OwnerApprove | OwnerReplan
-    | OwnerMessageRoutes | OwnerMessageRoutesPreview, Field(discriminator='operation')]
+    | OwnerMessageRoutes | OwnerMessageRoutesPreview | OwnerIssueAgentContext
+    | AgentRequestTask | AgentRequestStatus, Field(discriminator='operation')]
 
 
 def owner_request(value):
@@ -170,6 +198,16 @@ class OwnerMessageRoutesResult(QueueModel):
     reason: str | None = None
 
 
+class OwnerAgentContextResult(QueueModel):
+    kind: Literal['agent_context'] = 'agent_context'
+    issued: AgentRequestCredential
+
+
+class OwnerTaskRequestResult(QueueModel):
+    kind: Literal['task_request'] = 'task_request'
+    receipt: AgentTaskRequestReceipt
+
+
 class OwnerOutcome(QueueModel):
-    result: OwnerResult | OwnerMessageRoutesResult | None = None
+    result: OwnerResult | OwnerMessageRoutesResult | OwnerAgentContextResult | OwnerTaskRequestResult | None = None
     error_code: str | None = Field(default=None, pattern=r'^[a-z0-9_]+$', max_length=100)

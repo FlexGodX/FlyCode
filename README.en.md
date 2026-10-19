@@ -416,7 +416,7 @@ recipients and debits the shared tool budget before publication; replay after a
 host identity change cannot debit again. Questions and accepted answers remain
 available for later decisions within their original lifetime and permissions;
 activity notifications yield context space to substantive messages. A conversation feed
-and automatic task creation from `task_request` remain unfinished. Message lifetime and authority are
+remains unfinished. `task_request` is message data and does not authorize task creation. Message lifetime and authority are
 checked again after model inference; invalidated decisions cannot execute.
 Selected message recipients are pinned to the exact attempt, fence and contract
 shown to the model. Pins are rechecked after HTTP and atomically before sending;
@@ -429,10 +429,23 @@ the sender. Grants bind the approved graph and never expand tools, file access
 or budgets. Revocation blocks new sends and use of old questions/answers while
 preserving the journal; reapproval cannot revive messages from a revoked grant.
 
+An idle registered agent can also send `request_task`. The owner issues short-lived
+access through protected `POST /api/agents/{id}/task-request-context`; the agent
+uses `X-FlyCode-Agent-Credential` on `POST /api/agents/{id}/task-requests` and
+`GET /api/agents/{id}/task-requests/{request_id}`. It does not need the general UI
+token. A request carries the exact instance revision, idempotency key,
+capability/availability hints and an optional preferred task with its revision.
+The common dispatcher applies permission masks and the shared budget; replay
+returns the same attempt. No eligible work returns reasons and backoff up to30s.
+Access binds the selected folder and current Host, expires after300s, and is
+revoked by context/profile/Host replacement. This is a separate queue entry,
+not a command extracted from message text. The UI bootstrap retains the existing
+local-client trust model.
+
 [The checked two-worker scenario](docs/validation/2026-10-19-owner-message-routes.md)
 uses a detached Host, actual HTTP, a correlated question/answer, three independent
-reviews and current integration of the combined edits. Automatic message-to-task
-transitions, task avalanches and scientific criteria require separate acceptance.
+reviews and current integration of the combined edits. Task avalanches and
+scientific criteria require separate acceptance.
 
 ## First run without an API key
 
