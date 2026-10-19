@@ -1,0 +1,64 @@
+{
+  "parent": "e24067e2ae6e23240a93a98d52f22b24f00f2e58",
+  "passed": true,
+  "production_source_changed": false,
+  "package_files": 189,
+  "wheel": "/private/tmp/flycode-ac14-package-xf4r8ywx/wheel/flycode-0.1.0-py3-none-any.whl",
+  "wheel_sha256": "5c76b9a4d15510cfec40183a3e5b8190cf19046878110746abd053c0d97f7b09",
+  "readme_utf8_parity": true,
+  "extracted_cli_help": true,
+  "extracted_checks": 7,
+  "seconds": 58.98,
+  "log": "/private/tmp/flycode-ac14-package-xf4r8ywx/scoped.log",
+  "xml": "/private/tmp/flycode-ac14-package-xf4r8ywx/scoped.xml",
+  "ruff": "two new acceptance modules pass",
+  "archive": {
+    "root": "/Users/Administrator/.cache/flycode/validation/flycode-orchestration-pressure-checked-tju7hi4f",
+    "files": 2604,
+    "skipped": 14,
+    "manifest_sha256": "d9639d00ab72f93da77d9ba95fe2fea2cb9c24090b1234f90ba7d699bfc1ab50",
+    "checks": 7
+  },
+  "native_capacity": {
+    "workers": 4,
+    "total_workers": 5,
+    "fifth_refused_before_confirmed_exit": true,
+    "requests_issued_while_full": 1,
+    "workflow_completion": false
+  },
+  "service_limits": {
+    "workflow_http": 60,
+    "catalogue_probes": 1,
+    "file_reads": 96,
+    "registered_pytest": 24,
+    "tool_effects": 120,
+    "developer_models": 48,
+    "developer_tools": 96,
+    "reviewer_models": 12,
+    "reviewer_tools": 24,
+    "post_limit_effects": 0,
+    "new_reviewer_reservations_at_zero": 0,
+    "unlocked_sql_http_callbacks": 60,
+    "autonomous_worker_actions": false,
+    "workflow_completion": false
+  },
+  "other_scoped_cases": [
+    "64-node persisted draft graph,65refused",
+    "fixed1800s deadline and retained ownership until stop",
+    "pause/resume after deadline preserves spend",
+    "three real author attempts,failed artifacts/reviews retained,current integration"
+  ],
+  "goal_complete": false,
+  "remaining": [
+    "combined question/retry/replan AC-14",
+    "scientific/admission gates",
+    "latest full parallel controller compatibility",
+    "final aggregate/full verification"
+  ],
+  "failures": [
+    "capacity stale bindings during graph construction",
+    "pending-request expectation during assigned admission",
+    "eight suites registered in one profile"
+  ],
+  "source_test_fingerprints_unchanged": true
+}

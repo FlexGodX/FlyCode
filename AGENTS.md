@@ -226,6 +226,8 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Capture workflow deadline after `confirm_started`; assignment alone does not set `started_at` or `deadline_at`.
 - Add an extracted wheel to pytest pythonpath only once; duplicate PYTHONPATH entries duplicate distributions and invalidate parent/child environment identity.
 
+- Complete the intended task graph before issuing worker bindings; later task creation changes workflow semantic revision and invalidates earlier bindings.
+
 ## 12. How this file was built
 
 This boilerplate synthesizes:

@@ -1,5 +1,16 @@
 # FlyCode handoff brief
 
+Checked default boundaries,2026-10-19: four actual held agent workers block
+an issued fifth until confirmed exit. Separate Host service saturation executes
+60 actual HTTP/120 tools (96 file reads +24 registered custody pytest), protects
+developer48/96 versus reviewer12/24, and refuses further effects/reservations.
+Exact189-file extracted wheel7 scoped checks pass58.98s; Ruff/package/UTF8 README/CLI pass.
+No Store.spend or invented process acknowledgements. Controlled local HTTP is
+software evidence; service calls are not autonomous worker action selection.
+Capacity and saturation are separate from verified completion and combined
+question/retry/replan AC-14, which remains open with scientific/final gates.
+[Report](validation/2026-10-19-orchestration-pressure.md).
+
 Checked agent pull entry,2026-10-19: scoped300s Host-issued credentials,
 durable request_task and atomic common bound dispatch reach actual HTTP, an
 owned separate Host, worker/review/current integration. Exact189-file extracted

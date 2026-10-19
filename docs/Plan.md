@@ -2678,6 +2678,12 @@ MOD-01..07 и MS-01..12 задают поведение и приёмку. Эт�
 
 # 104. Сводный план поставки обновлённых спецификаций
 
+Проверены отдельные default boundaries:4живых worker/пятый после custody-stop;
+реальные Host service60HTTP/120tools (96file reads+24registered pytest), reserve20%
+и отказ новых эффектов/резервов при исчерпании. Это отдельные capacity/service
+прогоны; combined question/retry/replan AC-14, научные и итоговые gates открыты.
+[Отчёт](validation/2026-10-19-orchestration-pressure.md).
+
 Срез TRK-05 request_task,2026-10-19: Host-issued credential300s, durable
 заявка и общий атомарный dispatcher проходят actual HTTP/отдельный Host/worker/
 review/current integration. Exact extracted189 файлов:83 scoped checks84.41s;

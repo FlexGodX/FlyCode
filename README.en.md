@@ -447,6 +447,14 @@ uses a detached Host, actual HTTP, a correlated question/answer, three independe
 reviews and current integration of the combined edits. Task avalanches and
 scientific criteria require separate acceptance.
 
+[Orchestration boundary checks](docs/validation/2026-10-19-orchestration-pressure.md)
+hold four real agents, refuse a fifth assignment, and admit it after the first
+worker's confirmed exit. A separate Host service run executes60 HTTP requests
+and120 tools (96 file reads and24 registered pytest processes), protects20% for
+verification, and refuses further spending after exhaustion. This does not show
+that a model independently selected every action. Combined question/retry/replan
+pressure and scientific acceptance remain open.
+
 ## First run without an API key
 
 ```bash
