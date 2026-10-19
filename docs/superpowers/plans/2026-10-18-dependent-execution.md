@@ -231,6 +231,60 @@ chain; exact consumers `pipeline.py`, `store.py`, `continuations.py`, `retries.p
    Ruff/mypy, extracted wheel and exact source inventory. Review and publish
    only checked bytes with README RU/EN and honest phase status.
 
+#### New owner-approved branches in a graph revision
+
+ORC-03 requires new subtasks to create a new DAG version. Extend the same explicit
+owner replan command, with no legacy create/enqueue/bind calls and no replacement
+of existing failed IDs. Keep graph revision bound2, max64 historical tasks,
+max3 attempts, pool4,60 model/120 tools/30min and20% verification reserve.
+
+Files: `domain/pipeline.py` new `BranchAddition` input only (no change to saved
+GraphRevisionReceipt hash shape); `orchestration/branching.py` validates and
+materializes new writer/reviewer pairs; `orchestration/replans.py` adds them to
+one final CAS; test `test_pipeline_branches.py` and exact graph/hash consumers.
+
+- [x] RED real parent wait and completed child, followed by explicit new branch,
+  fails on absent `new_branches`. Assert server IDs, immutable original proof,
+  two new tasks in new version, fresh model/pytest/review, parent continuation
+  and final integration under original cumulative spending/deadline.
+- [x] Add `BranchAddition(writer:TaskDraft, reviewer:TaskDraft,
+  template_writer_id:str, approval_hash:str)` and optional
+  `Pipelines.replan(..., new_branches=None)`. Missing/empty additions preserve
+  old request idempotency. Canonical JSON revalidation must reject mutated model
+  inputs before any source/evidence read. New dependencies refer to existing
+  child writer IDs or request-local `new:<index>` references; resolve references
+  to server UUIDs only inside the final transaction, including edges from changed
+  existing writers and other new writers. No alias may survive persistence; writer/reviewer parents are the existing parent or an
+  existing structural aggregate, with no owner-supplied task IDs.
+- [x] Before final SQL: validate kinds, nonempty objective, approved tools/scopes,
+  explicit budgets, matching writer/reviewer acceptance, supported existing
+  worker template/source/runtime, profile roles/project/permissions/capabilities,
+  owner oracle for both contracts, base snapshot and existing graph authority.
+  Capture exact new profile/template models; model/filesystem availability stays
+  outside the writer transaction. A failed required old task stays required.
+- [x] In the final owner CAS only: `_new_task` allocates server IDs/short IDs;
+  create ready/planned writer and planned reviewer, pin new WorkerBinding with
+  approved template brain/seed and original source; extend integrator dependencies
+  and semantic revision while retaining root/user acceptance and budgets. Validate
+  the whole graph with all old history plus new rows, update the effective recipe
+  tasks/profiles/branches/approval hashes and append one graph receipt/event.
+  `_new_task` counter, inserts, bindings, integrator change and outbox roll back
+  together. Do not change workflow semantic revision, which would invalidate
+  carried original completions; the explicit graph grant owns this structure.
+- [x] Native negatives: missing criteria/budget/permission, wrong reviewer role,
+  foreign template/profile/parent/edge, changed template/profile after preflight,
+  hostile argv/path/ID fields, insufficient limits (64/children/depth/31branches),
+  unknown custody/pause/deadline, concurrent additions, rollback/restart/lost reply.
+  Verify retained full-model/omitted-field hashes and original graph records,
+  feature-scoped compatibility/static checks, exact wheel/CLI, README RU/EN and
+  report every failed boundary before checked commit/push. Controller proposals,
+  shared result views and full aggregate/scientific acceptance remain separate.
+
+Checked new-branch checkpoint: [report](../../validation/2026-10-19-new-graph-branches.md),
+final wheel36; old-replan34 and combined-brain3 pass. Boundary tests use configured
+max_tasks6/max_children5; no literal64-task stress or full aggregate claim. The
+combined Task4 checkboxes remain open until their full acceptance is established.
+
 ### Task5: Common projections and publication
 
 **Files:** discover actual tracker/web projection and view callers; update shared API/CLI/UI result views, this plan, handoff, Plan and README RU/EN.

@@ -3195,3 +3195,20 @@ feature cases; native30/graph2 route1/race+HTTP2, compatibility46+28 и combined
 сохранены отдельно от публичного пакета. New-branch graph admission, controller
 proposals, общие result views и aggregate/neural/research acceptance открыты;
 весь Task4 и полная цель не закрыты. Full/live-LM/graph/UI/training не запускались.
+
+
+Поставка новых owner-approved веток графа,2026-10-19: `new_branches` добавляет
+пары writer/reviewer и разрешает временные `new:<index>` зависимости существующих
+и новых задач в серверные ID одной транзакцией. Исходный граф, обязательные
+неудачные задачи, права/критерии, расходы/max3/срок сохраняются; бюджет интегратора
+сам не расширяется. Counter/tasks/bindings/receipt/events атомарны, сохранённая
+модель receipts и schema22 не меняются. Final extracted-wheel36 проходит324.15s;
+native30 и отдельные deltas, old-replan34, combined-brain3 и retained hashes
+проходят. Ruff4/scoped mypy3/package175/UTF-8 README/CLI/309 unchanged inputs
+проходят; все14 ранних границ, ошибки fixtures и исходное исчерпание25-tool
+интегратора сохранены в [отчёте](validation/2026-10-19-new-graph-branches.md).
+Combined проверяет197 source files текущих параллельных изменений, которые
+сохранены в общей папке и исключены из публичного пакета. Проверки границ6tasks/
+5children не объявляются literal64-task stress. Combined Task4 acceptance,
+общие result/command views, controller proposals и aggregate/neural/research/
+final acceptance остаются открыты. Full/live-LM/graph/UI/training не запускались.

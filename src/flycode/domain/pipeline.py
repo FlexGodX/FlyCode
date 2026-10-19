@@ -8,6 +8,7 @@ from .orchestration import (
     BudgetAmount,
     QueueModel,
     ReviewBinding,
+    TaskDraft,
     WorkflowBudget,
     WorkItem,
 )
@@ -138,3 +139,10 @@ class GraphRevisionReceipt(QueueModel):
     carry_hashes: dict[str, str]
     rejections: tuple[RetryCheckpoint, ...]
     created_at: float
+
+
+class BranchAddition(QueueModel):
+    writer: TaskDraft
+    reviewer: TaskDraft
+    template_writer_id: str = Field(min_length=1)
+    approval_hash: str = Field(pattern=r'^[0-9a-f]{64}$')

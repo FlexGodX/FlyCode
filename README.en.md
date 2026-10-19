@@ -150,8 +150,15 @@ for objective/dependency changes to existing unfinished child writers. It retain
 task IDs, criteria, permissions, budgets, history and confirmed results; a rejected
 review requires exact stopped ownership and settled spending. Previous generations
 remain immutable and new artifacts pin their lineage. The replacement attempt
-starts from the original source copy and needs fresh review. New-branch creation,
-controller replan proposals and common result views remain unimplemented.
+starts from the original source copy and needs fresh review. The `new_branches`
+parameter lets the owner add writer/reviewer pairs in the same graph revision.
+The server allocates IDs; request-local references such as `new:0` connect new
+and existing tasks before atomic persistence. Explicit criteria, permissions,
+budgets, profiles and oracle approval are required; source and worker settings
+come from a pinned template. New output cannot replace an earlier failed required
+task or reset its spending/attempts. The64-task bound includes existing history,
+and the integrator budget never increases automatically. Controller replan
+proposals and common result views remain unimplemented.
 An explicit primary compatibility probe requests
 one structured candidate; ordinary generation keeps its existing count and limits.
 The model transport adapter acquires an endpoint slot and charges the request

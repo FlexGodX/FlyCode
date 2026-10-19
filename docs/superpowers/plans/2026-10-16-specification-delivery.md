@@ -4,6 +4,16 @@
 
 **Goal:** Реализовать изменения §§100–103 с проверяемыми результатами, общей очередью задач и явным отделением исследовательских допусков.
 
+Current new-branch graph increment (2026-10-19): explicit owner drafts add pairs
+and resolve request-local dependency references to server IDs in one graph/CAS.
+Original requirements/costs/attempts/deadline survive; integrator funding stays
+explicit. Final extracted-wheel36, native30/selected deltas, old-replan34,
+combined-brain3 and retained hashes pass. Ruff4/scoped mypy3/package175/UTF-8
+README/CLI/309 unchanged inputs pass. [Report](../../validation/2026-10-19-new-graph-branches.md)
+retains14 early boundaries and fixture/budget failures. Combined avalanche/Stop/
+aggregate acceptance, common views/commands, controller proposals and neural/
+research/final acceptance remain open. No full/live-LM/graph/UI/training run.
+
 Current owner graph-revision increment (2026-10-19): immutable version4 grants
 revise existing unfinished child objectives/edges under exact owner CAS, stopped
 ownership and unchanged IDs/criteria/permissions/costs/deadline/max3. Final

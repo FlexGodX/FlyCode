@@ -1,5 +1,31 @@
 # FlyCode handoff brief
 
+## New owner graph branches — checked,2026-10-19
+
+`Pipelines.replan(..., new_branches=None)` atomically extends the existing graph
+with server-ID writer/reviewer pairs. Request-local new:<index> dependencies work
+from old or new writers. Profiles/permissions/criteria/oracle/template/source are
+explicit; old IDs and failures remain required, existing budgets/costs/deadline/
+max3 never reset, and the integrator budget never expands itself. Counter, rows,
+bindings, integrator dependency/semantic update, graph receipt and events share
+one final SQL CAS; no new saved-receipt fields or schema migration.
+
+Final extracted-wheel36 passes324.15s; native30/race+limits3/helper1/chain1/
+required-failure1/request-bound1 and old-replan34 pass with explicit source
+boundaries in the [report](validation/2026-10-19-new-graph-branches.md). Frozen
+combined parallel-brain197 source files:3 routes pass208.76s, retained g1/g2 hashes
+also validate under clean and combined code. Ruff4/scoped mypy3, package175/UTF-8
+README/CLI and309 unchanged inputs pass. All14 early boundaries, fixture mistakes
+and original integrator25-tool exhaustion remain recorded. No full/live-LM/graph/
+UI/training or scientific claim; parallel brain/schema changes remain separate.
+
+Next: remaining combined Task4 avalanche/Stop/aggregate acceptance and Task5 common
+completion versus integration, input lineage/wait/review/result projections and
+owner commands/API/CLI/UI. Controller replan proposals belong to the remaining
+orchestration control/admission work. Keep full neural/research matrix and final
+acceptance open; this owner route does not establish biological performance.
+Earlier checkpoints keep their historical source boundaries.
+
 ## Owner graph revisions — checked,2026-10-19
 
 Version4 `Pipelines.replan` admits at most2 owner-approved objective/dependency

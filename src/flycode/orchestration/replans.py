@@ -3,10 +3,14 @@
 import hashlib
 import json
 from pathlib import Path
+from typing import Annotated
 from uuid import uuid4
+
+from pydantic import Field, TypeAdapter
 
 from ..domain.orchestration import WorkerBinding
 from ..domain.pipeline import (
+    BranchAddition,
     GraphInput,
     GraphRevisionReceipt,
     ParentPipelineRecipe,
@@ -14,6 +18,7 @@ from ..domain.pipeline import (
 )
 from ..domain.results import ReviewRecord
 from ..verification.snapshot import capture, digest
+from .branching import Branching
 from .completions import Completions
 from .integration_bindings import record_hash
 from .retries import Retries
@@ -121,21 +126,28 @@ class Replans:
         for rejection in saved.rejections:
             Retries(self.store, self.root).evidence(scope, rejection, retired=retired)
 
-    def approve(self, scope, pipeline_id, *, changes, expected_revision, expected_revisions, key):
+    def approve(self, scope, pipeline_id, *, changes, expected_revision, expected_revisions, key, new_branches=None):
         from .continuations import Continuations
         from .pipeline import Pipelines
 
         store, service = self.store, Pipelines(self.store, self.root)
         store._role(scope, ('owner',))
+        additions = TypeAdapter(Annotated[tuple[BranchAddition, ...], Field(max_length=30)]).validate_json(json.dumps(new_branches if new_branches is not None else (),
+            default=lambda value: value.model_dump(mode='json', warnings='error'), allow_nan=False))
         request = {'replan': pipeline_id, 'changes': changes, 'revision': expected_revision, 'revisions': expected_revisions, 'root': str(self.root)}
+        if additions:
+            request['new_branches'] = [item.model_dump(mode='json') for item in additions]
         with store.transaction():
             found, result, _ = store._replay(scope, key, request)
             if found:
                 return ParentPipelineRecipe.model_validate(result)
             recipe, workflow, tasks, receipts, attempts = self._guard(scope, service, pipeline_id, expected_revisions, expected_revision)
         children = set(Continuations.children(recipe))
-        if not changes or not set(changes) <= children:
+        if (not changes and not additions) or not set(changes) <= children:
             raise StoreError('replan_scope')
+        branching = Branching(store, self.root)
+        additions, new_profiles, templates = branching.prepare(scope, recipe, tasks, attempts, additions, service.reviews.oracles)
+        references = children | {f'new:{number}' for number in range(len(additions))}
         updated, bindings, rejections = {}, {}, []
         altered = set(changes)
         for identity, values in changes.items():
@@ -148,7 +160,7 @@ class Replans:
             if any(identity in other.dependencies and other.id not in changes and other.state != 'planned' for other in tasks.values()):
                 raise StoreError('replan_dependents')
             candidate = changed(task, **values)
-            if (not candidate.objective.strip() or not set(candidate.dependencies) <= children or candidate == task):
+            if (not candidate.objective.strip() or not set(candidate.dependencies) <= references or candidate == task):
                 raise StoreError('replan_scope')
             for item in (task, reviewer):
                 previous = [attempt for attempt in attempts if attempt.task_id == item.id]
@@ -232,8 +244,26 @@ class Replans:
                 raise StoreError('revision')
             for rejection in saved.rejections:
                 Retries(store, self.root).metadata(scope, rejection, retired=False)
+            branching.current(new_profiles, templates)
+            added, new_bindings, approvals, new_pairs, aliases = branching.allocate(scope, recipe, workflow, additions, templates)
+            for identity, task in tuple(updated.items()):
+                resolved = changed(task, dependencies=tuple(aliases.get(dependency, dependency) for dependency in task.dependencies))
+                updated[identity] = resolved
+                if identity in bindings:
+                    bindings[identity] = changed(bindings[identity], contract_hash=resolved.contract_hash)
+            updated.update(added)
+            bindings.update(new_bindings)
+            if new_pairs:
+                integrator = tasks[recipe.integrator_id]
+                updated[integrator.id] = changed(integrator, dependencies=(*integrator.dependencies, *(pair.reviewer_id for pair in new_pairs)),
+                    semantic_revision=integrator.semantic_revision + 1, revision=integrator.revision + 1, updated_at=store.clock())
+            branches = tuple(changed(branch, worker_binding_id=bindings[branch.writer_id].id,
+                worker_binding_hash=record_hash(bindings[branch.writer_id])) if branch.writer_id in bindings else branch for branch in branches) + new_pairs
+            effective = changed(effective, tasks={**recipe.tasks, **updated}, branches=branches,
+                profiles={**recipe.profiles, **new_profiles}, approval_hashes={**recipe.approval_hashes, **approvals})
+            saved = changed(saved, recipe=effective)
             for identity, task in updated.items():
-                if tasks[identity].current_attempt_id is not None:
+                if identity in tasks and tasks[identity].current_attempt_id is not None:
                     store._stop(tasks[identity])
                 store._ready(task, workflow)
                 store._save_task(task)
@@ -245,6 +275,10 @@ class Replans:
             for branch in branches:
                 if branch.writer_id in changes:
                     store.db.execute('UPDATE review_bindings SET current=0 WHERE task_id=?', (branch.reviewer_id,))
+            for pair in new_pairs:
+                for identity in (pair.writer_id, pair.reviewer_id):
+                    store._event(scope, workflow, 'task_created', task=updated[identity], revision=updated[identity].revision)
+                store._event(scope, workflow, 'worker_binding_created', task=updated[pair.writer_id], binding=bindings[pair.writer_id].model_dump(mode='json'))
             store.db.execute('INSERT INTO pipeline_receipts VALUES (?,?,?)', (recipe.id, 'graph:' + str(saved.number), saved.model_dump_json()))
             store._save_workflow(changed(workflow, revision=workflow.revision + 1))
             store._event(scope, workflow, 'pipeline_replanned', recipe_id=recipe.id, number=saved.number,
