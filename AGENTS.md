@@ -233,6 +233,9 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Count only executable checks when asserting process launches: dependency-blocked CheckAttempt records have no subprocess.
 - Let ordinary owned tool calls settle naturally in capacity-only gates; pausing a live pipeline can retain uncertain outcomes after all process groups exit.
 
+- Reuse checked pipeline authority only inside the same dispatch transaction; do not revalidate the full graph for every task/instance pair. Standalone claims still need their own guard.
+- Check the Coordinator future while waiting for workflow effects; propagate its failure immediately instead of waiting for an unreachable budget count.
+
 ## 12. How this file was built
 
 This boilerplate synthesizes:

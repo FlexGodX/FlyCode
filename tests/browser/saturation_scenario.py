@@ -18,7 +18,7 @@ from flycode.verification.registry import VerificationRegistry
 NAMES = ('parser', 'second', 'charlie', 'delta', 'echo', *(f'output_{n:02d}' for n in range(6, 28)))
 
 
-def prepare(managed, store, server, root):
+def prepare(managed, store, server, root, *, resource_pressure=False):
     observer, owner, runtime, old_workflow, old_tasks, source, _, runtime_root, _, checks, _ = managed
     developer = observer._profile(old_tasks[1].allowed_profile_ids[0])
     permission = changed(developer.permissions, tools=(*developer.permissions.tools, 'send_message'))
@@ -46,32 +46,56 @@ def prepare(managed, store, server, root):
     gate_source = 'from pathlib import Path\nimport runpy, time\n'
     for name in NAMES:
         (source / f'src/{name}.py').write_text('value = 0\n')
-    for name in NAMES[:5]:
+    gate_cases = [(name, name) for name in NAMES[:5]]
+    if resource_pressure:
+        gate_cases.extend([('parser_reply', 'parser'), ('second_answer', 'second'), (NAMES[5], NAMES[5])])
+    for name, subject in gate_cases:
         gate_source += (f'\ndef test_{name}():\n'
             f'    gate = Path({str(gates)!r})\n'
             f'    (gate / "{name}-started").write_text("started")\n'
-            '    deadline = time.monotonic() + 60\n'
+            f'    deadline = time.monotonic() + {120 if resource_pressure else 60}\n'
             f'    while not (gate / "{name}-release").exists():\n'
             '        assert time.monotonic() < deadline, "Owned pressure gate deadline"\n'
             '        time.sleep(.02)\n'
-            f'    assert runpy.run_path("src/{name}.py")["value"] == 1\n')
+            f'    assert runpy.run_path("src/{subject}.py")["value"] == {2 if resource_pressure and subject == "second" else 1}\n')
     (source / 'tests/test_saturation_gate.py').write_text(gate_source)
     writers, reviewers, children = [parent], [], {}
     for number, name in enumerate(NAMES):
         contract = root_contract.model_copy(update={'id': 'pressure64-' + name})
+        budget = BudgetAmount(model_calls=2, tool_calls=2)
+        review_budget = BudgetAmount(tool_calls=4)
+        dependencies = () if number < 5 else (writers[1].id,)
+        if resource_pressure:
+            if number == 0:
+                budget = BudgetAmount(model_calls=12, tool_calls=12)
+            elif number == 1:
+                budget = BudgetAmount(model_calls=30, tool_calls=30)
+            elif number == 5:
+                budget = BudgetAmount(model_calls=4, tool_calls=3)
+            review_budget = BudgetAmount(tool_calls=24 if number == 0 else 12)
+            if number == 5:
+                dependencies = tuple(task.id for task in writers[1:6])
+            elif number > 5:
+                dependencies = (children[NAMES[5]].id,)
+        objective = f'Hold pressure slot {name}, then set its approved output to 1.'
+        if resource_pressure and name == 'parser':
+            objective = 'Repair parser to 1 and answer the sibling question through the approved route.'
+        elif resource_pressure and name == 'second':
+            objective = 'Ask the sibling for its result, inspect the approved output files, then set second to the answer plus 1.'
         writer = store.create_task(owner, workflow.id, TaskDraft(title='Repair ' + name,
-            objective=f'Hold pressure slot {name}, then set its approved output to 1.',
+            objective=objective,
             parent_id=groups[(2 * number) // 8].id, acceptance=contract,
+            priority=3 if resource_pressure and number < 4 else 1,
             permissions=changed(permission, write_scopes=(f'src/{name}.py',)),
-            budget=BudgetAmount(model_calls=2, tool_calls=2), allowed_profile_ids=(profile.id,),
-            capabilities=('python',), dependencies=() if number < 5 else (writers[1].id,)),
+            budget=budget, allowed_profile_ids=(profile.id,),
+            capabilities=('python',), dependencies=dependencies),
             key='pressure64-writer-' + name)
         writers.append(writer)
         children[name] = writer
         review = store.create_task(owner, workflow.id, TaskDraft(title='Review ' + name, kind='review',
             objective='Independently verify the exact assigned output.',
             parent_id=groups[(2 * number + 1) // 8].id, acceptance=contract, permissions=reviewer.permissions,
-            budget=BudgetAmount(tool_calls=4), allowed_profile_ids=(reviewer.id,)), key='pressure64-review-' + name)
+            budget=review_budget, allowed_profile_ids=(reviewer.id,)), key='pressure64-review-' + name)
         reviewers.append(review)
     parent_review = store.create_task(owner, workflow.id, TaskDraft(title='Review parent continuation', kind='review',
         objective='Verify the complete owner hierarchy independently.', parent_id=groups[6].id,
@@ -89,11 +113,11 @@ def prepare(managed, store, server, root):
     engine = VerificationEngine(runtime_root / 'verification')
     registry = VerificationRegistry(store)
     approvals, pins, registered = {}, {}, {}
-    by_writer = {task.id: (task.acceptance, f'    assert runpy.run_path("src/{name}.py")["value"] == 1\n')
+    by_writer = {task.id: (task.acceptance, f'    assert runpy.run_path("src/{name}.py")["value"] == {2 if resource_pressure and name == "second" else 1}\n')
         for name, task in children.items()}
     combined = ('    assert runpy.run_path("src/note.py")["phase"] == 1\n'
         '    assert runpy.run_path("src/extra.py")["value"] == 4\n'
-        + ''.join(f'    assert runpy.run_path("src/{name}.py")["value"] == 1\n' for name in NAMES))
+        + ''.join(f'    assert runpy.run_path("src/{name}.py")["value"] == {2 if resource_pressure and name == "second" else 1}\n' for name in NAMES))
     by_writer[parent.id] = (root_contract, combined)
     for writer, review in zip(writers, reviewers):
         contract, body = by_writer[writer.id]
@@ -103,7 +127,8 @@ def prepare(managed, store, server, root):
         approval = engine.oracles.approve(contract, checks, oracle)
         saved = engine.oracles.read(approval)
         pin = registry.register_profile(owner, workflow.project_id,
-            VerificationProfileDraft(title='Owner exact hierarchy criterion', acceptance=contract, checks=saved.checks),
+            VerificationProfileDraft(title='Owner exact hierarchy criterion', acceptance=contract, checks=saved.checks,
+                reruns=2 if resource_pressure else 0),
             oracle_root=runtime_root / 'verification/oracles' / approval / 'files')
         registered[contract.id] = approval, pin
         for task in (writer, review):
@@ -119,7 +144,9 @@ def prepare(managed, store, server, root):
         {writer.id: review.id for writer, review in zip(writers, reviewers)}, integrator.id,
         source=source, expected_revision=store.workflow(owner, workflow.id).revision,
         expected_revisions={task.id: task.revision for task in store.tasks(owner, workflow.id)},
-        approval_hashes=approvals, profile_pins=pins, preparation_steps=1, key='pressure64-approve')
+        approval_hashes=approvals, profile_pins=pins, preparation_steps=1, reruns=2 if resource_pressure else 0,
+        retry_policies={writers[1].id: {'max_retries': 1, 'writer_budget': {'model_calls': 4, 'tool_calls': 4},
+            'reviewer_budget': {'model_calls': 0, 'tool_calls': 12}}} if resource_pressure else None, key='pressure64-approve')
     calls = {}
 
     def respond(request):
@@ -142,4 +169,6 @@ def prepare(managed, store, server, root):
     return {'store': store, 'owner': owner, 'runtime': runtime, 'workflow': workflow, 'parent': parent,
         'groups': groups, 'writers': writers, 'reviewers': reviewers, 'integrator': integrator,
         'instances': instances, 'recipe': recipe, 'dispatcher': dispatcher, 'source': source,
-        'gates': gates, 'children': children, 'profile_pins': pins, 'approvals': approvals}
+        'gates': gates, 'children': children, 'profile_pins': pins, 'approvals': approvals,
+        'review_by_name': {name: reviewers[number + 1] for number, name in enumerate(NAMES)},
+        'reruns': 2 if resource_pressure else 0}

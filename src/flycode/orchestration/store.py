@@ -1082,7 +1082,7 @@ class Store:
             checks += ' AND p.workflow_id=?'
         return self.db.execute(agents, parameters).fetchone()[0] + self.db.execute(checks, parameters).fetchone()[0]
 
-    def _eligibility(self, scope, workflow, task, instance, profile, reserve, tasks, attempts, ledger):
+    def _eligibility(self, scope, workflow, task, instance, profile, reserve, tasks, attempts, ledger, *, pipeline_context=None):
         reasons = []
         if self._project_revoked(task.project_id):
             reasons.append('project_revoked')
@@ -1113,20 +1113,26 @@ class Store:
         if not self._binding_current(profile):
             reasons.append('model_unavailable')
         by_id = {item.id: item for item in tasks}
-        pipeline = self.db.execute('SELECT data FROM pipelines WHERE workflow_id=?', (workflow.id,)).fetchone()
-        parent_authority = False
-        if pipeline is not None:
-            from .pipeline import Pipelines
+        from .pipeline import Pipelines
 
-            recipe = Pipelines.effective(self, pipeline['data'])
-            receipts = Pipelines.receipts(self, recipe) if recipe.version == 4 else {}
+        if pipeline_context is None:
+            pipeline = self.db.execute('SELECT data FROM pipelines WHERE workflow_id=?', (workflow.id,)).fetchone()
+            recipe = Pipelines.effective(self, pipeline['data']) if pipeline is not None else None
+            receipts = Pipelines.receipts(self, recipe) if recipe is not None and recipe.version == 4 else {}
+        else:
+            if not self.db.in_transaction:
+                raise RuntimeError('Dispatch authority is valid only inside its writer transaction')
+            recipe, receipts = pipeline_context
+        parent_authority = False
+        if recipe is not None:
             blocked = Pipelines._task_blocked(recipe, by_id, task.id, receipts)
             cap = Pipelines.attempt_cap(recipe, task.id)
             if cap is not None and (reserve.model_calls > cap.model_calls or reserve.tool_calls > cap.tool_calls):
                 reasons.append('attempt_budget')
             if recipe.version == 4:
                 try:
-                    Pipelines.guard_metadata(self, scope, recipe)
+                    if pipeline_context is None:
+                        Pipelines.guard_metadata(self, scope, recipe)
                     parent_authority = task.id == recipe.parent_id and not blocked
                 except StoreError as error:
                     reasons.append(error.code)
@@ -1346,9 +1352,12 @@ class Store:
                 if not workflow.active_slot:
                     continue
                 pipeline = self.db.execute('SELECT id FROM pipelines WHERE workflow_id=?', (workflow.id,)).fetchone()
+                pipeline_context = None
                 if pipeline is not None:
                     try:
-                        pipelines._guard(scope, pipelines.get(scope, pipeline['id']))
+                        recipe = pipelines.get(scope, pipeline['id'])
+                        _, _, receipts = pipelines._guard(scope, recipe)
+                        pipeline_context = recipe, receipts if recipe.version == 4 else {}
                     except StoreError as error:
                         rejected.append(error.code)
                         continue
@@ -1392,7 +1401,8 @@ class Store:
                     reserve = self._remaining_reservation(workflow, task, ledger, attempts)
                     for instance in instances:
                         profile = self._profile(instance.profile_id)
-                        reasons = self._eligibility(scope, workflow, task, instance, profile, reserve, tasks, attempts, ledger)
+                        reasons = self._eligibility(scope, workflow, task, instance, profile, reserve, tasks, attempts, ledger,
+                            pipeline_context=pipeline_context)
                         hint = hints.get(instance.id)
                         if (hint is not None and hint.request.capabilities is not None
                                 and not set(task.capabilities) <= set(hint.request.capabilities)):

@@ -72,3 +72,21 @@ pause/unknown-outcome and20-versus18launch harness failures are retained. This
 is capacity with negative review, not combined question/retry or budget
 saturation/scientific admission. Overall goal and remaining AC-14/final gates open.
 [Report](../../validation/2026-10-19-hierarchy-capacity.md).
+
+## Combined budget boundary and dispatch lock regression
+
+Combined native budget boundary, 2026-10-19: the approved 64-task graph reaches
+48 developer HTTP calls and 120 actual tools, including 74 registered pytest
+processes. Four native workers overlap; the issued fifth waits for confirmed
+exit. Two negative reviews and one exact owner-replan replay retain history.
+The final review reserves two tools, then its third check is cancelled with
+policy budget_exhausted before spawning. No integration or false completion;
+83 process groups stopped, source/deadline preserved, reservations zero and
+uncertainty false. Public-source run passes 149.82s. A real SQLite contention
+failure exposed 197 repeated graph guards per dispatch; transaction-local reuse
+reduces this to one, with semantic/binding tamper still blocked. Three new checks
+and 88 related queue/admission checks pass; Ruff and Store mypy pass. Exact189-file wheel passes136.88s; frozen246-file brain composition passes191.88s with heuristic_fsm. Both retain48/120 and83 stopped groups. Three new cases pass in each; the prior capacity regression passes29.93s. Wheel/UTF8 README/CLI parity pass; no full/UI rerun. Controlled provider state retains
+B's parsed answer; this does not measure model recall or neural intelligence.
+Overall goal, scientific and final aggregate gates remain open.
+
+The native scenario is tests/browser/saturation_combined_runner.py. Its prepare-only path pins loaded context16384 and all64 profiles before any worker/tool effect. Source/test bytes remain fixed per run. Preserve the first scheduler-ordering failure, two missing-result/SQLite failures and diagnostic rerun; the measured admission writer transaction held5.72765s. The regression test observes197 full guards instead of one, then passes after local checked-context reuse. Standalone claims retain their own guards; do not increase SQLite timeout or remove authority checks. Check the final extracted wheel and a fresh frozen composition of parallel brain changes before publication.

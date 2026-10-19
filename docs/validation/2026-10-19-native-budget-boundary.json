@@ -1,0 +1,209 @@
+{
+  "parent": "e9ea0a977fce408c1105833ae986bd462aae3a59",
+  "goal_complete": false,
+  "scientific_admission": false,
+  "configured_neural_measurement": false,
+  "controlled_provider_state_retains_parsed_answer": true,
+  "literal_60_worker_http": false,
+  "measurements": {
+    "source": {
+      "root": "/private/tmp/flycode-ac14-native-limits-fifth",
+      "seconds": 149.82262724998873,
+      "max_observed_write_hold_seconds": 0.6142172500258312,
+      "max_observed_write_wait_seconds": 0.6680592499906197,
+      "workflow_http": 48,
+      "catalogue_probe": 1,
+      "tools": 120,
+      "registered_pytest": 74,
+      "native_workers": 9,
+      "attempts": 17,
+      "native_peak": 4,
+      "endpoint_overlap": false,
+      "budget": {
+        "limit": {
+          "model_calls": 60,
+          "tool_calls": 120
+        },
+        "spent": {
+          "model_calls": 48,
+          "tool_calls": 120
+        },
+        "reserved": {
+          "model_calls": 0,
+          "tool_calls": 0
+        },
+        "free": {
+          "model_calls": 12,
+          "tool_calls": 0
+        },
+        "uncertain": false
+      },
+      "no_false_completion": true,
+      "all_process_groups_stopped": 83,
+      "tool_statuses": {
+        "completed": 112,
+        "failed": 8
+      },
+      "ordinary_failed_run_tests": 8,
+      "uncertain_or_late_tools": 0
+    },
+    "extracted": {
+      "root": "/private/tmp/flycode-ac14-native-limits-package-lqc456wt/native",
+      "seconds": 136.87622875004308,
+      "max_observed_write_hold_seconds": 0.6949314159573987,
+      "max_observed_write_wait_seconds": 1.0681347909849137,
+      "workflow_http": 48,
+      "catalogue_probe": 1,
+      "tools": 120,
+      "registered_pytest": 74,
+      "native_workers": 9,
+      "attempts": 17,
+      "native_peak": 4,
+      "endpoint_overlap": false,
+      "budget": {
+        "limit": {
+          "model_calls": 60,
+          "tool_calls": 120
+        },
+        "spent": {
+          "model_calls": 48,
+          "tool_calls": 120
+        },
+        "reserved": {
+          "model_calls": 0,
+          "tool_calls": 0
+        },
+        "free": {
+          "model_calls": 12,
+          "tool_calls": 0
+        },
+        "uncertain": false
+      },
+      "no_false_completion": true,
+      "all_process_groups_stopped": 83,
+      "tool_statuses": {
+        "completed": 112,
+        "failed": 8
+      },
+      "ordinary_failed_run_tests": 8,
+      "uncertain_or_late_tools": 0
+    },
+    "frozen": {
+      "root": "/private/tmp/flycode-ac14-native-limits-merged-t61d9skp/native",
+      "seconds": 191.8825157910469,
+      "max_observed_write_hold_seconds": 0.8856374999741092,
+      "max_observed_write_wait_seconds": 1.537243083002977,
+      "workflow_http": 48,
+      "catalogue_probe": 1,
+      "tools": 120,
+      "registered_pytest": 74,
+      "native_workers": 9,
+      "attempts": 17,
+      "native_peak": 4,
+      "endpoint_overlap": false,
+      "budget": {
+        "limit": {
+          "model_calls": 60,
+          "tool_calls": 120
+        },
+        "spent": {
+          "model_calls": 48,
+          "tool_calls": 120
+        },
+        "reserved": {
+          "model_calls": 0,
+          "tool_calls": 0
+        },
+        "free": {
+          "model_calls": 12,
+          "tool_calls": 0
+        },
+        "uncertain": false
+      },
+      "no_false_completion": true,
+      "all_process_groups_stopped": 83,
+      "tool_statuses": {
+        "completed": 112,
+        "failed": 8
+      },
+      "ordinary_failed_run_tests": 8,
+      "uncertain_or_late_tools": 0
+    }
+  },
+  "failures": {
+    "first": {
+      "passed": false,
+      "error": "AssertionError: Coordinator did not reach the expected canonical state",
+      "seconds": 52.21258350001881,
+      "inputs_unchanged": true
+    },
+    "second": {
+      "passed": false,
+      "error": "AssertionError: Coordinator did not reach the expected canonical state",
+      "seconds": 428.4450363339856,
+      "inputs_unchanged": true
+    },
+    "third": {
+      "passed": false,
+      "error": "OperationalError: database is locked",
+      "seconds": 383.1329447500175,
+      "inputs_unchanged": true
+    },
+    "fourth": {
+      "passed": false,
+      "error": "OperationalError: database is locked",
+      "seconds": 166.91164729202865,
+      "inputs_unchanged": true
+    }
+  },
+  "regression": {
+    "source": "src/flycode/orchestration/store.py",
+    "behavior": "reuse transaction-local checked pipeline context for task-instance admission; all per-pair predicates and standalone claims retained",
+    "red": {
+      "guard_checks": 197,
+      "expected": 1,
+      "pytest": "1 failed,2 passed in7.78s",
+      "setup_failure": "earlier 3failed1.80s due loaded8192 vs declared16384; fixture fixed before runtime creation"
+    },
+    "green": {
+      "new_cases": 3,
+      "seconds": 6.38,
+      "related_cases": 88,
+      "related_seconds": 45.01,
+      "ruff": true,
+      "mypy_source_files": 1
+    },
+    "not_a_timeout_increase": true
+  },
+  "wheel_sha256": "4b90a488245f62d93ad3b176c579f52a46c478dfddfa37aa3adfe6d9194da482",
+  "runtime_files": 189,
+  "frozen_package_files": 246,
+  "wheel_byte_parity": true,
+  "utf8_readme_parity": true,
+  "capacity_regression_seconds": 29.93083004199434,
+  "new_unit_checks": {
+    "source": [
+      3,
+      6.38
+    ],
+    "extracted": [
+      3,
+      6.26
+    ],
+    "frozen": [
+      3,
+      6.89
+    ]
+  },
+  "related_source_checks": [
+    88,
+    45.01
+  ],
+  "ruff": true,
+  "mypy_store": true,
+  "remaining": [
+    "scientific matrix/admission and real model/graph gates",
+    "aggregate full-suite/final acceptance"
+  ],
+  "scope": "64-task native question/answer, retry, owner replan, developer-model and global-tool boundaries; expected safe incomplete"
+}

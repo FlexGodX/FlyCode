@@ -463,6 +463,14 @@ same four active slots, refusal of task65 and live owner-replan refusal. A negat
 review blocks dependent work, preserves source and prevents false completion.
 This checks capacity rather than full budget consumption.
 
+A [combined budget-boundary scenario](docs/validation/2026-10-19-native-budget-boundary.md)
+checks question/answer, two rejected attempts and owner replan in a 64-task graph:
+four live workers, 48 developer HTTP calls and 120 tools. The last review runs two
+checks and refuses a third before spawning it. It preserves original files and
+spending without claiming completion. Dispatch now validates the complete graph
+once per atomic selection, rather than once per task/instance pair. This uses a
+controlled HTTP provider and heuristic controller; scientific admission remains open.
+
 ## First run without an API key
 
 ```bash
