@@ -138,13 +138,15 @@ function phase(value){
         await page.getByLabel("Изменить задачу "+child.title+" "+child.id.slice(0,6),{exact:true}).check();
         await page.getByLabel("Результат · "+child.title+" "+child.id.slice(0,6),{exact:true}).fill("Repair the parser under the exact owner-approved criteria.");
         const helperDependency=page.getByLabel(`Зависимость задачи ${child.title} ${child.id.slice(0,6)} от новой ветви 4`,{exact:true});
-        await helperDependency.check({timeout:1500});await helperDependency.uncheck();
+        const helperFirst=process.env.FLYCODE_HELPER_FIRST==="1";
+        await helperDependency.check({timeout:1500});if(!helperFirst)await helperDependency.uncheck();
         await page.getByLabel("Название новой ветви",{exact:true}).fill("Additional owner branch");
-        await page.getByLabel("Результат новой ветви",{exact:true}).fill("Set second value to 2 after the verified parser repair.");
+        await page.getByLabel("Результат новой ветви",{exact:true}).fill(`Set second value to 2 ${helperFirst?"before":"after"} the verified parser repair.`);
         await page.getByLabel("Шаблон исполнителя",{exact:true}).selectOption(child.id);
         await page.getByLabel("Критерии новой ветви",{exact:true}).selectOption({label:"Explicit additional branch criteria"});
         await page.getByRole("group").filter({has:page.getByLabel("Название новой ветви",{exact:true})}).getByText("Зависимости",{exact:true}).click();
-        await page.getByLabel("Зависимость новой ветви · "+child.title+" "+child.id.slice(0,6),{exact:true}).check();
+        const childDependency=page.getByLabel("Зависимость новой ветви · "+child.title+" "+child.id.slice(0,6),{exact:true});
+        await childDependency.check();if(helperFirst)await childDependency.uncheck();
         await page.getByLabel("Разрешаю изменения плана",{exact:true}).check();
         const replan=page.getByRole("button",{name:"Применить изменения плана",exact:true});
         for(const width of [1440,390,320]){await page.setViewportSize({width,height:width===1440?1000:844});await replan.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:path.join(out,`owner-replan-${width}.png`)});}
@@ -153,7 +155,19 @@ function phase(value){
         await page.locator("#ownerStatus").getByText("План загружен",{exact:true}).waitFor();
         const revised=(await(await page.request.get(`${base}/api/tasks/owner/${card.task.workflow_id}?project_id=${card.task.project_id}`,{headers})).json()).result;
         assert.equal(revised.tasks.length,7);assert.equal(revised.graph_revision,1);
+        const addedWriter=revised.tasks.find(task=>task.title==="Additional owner branch");
+        if(helperFirst){assert.deepEqual(revised.tasks.find(task=>task.id===child.id).dependencies,[addedWriter.id]);assert.deepEqual(addedWriter.dependencies,[]);}
+        if(process.env.FLYCODE_COMPLETION_GATE==="1")await page.evaluate(({id,token})=>{
+          window.gatedRead=false;window.gatedErrors=[];
+          window.gatedRefresh=setInterval(()=>{if(window.gatedRead)return;window.gatedRead=true;
+            fetch(`/api/tasks/${id}`,{headers:{"X-FlyCode-Token":token}}).then(response=>{if(!response.ok)throw new Error(String(response.status));return response.json();}).catch(error=>window.gatedErrors.push(error.message)).finally(()=>{window.gatedRead=false;});
+          },50);
+        },{id,token:bootstrap.token});
         assert.equal(phase("complete").current,true);
+        if(process.env.FLYCODE_COMPLETION_GATE==="1"){
+          await page.evaluate(()=>clearInterval(window.gatedRefresh));await page.waitForFunction(()=>!window.gatedRead);
+          assert.deepEqual(await page.evaluate(()=>window.gatedErrors),[]);
+        }
         await page.keyboard.press("Escape");
         await page.locator("#detailBody").getByText("Изменения применены",{exact:false}).first().waitFor();
         const completed=await(await page.request.get(base+"/api/tasks/"+id,{headers})).json();assert.equal(completed.integration.current,true);assert.equal(completed.completion.current,true);

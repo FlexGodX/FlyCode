@@ -52,7 +52,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--case', choices=('preview', 'commands', 'lifecycle', 'recovery'), required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--helper-first', action='store_true')
+    parser.add_argument('--gate-completion', action='store_true')
     args = parser.parse_args()
+    if (args.helper_first or args.gate_completion) and args.case != 'lifecycle':
+        parser.error('Dependency and completion gates require lifecycle')
     root = args.output.resolve()
     assert not root.is_relative_to(REPO), 'Keep mutable evidence outside measured source'
     root.mkdir(parents=True, exist_ok=False)
@@ -62,7 +66,9 @@ def main():
     assert Path(flycode.__file__).is_relative_to(expected), flycode.__file__
     inputs = inventory()
     (root / 'inputs.json').write_text(json.dumps(inputs, indent=2) + '\n')
-    report = {'root': str(root), 'case': args.case, 'preparation_succeeded': False, 'passed': False}
+    report = {'root': str(root), 'case': args.case, 'helper_first': args.helper_first,
+        'gate_completion': args.gate_completion,
+        'preparation_succeeded': False, 'passed': False}
     started = time.monotonic()
     try:
         with ExitStack() as stack:
@@ -79,7 +85,15 @@ def main():
             patch.setenv('LMSTUDIO_BASE_URL', server.url)
             store = p['store']
             if args.case == 'lifecycle':
-                prepare_addition(p)
+                prepare_addition(p, helper_first=args.helper_first)
+            if args.gate_completion:
+                from owner_race import instrument_app, instrument_application
+
+                gate = root / 'completion-gate'
+                gate.mkdir()
+                instrument_app(patch, gate)
+                instrument_application(patch, gate, p['source'], store)
+                p['completion_gate'] = gate
             stack.enter_context(AttachmentServer(store.host))
             _, client = stack.enter_context(native_app(p['source'], root / 'history'))
             assert CoordinatorClient(store.path).status().session_id == store.host.session.id
@@ -88,7 +102,8 @@ def main():
             report.update(preparation_succeeded=True, before=before, database=str(store.path))
             environment = {**os.environ, 'FLYCODE_UI_URL': str(client.base_url).rstrip('/'),
                 'FLYCODE_OWNER_TASK': p['parent'].id, 'FLYCODE_SCREENSHOTS': str(root / 'screenshots'),
-                'FLYCODE_OWNER_CASE': args.case}
+                'FLYCODE_OWNER_CASE': args.case, 'FLYCODE_HELPER_FIRST': '1' if args.helper_first else '0',
+                'FLYCODE_COMPLETION_GATE': '1' if args.gate_completion else '0'}
             with (root / 'browser.log').open('w') as output:
                 if args.case == 'lifecycle':
                     parent, child = socket.socketpair()
@@ -164,7 +179,7 @@ def run_browser_regression(node, environment, root, stage, p):
     assert result.returncode == 0, (root / ('regression-' + stage + '.log')).read_text()
 
 
-def prepare_addition(p):
+def prepare_addition(p, *, helper_first=False):
     from flycode.domain.orchestration import TaskCommand
     from flycode.domain.verification_control import VerificationProfileDraft
     from flycode.verification.registry import VerificationRegistry
@@ -178,7 +193,7 @@ def prepare_addition(p):
     oracle = p['source'].parent / 'browser-addition-oracle'
     (oracle / 'tests').mkdir(parents=True)
     (oracle / 'tests/test_parser.py').write_text('import runpy\ndef test_parse():\n'
-        '    assert runpy.run_path("src/parser.py")["value"] == 1\n'
+        + ('' if helper_first else '    assert runpy.run_path("src/parser.py")["value"] == 1\n') +
         '    assert runpy.run_path("src/second.py")["value"] == 2\n')
     VerificationRegistry(store).register_profile(owner, p['child'].project_id,
         VerificationProfileDraft(title='Explicit additional branch criteria', acceptance=contract,
@@ -208,7 +223,7 @@ def execution_phase(p, server, phase, report):
         messages = str(request['messages'])
         if p['parent'].objective in messages:
             return original(request)
-        path, value = ('src/second.py', 2) if 'Set second value to 2 after the verified parser repair.' in messages else ('src/parser.py', 1)
+        path, value = ('src/second.py', 2) if 'Set second value to 2 ' in messages else ('src/parser.py', 1)
         assert path == 'src/second.py' or 'Repair the parser under the exact owner-approved criteria.' in messages
         return server.completion(json.dumps({'candidates': [{'tool': 'edit_file', 'arguments': {
             'path': path, 'old_text': 'value = 0', 'new_text': f'value = {value}'}}]}))
@@ -225,11 +240,22 @@ def execution_phase(p, server, phase, report):
     ledger = store.budget(owner, workflow.id)
     assert ledger.spent.model_calls == 4 and ledger.reserved == BudgetAmount() and not ledger.uncertain
     assert len(store.attempts(owner, workflow.id)) == 8
+    if report['helper_first']:
+        child = store.task(owner, p['child'].id)
+        helper = next(task for task in store.tasks(owner, workflow.id) if task.title == 'Additional owner branch')
+        assert child.dependencies == (helper.id,) and helper.dependencies == ()
+        order = [attempt.task_id for attempt in store.attempts(owner, workflow.id)]
+        assert order.index(helper.id) < order.index(child.id)
+        report['dependency_order'] = order
     assert (p['source'] / 'dirty.bin').read_bytes() == b'\x00\xff keep owner bytes\r\n'
     assert (p['source'] / 'src/second.py').read_text() == 'value = 2\n'
     assert (p['source'] / 'src/parser.py').read_text() == 'value = 1\n'
     assert (p['source'] / 'src/extra.py').read_text() == 'value = 4\n'
     report['delivery_budget'] = ledger.model_dump(mode='json')
+    if 'completion_gate' in p:
+        from owner_race import release
+
+        report['gated_interleaving'] = release(p, p['completion_gate'])
     return {'current': True}
 
 

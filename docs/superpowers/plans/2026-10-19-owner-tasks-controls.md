@@ -35,7 +35,7 @@ to their strict response schema. This is Task4 of owner-pipeline-commands.
    response cases are labelled separately. Check keyboard, focus,1440/390/320,
    overflow, independent Stop and old Tasks/results/materials behavior. Inspect
    before/after screenshots. Save all failures and actual execution counts.
-7. [ ] Build/check the extracted package/static assets and README RU/EN; freeze
+7. [x] Build/check the extracted package/static assets and README RU/EN; freeze
    combined parallel source for relevant interface interoperability. Publish only
    exact checked own bytes, preserving the separate brain work. Update Plan,
    handoff and parent plan. Full/controller/neural/research/final gates stay open.
@@ -61,3 +61,6 @@ child→new prerequisite UI execution, a gated negative-read race, aggregate/con
 admission/neural/research/full/final gates remain open. No biological or live-LM claim.
 
 Package/interoperability are checked; exact staging/publication is the remaining part of item7.
+
+Publication item7 completed by public708051a. The helper-first and gated-race
+follow-up are checked in [the report](../../validation/2026-10-19-owner-browser-acceptance.md).

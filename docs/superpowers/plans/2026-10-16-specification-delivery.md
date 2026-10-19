@@ -1,5 +1,20 @@
 # Specification delivery Implementation Plan
 
+Checked owner browser follow-up,2026-10-19: actual existing-child→new-helper
+UI dependency reaches fresh review/current applied integration. A deterministic
+API negative-read gate crosses source installation and final publication outside
+SQLite: retained119176d completion refresh fails as expected; current708051a CAS
+passes and still invalidates a later real owner edit. Exact published wheel helper
+route96.72s, baseline59.90s expected failure, current95.39s pass,
+frozen combined219 source96.36s pass; successful routes include3 old
+result/material browser regressions. Counts overlap. Native7tasks/8attempts/4model/
+49tools +1 probe; owner bytes/deadline/spending retained, reserve0/unknownfalse.
+Application source/package184 is unchanged; Ruff2/JS1 test checks pass.
+All gates/failures are retained in [the report](../../validation/2026-10-19-owner-browser-acceptance.md).
+Next: real automatic no-policy negative-review checkpoint and replan affordance,
+then automatic retry/restart combined acceptance. Full/controller/admission/neural/
+research/final gates stay open; no biological or live-LM claim.
+
 Checked Tasks owner controls,2026-10-19: separate preview/preparation/approval/
 stopped-parent replan/new-branch dialog, exact pending replay after reload and
 independent shared Stop are wired to the live owner API. Native browser failures
