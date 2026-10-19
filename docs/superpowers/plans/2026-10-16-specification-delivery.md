@@ -1,5 +1,19 @@
 # Specification delivery Implementation Plan
 
+Checked browser model-HTTP Stop,2026-10-19: final extracted184-file wheel8
+interface cases pass; frozen merged223 source4 model cases pass. Actual UI pause/
+cancel under32 status reads and6 exact Stop replays, original/replaced root and
+app restart preserve single workflow call/attempt, owned process stop before HTTP,
+spent1model/0tools and held reservation until late usage11 is accounted. Then
+reserve0/uncertaintyfalse, no tool/source effect and original deadline/owner bytes
+remain. Final Stop55.74–61.87ms; authenticated same-session status returns after bounded
+8-peer refusal. Reload shows actual pause/cancel and preserves privacy/Stop grant.
+Ruff1/JS1/AST/import/package/UTF8 README/extracted Stop CLI pass. Production
+source is unchanged. No full suite or new real-LM/graph/neural/scientific run. All failures
+and limits are retained in [the report](../../validation/2026-10-19-browser-model-stop.md). Automatic owner-approved communication
+routes, agent-message/task-request avalanche and combined/controller/admission/
+neural/research/full/final gates remain open; no whole-phase completion claim.
+
 Checked exhausted-retry owner recovery,2026-10-19: real browser approval drives
 two negative attempts/reviews, stable exhaustion, owned graceful Host restart
 (registration retained/session changed/generation2→3), explicit owner replan and

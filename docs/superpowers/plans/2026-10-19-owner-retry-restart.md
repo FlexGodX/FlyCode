@@ -13,7 +13,7 @@
 3. [x] Through the owner dialog revise the same child's objective, add a helper writer/reviewer, and make the child depend on its server ID. Observe actual public-code replan failure before implementation.
 4. [x] Implement only the exact exhausted-negative owner transition. Keep ordinary failed/cancelled/unknown outputs rejected and retain failed attempt history. Do not weaken generic artifact or completion guards.
 5. [x] Verify helper→third child→fresh review→parent continuation→current integration automatically, keeping every rejected review/artifact and all original limits/bytes/deadline. Check pause/resume, keyboard and1440/390/320 UI; later source edit must invalidate.
-6. [ ] Repeat against an exact extracted wheel and a frozen merged source, run relevant changed-file static checks, archive raw evidence, update README RU/EN/Plan/handoff and publish only checked own changes.
+6. [x] Repeat against an exact extracted wheel and a frozen merged source, run relevant changed-file static checks, archive raw evidence, update README RU/EN/Plan/handoff and publish only checked own changes.
 
 Full aggregate/controller/admission/neural/research acceptance remains open.
 
@@ -25,3 +25,6 @@ custody on every read, keep global stopped/recovery nonblocking, and prove both
 released-lock completion and held-through-deadline refusal in browser scenarios.
 
 Checked [evidence](../../validation/2026-10-19-owner-retry-restart.md); publication identity is recorded separately.
+
+Published and remote-verified as
+[478bc84](https://github.com/FlexGodX/FlyCode/commit/478bc84c27cfb1d1ab0b9bb5a5b636e35604b4fe).

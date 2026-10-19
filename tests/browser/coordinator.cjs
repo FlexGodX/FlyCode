@@ -7,10 +7,11 @@ function read(length){const result=Buffer.alloc(length);let offset=0;while(offse
 function phase(value){const data=Buffer.from(JSON.stringify({phase:value})),header=Buffer.alloc(4);header.writeUInt32BE(data.length);fs.writeSync(fd,Buffer.concat([header,data]));const length=read(4).readUInt32BE();assert.ok(length<=8192);return JSON.parse(read(length).toString());}
 (async()=>{
  const browser=await chromium.launch({channel:'chrome',headless:true});
- const report={case:process.env.FLYCODE_BROWSER_CASE,passed:false,pageerrors:[],stopRequests:[]};
+ const report={case:process.env.FLYCODE_BROWSER_CASE,passed:false,pageerrors:[],stopRequests:[],attach_requests:0};
  let base=process.env.FLYCODE_UI_URL,token;
  const page=await browser.newPage({viewport:{width:1440,height:1000}});page.setDefaultTimeout(8000);
  page.on('pageerror',error=>report.pageerrors.push(error.message));
+ page.on('request',r=>{if(new URL(r.url()).pathname==='/api/tasks/coordinator/attach')report.attach_requests++;});
  const bootstrap=async()=>{token=(await(await page.request.get(base+'/api/bootstrap')).json()).token;};
  const request=async(route,body)=>{const response=body===undefined?await page.request.get(base+route,{headers:{'X-FlyCode-Token':token}}):await page.request.post(base+route,{headers:{'X-FlyCode-Token':token},data:body});assert.ok(response.ok(),await response.text());return response.json();};
  const screenshot=async name=>page.screenshot({path:path.join(output,name+'.png'),fullPage:true});
@@ -42,7 +43,7 @@ function phase(value){const data=Buffer.from(JSON.stringify({phase:value})),head
     await page.goto('about:blank');phase('close-first');base=process.env.FLYCODE_SECOND_UI_URL;await bootstrap();await page.goto(base+'/tasks');
     assert.deepEqual(await request('/api/tasks/coordinator'),status);phase('ready');
     const id=process.env.FLYCODE_TASK_ID;ids=[id];
-    await page.getByRole('button',{name:new RegExp(process.env.FLYCODE_TASK_TITLE)}).click();
+    await page.locator('button.task-card').filter({has:page.getByText(process.env.FLYCODE_TASK_SHORT_ID,{exact:true})}).click();
     await page.getByRole('heading',{name:process.env.FLYCODE_TASK_TITLE,exact:true}).waitFor();
    }else{
     const project=(await request('/api/tasks/projects',{selector:'.'})).project_id;ids=[];
@@ -99,11 +100,47 @@ function phase(value){const data=Buffer.from(JSON.stringify({phase:value})),head
     assert.equal(cancelBodies.length,2);assert.deepEqual(cancelBodies[0],cancelBodies[1]);report.cancelRequests=cancelBodies;
    }else{
     const id=ids[0],container=lost?row(id):page.locator('#detailBody');
+    const model=process.env.FLYCODE_MODEL_STOP==='1';
+    let reads=Promise.resolve(),activeReads=0;
+    if(model){
+     report.reads=[];report.reads_at_stop=null;
+     page.on('request',r=>{if(new URL(r.url()).pathname==='/api/tasks/'+id+'/stop'&&report.reads_at_stop===null)report.reads_at_stop=activeReads;});
+     reads=Promise.allSettled(Array.from({length:32},async()=>{
+      activeReads++;const started=performance.now();
+      try{
+       const reply=await page.request.get(base+'/api/tasks/coordinator',{headers:{'X-FlyCode-Token':token}}),body=await reply.json();
+       report.reads.push({status:reply.status(),seconds:(performance.now()-started)/1000,code:body.detail?.code});
+       if(reply.status()===200)assert.deepEqual(body,status);
+       else{assert.equal(reply.status(),409);assert.equal(body.detail?.code,'attachment_identity');}
+      }finally{activeReads--;}
+     }));
+    }
     const response=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/tasks/'+id+'/stop'&&r.request().method()==='POST');
     const started=performance.now();await container.getByRole('button',{name:process.env.FLYCODE_STOP_OPERATION==='cancel'?'Отменить задачу':'Приостановить',exact:true}).click();
     const reply=await response;report.stop_seconds=(performance.now()-started)/1000;assert.equal(reply.status(),200);assert.ok(report.stop_seconds<1);
     report.receipt=await reply.json();assert.deepEqual(Object.keys(report.receipt).sort(),['paused','revision','state','task_id']);
     assert.equal(phase('verify-stop').confirmed,true);
+    if(model){
+     const outcomes=await reads;assert.ok(outcomes.every(outcome=>outcome.status==='fulfilled'),JSON.stringify(outcomes));
+     assert.equal(report.reads.length,32);assert.ok(report.reads_at_stop>0);
+     report.after_burst_status=await request('/api/tasks/coordinator');assert.deepEqual(report.after_burst_status,status);
+     assert.equal(report.attach_requests,1);
+     const body=reply.request().postDataJSON();
+     const replay=await Promise.all(Array.from({length:6},()=>request('/api/tasks/'+id+'/stop',body)));
+     assert.ok(replay.every(receipt=>JSON.stringify(receipt)===JSON.stringify(report.receipt)));
+     report.replays=replay.length;report.replayed_body=body;
+     const settled=phase('release-model');assert.equal(settled.confirmed,true);
+     await page.reload();
+     if(lost){
+      if(settled.state==='cancelled'){await row(settled.root_task_id).waitFor();assert.equal(await row(id).count(),0);}
+      else await row(id).getByText(`Версия ${settled.revision} · Ожидает повтора · Пауза`,{exact:true}).waitFor();
+      assert.ok(!(await page.locator('body').innerText()).includes(process.env.FLYCODE_TASK_TITLE));
+     }else{
+      const card=page.locator('button.task-card').filter({has:page.getByText(process.env.FLYCODE_TASK_SHORT_ID,{exact:true})});
+      await card.getByText(settled.state==='cancelled'?'Отменена':'Ожидает повтора · Пауза',{exact:true}).waitFor();
+     }
+     assert.equal(report.attach_requests,1);report.current_after_reload=true;
+    }
    }
   }
   for(const width of [1440,390,320]){await page.setViewportSize({width,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await screenshot('controls-'+width);}

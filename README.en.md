@@ -282,6 +282,11 @@ loss, page reload and application restart, while hiding content and resume.
 A lost reply retries the identical command; a revision conflict requires another
 explicit action.
 
+On the Tasks screen, pause/cancel stops the worker without waiting for model HTTP.
+The unfinished request retains assignment ownership and the remaining reservation
+until its actual outcome is accounted. Late usage is retained; its candidate is
+not executed.
+
 The same queue is available without the web process through `flycode tasks`:
 `register`, `create`, `list`, `show`, `command`, `comment`, `events` and `agents`
 use an explicit current `--project PATH`, including non-Git folders.
