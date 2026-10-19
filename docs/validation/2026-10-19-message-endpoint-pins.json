@@ -1,0 +1,188 @@
+{
+  "date": "2026-10-19",
+  "parent": "bf16604ccc7e875faa464039e71b89ca8fda6b77",
+  "scope": "Exact message endpoints and host-owned selected-action identity; prerequisite to automatic task routes",
+  "publication": "Checked candidate; resulting public commit recorded separately after push",
+  "package_files": 184,
+  "source": "/private/tmp/flycode-message-endpoints-final2-source-q1tktbhy",
+  "wheel": {
+    "root": "/private/tmp/flycode-message-endpoints-wheel-tests-042evo51",
+    "source": "/private/tmp/flycode-message-endpoints-final2-source-q1tktbhy",
+    "extract": "/private/tmp/flycode-message-endpoints-wheel-cmle9di3/extracted",
+    "wheel": "/private/tmp/flycode-message-endpoints-wheel-cmle9di3/flycode-0.1.0-py3-none-any.whl",
+    "wheel_sha256": "82993e5418d64a850e6336fa0751b6e76a6dbf967737ec4e155baaadd7597082",
+    "args": [
+      "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+      "-m",
+      "pytest",
+      "tests/unit/orchestration/test_agent_messages.py",
+      "tests/unit/orchestration/test_runtime_process.py",
+      "tests/unit/orchestration/test_attempt_tools.py",
+      "-q",
+      "--junitxml=/private/tmp/flycode-message-endpoints-wheel-tests-042evo51/result.xml"
+    ],
+    "passed": true,
+    "seconds": 95.29465270799119,
+    "returncode": 0,
+    "package_unchanged": true,
+    "tests_unchanged": true,
+    "source_unchanged": true
+  },
+  "static": {
+    "source": "/private/tmp/flycode-message-endpoints-final2-source-q1tktbhy",
+    "checks": [
+      {
+        "name": "ruff",
+        "args": [
+          "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+          "-m",
+          "ruff",
+          "check",
+          "src/flycode/orchestration/messages.py",
+          "src/flycode/orchestration/cortex.py",
+          "src/flycode/orchestration/runtime.py",
+          "tests/unit/orchestration/test_agent_messages.py"
+        ],
+        "returncode": 0,
+        "stdout": "All checks passed!\n",
+        "stderr": ""
+      },
+      {
+        "name": "mypy",
+        "args": [
+          "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+          "-m",
+          "mypy",
+          "src/flycode/orchestration/messages.py",
+          "src/flycode/orchestration/cortex.py",
+          "src/flycode/orchestration/runtime.py",
+          "--follow-imports=silent"
+        ],
+        "returncode": 0,
+        "stdout": "Success: no issues found in 3 source files\n",
+        "stderr": ""
+      }
+    ],
+    "passed": true
+  },
+  "compatibility": {
+    "source": "/private/tmp/flycode-message-endpoints-final-interop-b5_gqjvk",
+    "source_files": 225,
+    "inputs": 428,
+    "checks": {
+      "source": "/private/tmp/flycode-message-endpoints-final-interop-b5_gqjvk",
+      "checks": [
+        {
+          "name": "ruff",
+          "args": [
+            "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+            "-m",
+            "ruff",
+            "check",
+            "src/flycode/orchestration/messages.py",
+            "src/flycode/orchestration/cortex.py",
+            "src/flycode/orchestration/runtime.py",
+            "src/flycode/orchestration/prompt_commands.py",
+            "tests/unit/orchestration/test_agent_messages.py",
+            "tests/unit/orchestration/test_message_prompt_endpoint_compatibility.py"
+          ],
+          "returncode": 0,
+          "seconds": 0.0318714160239324,
+          "log": "/private/tmp/flycode-message-endpoints-final2-interop-checks/ruff.log"
+        },
+        {
+          "name": "mypy",
+          "args": [
+            "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+            "-m",
+            "mypy",
+            "src/flycode/orchestration/messages.py",
+            "src/flycode/orchestration/cortex.py",
+            "src/flycode/orchestration/runtime.py",
+            "src/flycode/orchestration/prompt_commands.py",
+            "--follow-imports=silent"
+          ],
+          "returncode": 0,
+          "seconds": 2.8563535410212353,
+          "log": "/private/tmp/flycode-message-endpoints-final2-interop-checks/mypy.log"
+        },
+        {
+          "name": "collection",
+          "args": [
+            "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+            "-m",
+            "pytest",
+            "tests/unit/orchestration/test_agent_messages.py",
+            "tests/unit/orchestration/test_runtime_process.py",
+            "tests/unit/orchestration/test_attempt_tools.py",
+            "tests/unit/orchestration/test_message_prompt_endpoint_compatibility.py",
+            "tests/unit/orchestration/test_prompt_command_execution.py",
+            "tests/unit/orchestration/test_malecns_model_proposals.py",
+            "tests/unit/orchestration/test_malecns_worker.py::test_malecns_actual_worker_executes_registered_neural_proposals_without_model_calls",
+            "tests/unit/orchestration/test_malecns_worker.py::test_malecns_worker_cannot_request_cortex_before_policy_handshake",
+            "tests/unit/orchestration/test_malecns_observed_worker.py::test_actual_observer_worker_binds_each_cortex_choice_without_extra_calls",
+            "tests/unit/orchestration/test_malecns_activity_worker.py::test_actual_worker_uploads_exact_frames_tied_to_decisions_and_learning",
+            "tests/unit/brain/test_malecns_agent_loop.py::test_observed_choice_callback_gets_original_candidates_before_the_tool",
+            "--collect-only",
+            "-q"
+          ],
+          "returncode": 0,
+          "seconds": 1.0363983329734765,
+          "log": "/private/tmp/flycode-message-endpoints-final2-interop-checks/collection.log"
+        },
+        {
+          "name": "feature",
+          "args": [
+            "/Users/Administrator/my_projects/FlyCode/.venv/bin/python",
+            "-m",
+            "pytest",
+            "tests/unit/orchestration/test_agent_messages.py",
+            "tests/unit/orchestration/test_runtime_process.py",
+            "tests/unit/orchestration/test_attempt_tools.py",
+            "tests/unit/orchestration/test_message_prompt_endpoint_compatibility.py",
+            "tests/unit/orchestration/test_prompt_command_execution.py",
+            "tests/unit/orchestration/test_malecns_model_proposals.py",
+            "tests/unit/orchestration/test_malecns_worker.py::test_malecns_actual_worker_executes_registered_neural_proposals_without_model_calls",
+            "tests/unit/orchestration/test_malecns_worker.py::test_malecns_worker_cannot_request_cortex_before_policy_handshake",
+            "tests/unit/orchestration/test_malecns_observed_worker.py::test_actual_observer_worker_binds_each_cortex_choice_without_extra_calls",
+            "tests/unit/orchestration/test_malecns_activity_worker.py::test_actual_worker_uploads_exact_frames_tied_to_decisions_and_learning",
+            "tests/unit/brain/test_malecns_agent_loop.py::test_observed_choice_callback_gets_original_candidates_before_the_tool",
+            "-q",
+            "--junitxml=/private/tmp/flycode-message-endpoints-final2-interop-checks/feature.xml"
+          ],
+          "returncode": 0,
+          "seconds": 148.2772208750248,
+          "log": "/private/tmp/flycode-message-endpoints-final2-interop-checks/feature.log"
+        }
+      ],
+      "passed": true,
+      "inputs_unchanged": true
+    },
+    "public_core_merged": true,
+    "unpublished_neural_bridge": "Retained locally; packaged public source does not contain the parallel neural APIs",
+    "patch": "flycode-message-endpoints-compatibility.patch",
+    "new_command_message_cases": 8
+  },
+  "archive": {
+    "root": "/Users/Administrator/.cache/flycode/validation/flycode-message-endpoints-checked-l3ee7eik",
+    "files": 5007,
+    "bytes": 57356646,
+    "skipped_special_or_link": 0,
+    "regenerable_caches_omitted": 142,
+    "manifest_sha256": "7926dc1418d69bc2e79ce4a84a796f56efb68a79381fcca9150d2c2968136593"
+  },
+  "failed_or_preliminary_evidence": [
+    "Published baseline: four real held-HTTP cases returned a message candidate after recipient pause/cancel/reuse/narrower replacement; 4 failed in 2.39s.",
+    "Seven new selected-action tests initially failed because execute_message was absent; no product pass inferred from missing API.",
+    "Published baseline: an actual worker sent controller progress to a replacement attempt behind the reused instance; 1 failed in 1.30s.",
+    "Review regression: raw subset of two approved endpoints was refused; actual owned worker/RPC test failed 0 deliveries versus 3 requests, then passed after filtering ready pins.",
+    "Neural compatibility: actual registered command returned send_message but produced zero canonical tool calls; 1 failed in 1.76s before the registered-command bridge.",
+    "Harness corrections, not feature RED: one misplaced pre-existing event assertion; initial import layout and optional typing diagnostics; first neural fixture exceeded its profile/task budget; two refine cases used the ExpandOutput field instead of required RefineOutput.addressed_errors; compatibility test import layout/unused variable; git merge-file conflict-count handling."
+  ],
+  "limits": [
+    "150 package tests and 213 merged tests overlap; do not add counts.",
+    "Only feature-related tests; no full suite, UI changes, live production-model smoke, full biological graph, research admission or promotion.",
+    "Neural worker checks use the existing explicitly trusted test-source circuit fixture; they establish software compatibility only.",
+    "Owner-approved task route grants, dynamic sibling discovery, task_request transitions, message avalanche and complete delivery gates remain open."
+  ]
+}

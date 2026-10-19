@@ -952,6 +952,133 @@ def test_context_invalidated_during_actual_http_cannot_publish_candidates(peers,
     assert any(item.kind == 'message_context_invalidated' for item in store.events(owner, workflow.id))
 
 
+@pytest.fixture
+def selected_message(peers, model_server):
+    import json
+
+    from flycode.domain import Observation
+    from flycode.llm.protocol import CortexContext
+    from flycode.orchestration.cortex import AttemptCortex
+
+    store, _, host, _, first, second, _, _ = peers
+    model_server.respond = lambda request: model_server.completion(json.dumps({'candidates': [{
+        'tool': 'send_message', 'arguments': {'recipients': [second.instance_id],
+            'content': {'kind': 'question', 'question': 'Which boundary needs a test?'}}}]}))
+    cortex = AttemptCortex(store, host, first.id, first.fence, message_recipients=(second.instance_id,))
+    context = CortexContext(task='Inspect.', behavior_mode='explore', observation=Observation(task='Inspect.'))
+    try:
+        action, = cortex.generate_candidates(context)
+        yield cortex, action, context
+    finally:
+        cortex.core.reasoner._client.close()
+
+
+@pytest.mark.parametrize('owned', [{'tools': MESSAGE_TOOLS}], indirect=True)
+@pytest.mark.parametrize('mutation', ['id', 'text', 'tool', 'generation'])
+def test_message_candidate_identity_and_arguments_belong_to_current_host_generation(peers, selected_message, mutation):
+    from flycode.orchestration.messages import Messages
+
+    store, owner, _, workflow, _, _, source, _ = peers
+    cortex, action, context = selected_message
+    if mutation == 'id':
+        action = action.model_copy(update={'id': 'forged-id'})
+    elif mutation == 'text':
+        action = action.model_copy(update={'arguments': {**action.arguments,
+            'content': {'kind': 'question', 'question': 'A substituted request.'}}})
+    elif mutation == 'tool':
+        action = action.model_copy(update={'tool': 'read_file', 'arguments': {'path': 'src/example.py'}})
+    else:
+        newer, = cortex.generate_candidates(context)
+        assert newer.id != action.id
+    result = cortex.execute_message(source, action)
+    assert not result.success and result.error_message == 'message_candidate'
+    assert not Messages(store).journal(owner, workflow.id)
+    assert store.budget(owner, workflow.id).spent.tool_calls == 0
+
+
+@pytest.mark.parametrize('owned', [{'tools': MESSAGE_TOOLS}], indirect=True)
+def test_selected_message_preserves_endpoint_across_metadata_heartbeat_and_replay(peers, selected_message, model_server):
+    from flycode.orchestration.messages import Messages
+    from flycode.orchestration.tools import Tools
+
+    store, owner, host, workflow, first, second, source, now = peers
+    cortex, action, _ = selected_message
+    prompt = model_server.requests[-1]['messages'][-1]['content']
+    assert second.id in prompt and second.task_id in prompt and second.contract_hash in prompt
+    task = store.task(owner, second.task_id)
+    store.command(owner, task.id, TaskCommand(operation='set_metadata', expected_revision=task.revision,
+        idempotency_key='rename-endpoint', changes={'title': 'Renamed investigation'}))
+    now[0] += 1
+    store.heartbeat(host, second.id, second.fence)
+    result = cortex.execute_message(source, action)
+    assert result.success
+    message, = Messages(store).pending(host, second.id, second.fence)
+    assert message.recipient_attempt_id == second.id and message.attempt_id == first.id
+    replay = cortex.execute_message(source, action)
+    assert not replay.success and replay.error_message == 'request_replay'
+    assert store.budget(owner, workflow.id).spent.tool_calls == 1
+    call, = Tools(store).calls(owner, workflow.id)
+    assert call.status == 'completed'
+
+
+@pytest.mark.parametrize('owned', [{'tools': MESSAGE_TOOLS}], indirect=True)
+def test_selected_message_does_not_follow_reused_instance_after_http(peers, selected_message):
+    from flycode.orchestration.messages import Messages
+
+    store, owner, host, workflow, _, second, source, _ = peers
+    cortex, action, _ = selected_message
+    replacement = replace_recipient(store, owner, host, second)
+    result = cortex.execute_message(source, action)
+    assert not result.success and result.error_message == 'message_route_stale'
+    assert not Messages(store).pending(host, replacement.id, replacement.fence)
+    assert not Messages(store).journal(owner, workflow.id)
+    assert store.budget(owner, workflow.id).spent.tool_calls == 0
+
+
+@pytest.mark.parametrize('owned', [{'tools': MESSAGE_TOOLS}], indirect=True)
+def test_selected_message_rechecks_endpoint_after_tool_admission(peers, selected_message, monkeypatch):
+    from flycode.orchestration.messages import Messages
+    from flycode.orchestration.tools import Tools
+
+    store, owner, host, workflow, first, second, source, _ = peers
+    cortex, action, _ = selected_message
+    original = Tools.begin
+    def begin(tools, *args, **kwargs):
+        result = original(tools, *args, **kwargs)
+        assert not tools.store.db.in_transaction
+        connection = Store(store.path, catalogue=store.catalogue, clock=store.clock)
+        try:
+            replace_recipient(connection, owner, host, second)
+        finally:
+            connection.close()
+        return result
+    monkeypatch.setattr(Tools, 'begin', begin)
+    result = cortex.execute_message(source, action)
+    assert not result.success and result.error_message == 'message_route_stale'
+    assert not Messages(store).journal(owner, workflow.id)
+    call, = Tools(store).calls(owner, workflow.id)
+    assert call.status == 'failed' and call.error_class == 'message_route_stale'
+    assert store.budget(owner, workflow.id).spent.tool_calls == 1
+    assert store._attempt(first.id).state == 'running'
+
+
+@pytest.mark.parametrize('owned', [{'tools': MESSAGE_TOOLS}], indirect=True)
+def test_host_command_candidates_use_the_same_message_endpoint_admission(peers, selected_message):
+    from flycode.orchestration.messages import Messages
+
+    store, owner, host, workflow, first, second, source, _ = peers
+    cortex, action, _ = selected_message
+    host_action = action.model_copy(update={'id': 'registered-response:0'})
+    pins = Messages(store).capture(host, first.id, first.fence, (second.instance_id,))
+    cortex.bind_message_candidates([host_action], recipient_pins=pins)
+    previous = cortex.execute_message(source, action)
+    assert not previous.success and previous.error_message == 'message_candidate'
+    assert cortex.execute_message(source, host_action).success
+    message, = Messages(store).journal(owner, workflow.id)
+    assert message.recipient_attempt_id == second.id and message.attempt_id == first.id
+    assert store.budget(owner, workflow.id).spent.tool_calls == 1
+
+
 @pytest.mark.parametrize('owned', [{'tools': MESSAGE_TOOLS}], indirect=True)
 def test_communication_guidance_cannot_overflow_an_otherwise_valid_request(peers, model_server):
     import json
@@ -1197,3 +1324,157 @@ def test_revoked_attempt_cannot_publish_selected_messages(peers, operation):
                 'content': {'kind': 'progress', 'summary': 'Late inspection.'}}))
     assert not Messages(store).journal(owner, workflow.id)
     assert store.budget(owner, workflow.id).spent.tool_calls == 0
+
+
+def replace_recipient(store, owner, host, second, *, narrow=False):
+    store.confirm_stopped(host, second.id, second.fence, outcome='retry_wait', expenditure_confirmed=True)
+    task = store.task(owner, second.task_id)
+    if narrow:
+        task = store.command(owner, task.id, TaskCommand(operation='revise', expected_revision=task.revision,
+            idempotency_key='narrow-recipient', changes={'permissions': task.permissions.model_copy(update={
+                'read_scopes': ('src',), 'write_scopes': (), 'tools': ('read_file',)}).model_dump(mode='json')}))
+    task = store.command(owner, task.id, TaskCommand(operation='retry', expected_revision=task.revision,
+        idempotency_key='retry-recipient'))
+    instance = store.instance(host, second.instance_id)
+    claim = store.claim(host, ClaimRequest(instance_id=instance.id, expected_instance_revision=instance.revision,
+        task_id=task.id, expected_task_revision=task.revision, reserve=BudgetAmount(model_calls=2, tool_calls=3),
+        idempotency_key='reclaim-recipient'))
+    assert claim.attempt is not None, claim.reasons
+    return store.confirm_started(host, claim.attempt.id, claim.attempt.fence)
+
+
+@pytest.mark.parametrize('owned', [{'tools': MESSAGE_TOOLS}], indirect=True)
+@pytest.mark.parametrize('condition', ['pause', 'cancel', 'replace', 'narrow'])
+def test_recipient_changed_during_http_invalidates_candidates_without_incoming_messages(peers, model_server, condition):
+    import json
+    from threading import Event
+
+    from flycode.domain import Observation
+    from flycode.llm.protocol import CortexContext
+    from flycode.orchestration.cortex import AttemptCortex
+    from flycode.orchestration.messages import Messages
+    from flycode.orchestration.tools import Tools
+
+    store, owner, host, workflow, first, second, _, _ = peers
+    entered, release = Event(), Event()
+    def respond(request):
+        assert second.instance_id in request['messages'][-1]['content']
+        entered.set()
+        assert release.wait(5)
+        return model_server.completion(json.dumps({'candidates': [{'tool': 'send_message', 'arguments': {
+            'recipients': [second.instance_id], 'content': {'kind': 'question', 'question': 'Which boundary needs a test?'}}}]}))
+    model_server.respond = respond
+    def infer():
+        connection = Store(store.path, catalogue=store.catalogue, clock=store.clock)
+        cortex = None
+        try:
+            cortex = AttemptCortex(connection, host, first.id, first.fence, message_recipients=(second.instance_id,))
+            candidates = cortex.generate_candidates(CortexContext(task='Inspect.', behavior_mode='explore',
+                observation=Observation(task='Inspect.')))
+            return candidates, cortex.last_routing.error
+        finally:
+            if cortex is not None:
+                cortex.core.reasoner._client.close()
+            connection.close()
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(infer)
+        try:
+            assert entered.wait(5)
+            if condition in {'replace', 'narrow'}:
+                replacement = replace_recipient(store, owner, host, second, narrow=condition == 'narrow')
+                assert replacement.instance_id == second.instance_id and replacement.id != second.id
+            else:
+                task = store.task(owner, second.task_id)
+                store.command(owner, task.id, TaskCommand(operation=condition, expected_revision=task.revision,
+                    idempotency_key='stop-recipient-during-http'))
+        finally:
+            release.set()
+        candidates, error = future.result(timeout=5)
+    assert candidates == [] and error == 'message_route_stale'
+    assert store.budget(owner, workflow.id).spent.model_calls == 1
+    assert not Messages(store).journal(owner, workflow.id) and not Tools(store).calls(owner, workflow.id)
+    assert store._attempt(first.id).state == 'running'
+
+
+@pytest.mark.parametrize('owned', [{'tools': MESSAGE_TOOLS}], indirect=True)
+def test_worker_progress_does_not_follow_a_reused_instance(peers, model_server, tmp_path):
+    import json
+    import time
+
+    from flycode.orchestration.messages import Messages
+    from flycode.orchestration.runtime import Runtime
+
+    store, owner, host, workflow, first, second, source, _ = peers
+    (source / 'tests/test_example.py').write_text(
+        'import time\nfrom pathlib import Path\n'
+        'def test_example():\n'
+        '    Path("test-started").touch()\n'
+        '    deadline = time.monotonic() + 15\n'
+        '    while not Path("release-test").exists():\n'
+        '        assert time.monotonic() < deadline\n'
+        '        time.sleep(.02)\n')
+    original = (source / 'tests/test_example.py').read_bytes()
+    calls = []
+    def respond(request):
+        calls.append(request)
+        candidate = {'tool': 'run_tests'} if len(calls) == 1 else {
+            'tool': 'read_file', 'arguments': {'path': 'src/example.py'}}
+        return model_server.completion(json.dumps({'candidates': [candidate]}))
+    model_server.respond = respond
+    runtime = Runtime(store, tmp_path / 'runtime')
+    sender = runtime.launch(host, first.id, first.fence, source, brain='heuristic_fsm',
+        message_recipients=(second.instance_id,))
+    copy = runtime.workspaces.repository(owner, first.id)
+    try:
+        deadline = time.monotonic() + 10
+        while not (copy / 'test-started').exists():
+            assert time.monotonic() < deadline, sender.error
+            time.sleep(.02)
+        before = Messages(store).journal(owner, workflow.id)
+        assert before and all(item.recipient_attempt_id == second.id for item in before)
+        replacement = replace_recipient(store, owner, host, second)
+        (copy / 'release-test').touch()
+        assert sender.finished.wait(15), sender.error
+        assert sender.error is None
+        messages = Messages(store).journal(owner, workflow.id)
+        assert messages == before
+        assert not Messages(store).pending(host, replacement.id, replacement.fence)
+        blocked = [item for item in store.events(owner, workflow.id) if item.kind == 'message_blocked']
+        assert blocked and all(item.data['reason'] == 'message_route_stale' for item in blocked)
+        assert (source / 'tests/test_example.py').read_bytes() == original
+        assert not (source / 'test-started').exists()
+    finally:
+        (copy / 'release-test').touch()
+        sender.close()
+        assert sender.finished.wait(10)
+
+
+@pytest.mark.parametrize('owned', [{'tools': MESSAGE_TOOLS}], indirect=True)
+def test_raw_worker_progress_can_address_one_of_two_approved_peers(peers, tmp_path, monkeypatch):
+    from flycode.orchestration import runtime as module
+    from flycode.orchestration.messages import Messages
+
+    store, owner, host, workflow, first, second, source, _ = peers
+    third = add_peer(store, owner, host, workflow, first)
+    receive, requests = module.wire.receive, []
+    def receive_subset(channel):
+        packet = receive(channel)
+        if packet.get('operation') == 'message':
+            assert set(packet['payload']['recipients']) == {second.instance_id, third.instance_id}
+            packet['payload']['recipients'] = [second.instance_id]
+            requests.append(packet)
+        return packet
+    monkeypatch.setattr(module.wire, 'receive', receive_subset)
+    runtime = module.Runtime(store, tmp_path / 'runtime')
+    sender = runtime.launch(host, first.id, first.fence, source, brain='heuristic_fsm',
+        message_recipients=(second.instance_id, third.instance_id))
+    try:
+        assert sender.finished.wait(15), sender.error
+        assert requests and sender.error is None
+        messages = Messages(store).journal(owner, workflow.id)
+        assert len(messages) == len(requests)
+        assert all(item.recipient_attempt_id == second.id for item in messages)
+        assert not Messages(store).pending(host, third.id, third.fence)
+    finally:
+        sender.close()
+        assert sender.finished.wait(10)

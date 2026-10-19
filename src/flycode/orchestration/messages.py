@@ -5,17 +5,54 @@ import json
 from typing import cast
 from uuid import uuid4
 
-from ..domain.orchestration import AgentMessage, MessageDraft, MessageReceipt
+from ..domain.orchestration import (
+    AgentMessage,
+    MessageDraft,
+    MessageReceipt,
+    QueueModel,
+)
 from ..tools.filesystem import ToolResult
 from .store import Store, StoreError, covers
 from .tools import Tools, authorize
+
+
+class MessageEndpoint(QueueModel):
+    """Host-only identity of a live endpoint; lease renewals do not change it."""
+
+    instance_id: str
+    attempt_id: str
+    task_id: str
+    fence: int
+    semantic_revision: int
+    contract_hash: str
 
 
 class Messages:
     def __init__(self, store: Store):
         self.store = store
 
-    def execute(self, scope, attempt_id, fence, *, root, action, routes) -> ToolResult:
+    def capture(self, scope, attempt_id, fence, identities) -> tuple[MessageEndpoint, ...]:
+        sender, _, _ = self.store._owned(scope, attempt_id, fence, running=True)
+        result = []
+        for identity in identities:
+            try:
+                (recipient, _), = self.recipients(scope, sender, (identity,))
+            except StoreError as error:
+                if error.code not in {'recipient', 'not_found', 'message_scope'}:
+                    raise
+                continue
+            if (not self._current(scope, recipient, running=False)
+                    or self.store.instance(scope, identity).current_attempt_id != recipient.id):
+                continue
+            result.append(MessageEndpoint(instance_id=identity, attempt_id=recipient.id, task_id=recipient.task_id,
+                fence=recipient.fence, semantic_revision=recipient.semantic_revision, contract_hash=recipient.contract_hash))
+        return tuple(result)
+
+    def validate_endpoints(self, scope, attempt_id, fence, pins) -> None:
+        if self.capture(scope, attempt_id, fence, [pin.instance_id for pin in pins]) != tuple(pins):
+            raise StoreError('message_route_stale', 'A displayed recipient no longer owns the same attempt and contract')
+
+    def execute(self, scope, attempt_id, fence, *, root, action, routes, recipient_pins=None) -> ToolResult:
         """Execute one model-selected communication action on the owning host."""
         store, tools = self.store, Tools(self.store)
         _, task, workflow = store._owned(scope, attempt_id, fence, running=True)
@@ -26,6 +63,11 @@ class Messages:
             draft = MessageDraft.model_validate({**action.arguments, 'idempotency_key': 'tool:' + action.id})
             if not set(draft.recipients) <= set(routes):
                 raise StoreError('message_route')
+            if recipient_pins is not None:
+                recipient_pins = tuple(pin for pin in recipient_pins if pin.instance_id in draft.recipients)
+                if {pin.instance_id for pin in recipient_pins} != set(draft.recipients):
+                    raise StoreError('message_route')
+                self.validate_endpoints(scope, attempt_id, fence, recipient_pins)
         except StoreError as error:
             return ToolResult(success=False, error_message=error.code, payload={'blocked': error.code})
         try:
@@ -35,7 +77,7 @@ class Messages:
                 raise
             return ToolResult(success=False, error_message=error.code, payload={'blocked': error.code})
         try:
-            sent = self.send(scope, attempt_id, fence, draft)
+            sent = self.send(scope, attempt_id, fence, draft, recipient_pins=recipient_pins)
             result = ToolResult(success=True, payload={'message_ids': [item.id for item in sent]})
         except StoreError as error:
             result = ToolResult(success=False, error_message=error.code, payload={'blocked': error.code})
@@ -190,7 +232,7 @@ class Messages:
             task=store.task(scope, recipient.task_id), attempt=recipient, message_id=message.id, reason=reason)
         return receipt
 
-    def send(self, scope, attempt_id, fence, draft: MessageDraft) -> list[AgentMessage]:
+    def send(self, scope, attempt_id, fence, draft: MessageDraft, *, recipient_pins=None) -> list[AgentMessage]:
         store = self.store
         store._role(scope, ('runtime',))
         draft = MessageDraft.model_validate(draft.model_dump())
@@ -210,6 +252,15 @@ class Messages:
                 return [self._message(identity) for identity in json.loads(previous['message_ids'])]
             parent = self._parent(scope, sender, draft)
             targets = self.recipients(scope, sender, draft.recipients, parent=parent)
+            if recipient_pins is not None:
+                self.validate_endpoints(scope, attempt_id, fence, recipient_pins)
+                expected = {pin.instance_id: pin for pin in recipient_pins}
+                resolved = {recipient.instance_id: MessageEndpoint(instance_id=recipient.instance_id,
+                    attempt_id=recipient.id, task_id=recipient.task_id, fence=recipient.fence,
+                    semantic_revision=recipient.semantic_revision, contract_hash=recipient.contract_hash)
+                    for recipient, _ in targets}
+                if len(expected) != len(recipient_pins) or resolved != expected:
+                    raise StoreError('message_route_stale', 'The causation target differs from the selected endpoint')
             hops = parent.hops + 1 if parent else 0
             if hops > 4:
                 raise StoreError('hop_limit')

@@ -418,6 +418,11 @@ available for later decisions within their original lifetime and permissions;
 activity notifications yield context space to substantive messages. The messaging
 UI and child-wait dispatcher remain unfinished. Message lifetime and authority are
 checked again after model inference; invalidated decisions cannot execute.
+Selected message recipients are pinned to the exact attempt, fence and contract
+shown to the model. Pins are rechecked after HTTP and atomically before sending;
+reusing an instance cannot redirect an old candidate into a replacement attempt.
+The host also checks the selected message's ID, tool and arguments.
+Automatic owner-approved communication routes between tasks remain unfinished.
 
 ## First run without an API key
 

@@ -3357,3 +3357,17 @@ source is unchanged. No full suite or new real-LM/graph/neural/scientific run. A
 and limits are retained in [the report](validation/2026-10-19-browser-model-stop.md). Automatic owner-approved communication
 routes, agent-message/task-request avalanche and combined/controller/admission/
 neural/research/full/final gates remain open; no whole-phase completion claim.
+
+Checked exact message endpoints,2026-10-19: extracted184-file wheel150 scoped
+tests pass94.83s; frozen merged225 source213 tests pass147.75s. Held HTTP without
+incoming messages rejects recipient pause/cancel/reuse/narrower replacement;
+candidate ID/tool/argument pins and transactional send prevent retargeting. Spent
+HTTP/tool outcomes remain accounted, metadata/heartbeat/replay and raw recipient
+subsets remain valid. Ruff4/mypy3 public and Ruff6/mypy4 merged, package/UTF8 README/
+extracted Stop CLI pass. Local parallel registered-command compatibility retains
+lazy cortex/full neural setup and covers8 added message cases; its unpublished
+APIs are excluded from the public184-file package. Counts overlap; fixture-circuit
+worker checks are software compatibility only. Failures and harness mistakes are
+retained in [the report](validation/2026-10-19-message-endpoint-pins.md).
+Owner-approved task grants, dynamic sibling discovery, message/task-request
+avalanche and aggregate/scientific/full/final gates remain open.

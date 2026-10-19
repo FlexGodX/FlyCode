@@ -283,6 +283,7 @@ class WorkerHandle:
     def _serve(self):
         connection = None
         cortex = None
+        progress_pins = ()
         sequence = 0
         try:
             connection = self._connection()
@@ -298,6 +299,8 @@ class WorkerHandle:
                     connection.confirm_started(self.scope, self.record.attempt_id, self.record.fence)
                     cortex = AttemptCortex(connection, self.scope, self.record.attempt_id, self.record.fence, self.stopping.is_set,
                         message_recipients=tuple(sorted(self.message_recipients)), artifact_root=self.runtime.root)
+                    progress_pins = Messages(connection).capture(self.scope, self.record.attempt_id, self.record.fence,
+                        tuple(sorted(self.message_recipients)))
                     self.record = changed(self.record, state='running')
                     with connection.transaction():
                         connection._owned(self.scope, self.record.attempt_id, self.record.fence, running=True)
@@ -334,19 +337,21 @@ class WorkerHandle:
                             ToolAction.model_validate(request.payload))
                         payload = asdict(result)
                     elif request.operation == 'message_tool':
-                        result = Messages(connection).execute(self.scope, attempt.id, attempt.fence,
-                            root=self.directory / 'repository', action=ToolAction.model_validate(request.payload),
-                            routes=self.message_recipients)
+                        if cortex is None:
+                            raise StoreError('message_candidate', 'No host candidate has been generated')
+                        result = cortex.execute_message(self.directory / 'repository', ToolAction.model_validate(request.payload))
                         payload = asdict(result)
                     elif request.operation == 'message':
                         draft = MessageDraft.model_validate(request.payload)
                         if not set(draft.recipients) <= self.message_recipients:
                             raise StoreError('message_route')
                         try:
-                            messages = Messages(connection).send(self.scope, attempt.id, attempt.fence, draft)
+                            messages = Messages(connection).send(self.scope, attempt.id, attempt.fence, draft,
+                                recipient_pins=tuple(pin for pin in progress_pins if pin.instance_id in draft.recipients))
                             payload = {'message_ids': [item.id for item in messages]}
                         except StoreError as error:
-                            if error.code not in {'recipient', 'recipient_workflow', 'message_scope', 'message_budget'}:
+                            if error.code not in {'recipient', 'recipient_workflow', 'message_scope', 'message_budget',
+                                    'message_route_stale'}:
                                 raise
                             with connection.transaction():
                                 connection._owned(self.scope, attempt.id, attempt.fence, running=True)

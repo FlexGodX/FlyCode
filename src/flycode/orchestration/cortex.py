@@ -1,5 +1,6 @@
 """Bind the existing cortex protocol to one canonical attempt and its budgets."""
 
+import hashlib
 import json
 import os
 import time
@@ -13,8 +14,9 @@ from ..llm.lmstudio import LMStudioCortex
 from ..llm.openai_compatible import OpenAICompatibleLLM
 from ..llm.protocol import CortexContext
 from ..policy.model_routing import plan_model_calls
+from ..tools.filesystem import ToolResult
 from .artifacts import Artifacts
-from .messages import Messages
+from .messages import MessageEndpoint, Messages
 from .resources import Resources
 from .store import Store, StoreError
 
@@ -25,6 +27,8 @@ class AttemptCortex:
         self.store, self.scope, self.attempt_id, self.fence = store, scope, attempt_id, fence
         self.should_stop = should_stop
         self.message_recipients = tuple(message_recipients)
+        self._message_endpoints: tuple[MessageEndpoint, ...] = ()
+        self._message_candidates: dict[str, tuple[str, tuple[MessageEndpoint, ...]]] = {}
         self.artifacts = Artifacts(store, artifact_root) if artifact_root is not None else None
         attempt, task, workflow = store._owned(scope, attempt_id, fence, running=True)
         self._has_inputs = bool(task.input_artifacts)
@@ -43,7 +47,32 @@ class AttemptCortex:
                                    should_stop=should_stop)
 
     def reset(self):
+        self._message_candidates.clear()
         self.core.reset()
+
+    @staticmethod
+    def _message_digest(action):
+        return hashlib.sha256(json.dumps({'tool': action.tool, 'arguments': action.arguments},
+            sort_keys=True, allow_nan=False).encode()).hexdigest()
+
+    def execute_message(self, root, action) -> ToolResult:
+        selected = self._message_candidates.get(action.id)
+        try:
+            valid = selected is not None and selected[0] == self._message_digest(action)
+        except (TypeError, ValueError):
+            valid = False
+        if selected is None or not valid:
+            return ToolResult(success=False, error_message='message_candidate', payload={'blocked': 'message_candidate'})
+        return Messages(self.store).execute(self.scope, self.attempt_id, self.fence, root=root, action=action,
+            routes=self.message_recipients, recipient_pins=selected[1])
+
+    def bind_message_candidates(self, candidates, *, recipient_pins) -> None:
+        """Bind a host-parsed response from either model entry point."""
+        self._message_candidates.clear()
+        Messages(self.store).validate_endpoints(self.scope, self.attempt_id, self.fence, recipient_pins)
+        for item in candidates:
+            if item.tool == 'send_message' and recipient_pins:
+                self._message_candidates[item.id] = (self._message_digest(item), tuple(recipient_pins))
 
     @property
     def model_calls(self):
@@ -101,10 +130,15 @@ class AttemptCortex:
         base_text = text
         tools = list(task.permissions.tools)
         if 'send_message' in tools:
-            if not self.message_recipients:
+            self._message_endpoints = Messages(self.store).capture(self.scope, self.attempt_id, self.fence,
+                self.message_recipients)
+            if not self._message_endpoints:
                 tools.remove('send_message')
             else:
-                text += ('\n\nHost-approved send_message recipients: ' + json.dumps(self.message_recipients)
+                text += ('\n\nHost-approved send_message recipients: '
+                    + json.dumps([pin.instance_id for pin in self._message_endpoints])
+                    + '\nRecipient attempt identities: '
+                    + json.dumps([pin.model_dump(mode='json') for pin in self._message_endpoints])
                     + '\nArguments: recipients (1..3 listed IDs), content, optional causation_id, ttl_seconds (0..300),'
                     ' artifacts ([{id,sha256}] from approved inputs only). Content has kind and its typed fields:'
                     ' task_request/objective; question/question; answer/answer; progress/summary (optional step);'
@@ -118,6 +152,7 @@ class AttemptCortex:
             'artifact_reads': bool(task.input_artifacts), 'objective_embedded': True,
             'candidate_tools': list(dict.fromkeys([*tools, 'stop']))})
         if 'send_message' in tools and not self.core.reasoner.context_fits(result):
+            self._message_endpoints = ()
             result = result.model_copy(update={'task': base_text,
                 'candidate_tools': [tool for tool in result.candidate_tools if tool != 'send_message']})
             with self.store.transaction():
@@ -159,6 +194,8 @@ class AttemptCortex:
         return result
 
     def generate_candidates(self, context: CortexContext):
+        self._message_candidates.clear()
+        self._message_endpoints = ()
         if self.store.db.in_transaction:
             raise RuntimeError('Model transport cannot run in a SQLite transaction')
         if not self.core._has_budget() and plan_model_calls(context).call_reasoner:
@@ -218,7 +255,19 @@ class AttemptCortex:
                 and included and not bus.accept_context(self.scope, self.attempt_id, self.fence, included)):
             self.core.last_routing.error = 'message_context_stale'
             return []
-        return [item.model_copy(update={'id': uuid4().hex}) for item in candidates]
+        result = [item.model_copy(update={'id': uuid4().hex}) for item in candidates]
+        if self.core.reasoner.request_count > before and not self.core.last_routing.error:
+            try:
+                self.bind_message_candidates(result, recipient_pins=self._message_endpoints)
+            except StoreError as error:
+                if error.code != 'message_route_stale':
+                    raise
+                self.core.last_routing.error = error.code
+                with self.store.transaction():
+                    attempt, task, workflow = self.store._owned(self.scope, self.attempt_id, self.fence, running=True)
+                    self.store._event(self.scope, workflow, 'message_route_invalidated', task=task, attempt=attempt)
+                return []
+        return result
 
     def consolidate(self, context: CortexContext, transcript: list[str]) -> str:
         # This summary is local, including after cancellation; it never spends another request.
