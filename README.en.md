@@ -452,8 +452,11 @@ hold four real agents, refuse a fifth assignment, and admit it after the first
 worker's confirmed exit. A separate Host service run executes60 HTTP requests
 and120 tools (96 file reads and24 registered pytest processes), protects20% for
 verification, and refuses further spending after exhaustion. This does not show
-that a model independently selected every action. Combined question/retry/replan
-pressure and scientific acceptance remain open.
+that a model independently selected every action. [Combined question/retry/replan](docs/validation/2026-10-19-message-retry-replan-pressure.md)
+passes with an explicitly configured16384 context: two rejected edits, one graph
+revision and current integration: 12 attempts, 14 model calls and 61 tool calls.
+This is not a run
+saturated at every AC-14 ceiling; scientific and final acceptance remain open.
 
 ## First run without an API key
 

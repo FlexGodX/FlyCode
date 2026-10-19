@@ -1,6 +1,6 @@
 # AC-14 orchestration pressure implementation plan
 
-Status: distinct-agent race, native4/fifth capacity and actual60/120 service gates measured; combined pressure remains open. Parent: e24067e2ae6e23240a93a98d52f22b24f00f2e58.
+Status: distinct-agent race, native4/fifth capacity and actual60/120 service gates measured; combined question/retry/replan measured; saturated combined pressure remains open. Parent: e24067e2ae6e23240a93a98d52f22b24f00f2e58.
 
 Goal: demonstrate bounded simultaneous agent requests, question/answer, retry and owner replan through actual Host/runtime interfaces, without recursive task creation, endpoint overlap, stalled Stop or budget reset. Existing small successful flows and arithmetic ledger tests do not close literal saturation gates.
 
@@ -41,3 +41,18 @@ The existing browser flow proves the owner controls and sibling exchange, but ex
 Measured components: steps2 and native capacity part3 pass; step4 real Host service saturation passes. Capacity gate releases one real held test and verifies confirmed exit before fifth admission; it does not cancel a held pytest or claim its unknown effects settled. Early simultaneous requests may correctly close no-work during an assigned admission; pending fifth proof issues the request only while four workers are actually held. Step4 uses96 real reads plus24 owner-registered custody pytest invocations and60 SDK HTTP requests. It does not claim these were all autonomous native worker decisions. Combined step6/7, scientific and final aggregate gates remain open. See ../../validation/2026-10-19-orchestration-pressure.md.
 
 Checked package:189 files,7 scoped extracted checks58.98s; Ruff, UTF8 README and CLI parity pass. Regular-file evidence and all earlier harness failures retained; combined/scientific/final goal gates stay open.
+
+
+## Next combined measurement, parent1a68001
+
+Use tests/browser/message_pressure_runner.py with the canonical managed fixture and original English question/answer gates. Before launching, execute --prepare-only: all seven tasks, four instances, owner-registered verification pins, final source bindings, bounded retry policy and explicit routes must be valid; zero worker/tool/attempt launches and one separately recorded catalogue probe. Assert loaded package location and unchanged source/test inventory.
+
+The first A writer answers B, then changes0→-1. B derives2 from the actual answer. Automatic bounded A retry inherits -1 and changes it to-2; two independent negative reviews must remain. Owner graph replan twice during held live workers must reject stop_unconfirmed. An idle registered agent's request_task must not recursively create work. After all actual owners stop and the parent has its final failure blocker, retire old message routes, perform one owner graph revision plus exact replay, and leave automatic dispatch running. Compare settled prior-attempt reservation rows to prove no refund; new attempts may legitimately spend concurrently. A global queue pause forbids replan. Third A starts from original0 and repairs to1. Expect12 attempts and current merged integration; measure actual model/tool counts, never infer literal saturation from component gates. Original negative local gate outcomes remain in evidence.
+
+This is common Host service/automatic-runtime acceptance, not an additional browser or scientific result. No production changes until a real failure identifies a missing behavior. All outcomes remain open until inspected.
+
+
+Retained combined failures: at8192 configured tokens the retry correctly refused artifact_context_budget before another HTTP; repeat uses an explicitly loaded/profile-pinned16384 context, not dropped diagnostics. At16384 the first harness incorrectly paused the global queue before replan and received paused. After removing that pause, a legitimate parent-blocker update raced physical preflight and caused revision; wait for canonical parent child_failed/child_review_failed before capturing owner versions. All source/test fingerprints remain unchanged per measured run; no production guards were relaxed.
+
+
+Original public-source combined run passes85.90s:7tasks/12attempts/14workflow HTTP+1probe/61tools, one graph revision/current integration,6native+48registered custody groups stopped; source/tests unchanged. Four failed local gates and all prior failures retained. This does not close saturated combined AC-14. Final exact extracted package passes96.15s; frozen243-file brain composition passes102.65s using heuristic_fsm. Seven scoped frozen cases pass65.46s; all source/test fingerprints unchanged. The80s cleanup cutoff, premature fixed idle observation and incorrect AccessScope.session harness field are retained as failures. Final harness bounds completion at180s, leaves workflow1800s, admits only bounded null Host selection settlement and then checks strict idle/currentness/source. No configured-neural/scientific or saturated combined acceptance is inferred.

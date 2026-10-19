@@ -182,7 +182,7 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Set an isolated `FLYCODE_ARTIFACT_ROOT` for web/full-suite verification unless testing catalogue discovery; the user cache can contain entire archived test trees.
 - Read model-call attempt ownership from the SQL column because HostModelCall JSON has owner_id/owner_kind instead.
 - Verify command replay by its actor/key and target revision; the Host may append independent selection/stop audit records.
-- Before reusing a measurement harness, read startup assertions/report variables, assert the required loaded instance/context and check launcher counts against the registered collection; execute its non-launching preamble before spawning tests.
+- Before reusing a measurement harness, read startup assertions/report variables, assert the required loaded instance/context and check launcher counts against the registered collection; execute its non-launching preamble before spawning tests and validate each newly accessed authority/result field there.
 - Reap an owned process throughout group-absence polling; it may become waitable after the initial permission error.
 - Test custody blocking with a held ownership lock or an explicit owned Popen handle; never SIGSTOP a PID inferred only from `os.getppid()`.
 - In negative input-path tests, use a known present non-conflicting entry from `PatchArtifact.target.files`; do not assume every fixture includes README.
@@ -227,6 +227,8 @@ When the user corrects your approach, append a one-line rule here before ending 
 - Add an extracted wheel to pytest pythonpath only once; duplicate PYTHONPATH entries duplicate distributions and invalidate parent/child environment identity.
 
 - Complete the intended task graph before issuing worker bindings; later task creation changes workflow semantic revision and invalidates earlier bindings.
+
+- Observe bounded terminal scheduler settlement before checking idle command counts; permit only current-Host null host-select receipts, forbid new effects, then recheck current integration and exact source bytes.
 
 ## 12. How this file was built
 

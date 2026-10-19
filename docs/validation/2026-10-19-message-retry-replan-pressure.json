@@ -1,0 +1,165 @@
+{
+  "parent": "1a680011878c19a83ead8dbe493c49b950f12dd0",
+  "production_source_changed": false,
+  "runner_sha256": "35a543632030576e5f4971b789642ae1c7f2fa9e46f834a8488a4969aadd4db3",
+  "goal_complete": false,
+  "goal_status": "active",
+  "configured_loaded_and_profile_context": 16384,
+  "workflow_wall_seconds": 1800,
+  "harness_completion_wait_seconds": 180,
+  "idle_observation": {
+    "bound_seconds": 20,
+    "stable_seconds": 5,
+    "separate_observation_seconds": 2,
+    "new_work_allowed": false,
+    "settlement_commands": "same Host host-select with attempt:null only"
+  },
+  "package": {
+    "root": "/private/tmp/flycode-ac14-combined-package-wpaaiv2f",
+    "source": "/private/tmp/flycode-ac14-combined-package-wpaaiv2f/source",
+    "wheel": "/private/tmp/flycode-ac14-combined-package-wpaaiv2f/wheel/flycode-0.1.0-py3-none-any.whl",
+    "extracted": "/private/tmp/flycode-ac14-combined-package-wpaaiv2f/extracted",
+    "wheel_sha256": "acaba335a892e26aec2338ccefcc834844d2c26673d9249159a4398b15e496d6",
+    "package_files": 189,
+    "package_byte_parity": true,
+    "utf8_readme_parity": true,
+    "cli_help": true
+  },
+  "frozen_package_files": 243,
+  "runs": [
+    {
+      "root": "/private/tmp/flycode-ac14-combined-package-wpaaiv2f/native",
+      "seconds": 96.14684170798864,
+      "passed": true,
+      "inputs_unchanged": true,
+      "workflow_http": 14,
+      "catalogue_probe_http": 1,
+      "tool_calls": 61,
+      "native_workers": 6,
+      "registered_pytest_processes": 48,
+      "custody_groups": 54,
+      "native_overlap_upper_bound": 2,
+      "endpoint_overlap": false,
+      "tool_statuses": {
+        "completed": 57,
+        "failed": 4
+      },
+      "idle_settlement_commands": 1,
+      "messages": {
+        "progress": 9,
+        "question": 1,
+        "answer": 1
+      },
+      "attempts": 12,
+      "current_integration": true
+    },
+    {
+      "root": "/private/tmp/flycode-ac14-combined-merged-fd2d2yot/native-checked",
+      "seconds": 102.65435283404076,
+      "passed": true,
+      "inputs_unchanged": true,
+      "workflow_http": 14,
+      "catalogue_probe_http": 1,
+      "tool_calls": 61,
+      "native_workers": 6,
+      "registered_pytest_processes": 48,
+      "custody_groups": 54,
+      "native_overlap_upper_bound": 2,
+      "endpoint_overlap": false,
+      "tool_statuses": {
+        "completed": 57,
+        "failed": 4
+      },
+      "idle_settlement_commands": 1,
+      "messages": {
+        "progress": 9,
+        "question": 1,
+        "answer": 1
+      },
+      "attempts": 12,
+      "current_integration": true
+    }
+  ],
+  "frozen_scoped": {
+    "passed": true,
+    "checks": 7,
+    "seconds": 65.46,
+    "xml": "/private/tmp/flycode-ac14-combined-merged-fd2d2yot/scoped.xml",
+    "log": "/private/tmp/flycode-ac14-combined-merged-fd2d2yot/scoped.log",
+    "production_inputs_unchanged": true
+  },
+  "archive": {
+    "root": "/Users/Administrator/.cache/flycode/validation/flycode-message-retry-replan-checked-g9fo4uv9",
+    "files": 18651,
+    "skipped": 7,
+    "manifest_sha256": "7735320fba531e78ae520e9c05325624eb7066f8e7ac592cadf69afd2264c29f",
+    "frozen_scoped_checks": 7
+  },
+  "scope": "Controlled local OpenAI SDK HTTP and actual common Coordinator/owned workers/registered pytest; direct canonical owner services; baseline heuristic_fsm in the frozen controller composition. No new browser, detached Host/restart, actual LM quality or biological admission result.",
+  "retained_failures": [
+    {
+      "root": "/private/tmp/flycode-ac14-combined-first",
+      "reason": "8192 context correctly refused artifact_context_budget;9workflowmodels15tools"
+    },
+    {
+      "root": "/private/tmp/flycode-ac14-combined-second",
+      "reason": "harness globalqueuepause correctly blocked replan;11models18tools"
+    },
+    {
+      "root": "/private/tmp/flycode-ac14-combined-third",
+      "reason": "canonical parent blocker update raced replan physical preflight; revision refused;11models18tools"
+    },
+    {
+      "root": "/private/tmp/flycode-ac14-combined-merged-fd2d2yot/native",
+      "passed": false,
+      "seconds": 97.38988916599192,
+      "reason": "harness80s afterreplan cutoff;61tools/allappliedverdictspassed, finallyHostclose\u2192host_fence; investigate lifecycle before rerun",
+      "models": 14,
+      "tools": 61
+    },
+    {
+      "root": "/private/tmp/flycode-ac14-combined-merged-fd2d2yot/native-final",
+      "passed": false,
+      "seconds": 111.14824395801406,
+      "reason": "workflow succeeded/current integration, fixed .7+.8s idle count assertion failed; investigating terminal host-select settlement",
+      "inputs_unchanged": true
+    },
+    {
+      "root": "/private/tmp/flycode-ac14-combined-merged-fd2d2yot/native-idle",
+      "passed": false,
+      "seconds": 104.81695166701684,
+      "reason": "AttributeError: 'AccessScope' object has no attribute 'session'",
+      "inputs_unchanged": true,
+      "idle_samples": [
+        {
+          "at": 311519.73586775,
+          "counts": {
+            "attempts": 12,
+            "model_calls": 15,
+            "tool_calls": 61,
+            "commands": 174,
+            "worker_bindings": 8,
+            "pipelines": 1
+          }
+        },
+        {
+          "at": 311520.052726375,
+          "counts": {
+            "attempts": 12,
+            "model_calls": 15,
+            "tool_calls": 61,
+            "commands": 175,
+            "worker_bindings": 8,
+            "pipelines": 1
+          }
+        }
+      ]
+    }
+  ],
+  "remaining": [
+    "combined AC-14 at default saturation",
+    "scientific/admission matrix and safe interventions",
+    "full current parallel-controller final integration",
+    "aggregate/full final verification"
+  ]
+}

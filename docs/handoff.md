@@ -1,5 +1,19 @@
 # FlyCode handoff brief
 
+Automatic combined question/retry/replan,2026-10-19: final extracted189-file
+wheel passes96.15s; frozen243-file controller composition passes102.65s.
+Each:7tasks/4instances/12attempts,14workflow HTTP+1probe/61tools,2negative
+reviews,1owner graph revision/exact replay, fresh parent/current integration.
+6native/48registered pytest groups stopped; original deadline/dirty bytes,
+reserve0/uncertaintyfalse, no endpoint overlap. Bounded terminal scheduler
+settlement then strict idle/currentness/source checks pass. Frozen7 scoped
+limits/retry/deadline cases pass65.46s; Ruff/package/UTF8 README/CLI pass.
+Context16384 explicitly pinned;8192refusal, paused/revision and80s/idle/type
+harness failures are retained. No production source changed; frozen workers
+use heuristic_fsm, not scientific/configured-neural admission. Saturated combined
+AC-14, scientific and aggregate/full/final goal gates remain open.
+[Report](validation/2026-10-19-message-retry-replan-pressure.md).
+
 Checked default boundaries,2026-10-19: four actual held agent workers block
 an issued fifth until confirmed exit. Separate Host service saturation executes
 60 actual HTTP/120 tools (96 file reads +24 registered custody pytest), protects
